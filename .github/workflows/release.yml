@@ -13,7 +13,6 @@ jobs:
     name: Setup
     runs-on: ubuntu-20.04
     outputs:
-      release_version: ${{ steps.get-release.outputs.version }}
       branch-name: ${{ steps.branch.outputs.branch-name }}
     steps:
       - name: Branch check
@@ -35,7 +34,6 @@ jobs:
           repository: bitwarden/self-host
 
       - name: Check Release Version
-        id: get-release
         env:
           RELEASE_VERSION: ${{ github.event.inputs.release_version }}
           PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
@@ -55,8 +53,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-20.04
-    needs:
-      - setup
+    needs: setup
     steps:
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
@@ -71,8 +68,8 @@ jobs:
                       bitwarden.ps1,
                       run.ps1'
           commit: ${{ github.sha }}
-          tag: "v${{ needs.setup.outputs.release_version }}"
-          name: "Version ${{ needs.setup.outputs.release_version }}"
+          tag: "v${{ github.event.inputs.release_version }}"
+          name: "Version ${{ github.event.inputs.release_version }}"
           body: "<insert release notes here>"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
