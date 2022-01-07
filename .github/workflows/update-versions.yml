@@ -16,19 +16,19 @@ jobs:
     steps:
       - name: Get Latest Core Version
         id: get-core
-        uses: bitwarden/gh-actions/get-release-version@3e4c4366c104a744e458b8f9eb92944237dd1099
+        uses: bitwarden/gh-actions/get-release-version@f0108b4b74486a99918c7c3f7096a584eb8ccf2c
         with:
           repository: bitwarden/server
 
       - name: Get Latest Web Version
         id: get-web
-        uses: bitwarden/gh-actions/get-release-version@3e4c4366c104a744e458b8f9eb92944237dd1099
+        uses: bitwarden/gh-actions/get-release-version@f0108b4b74486a99918c7c3f7096a584eb8ccf2c
         with:
           repository: bitwarden/web
 
       - name: Get Latest Key Connector Version
         id: get-key-connector
-        uses: bitwarden/gh-actions/get-release-version@3e4c4366c104a744e458b8f9eb92944237dd1099
+        uses: bitwarden/gh-actions/get-release-version@f0108b4b74486a99918c7c3f7096a584eb8ccf2c
         with:
           repository: bitwarden/key-connector
 
