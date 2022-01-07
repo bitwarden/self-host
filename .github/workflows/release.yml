@@ -1,0 +1,78 @@
+---
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release Version"
+        required: true
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-20.04
+    outputs:
+      release_version: ${{ steps.get-release.outputs.version }}
+      branch-name: ${{ steps.branch.outputs.branch-name }}
+    steps:
+      - name: Branch check
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/rc" ]] && [[ "$GITHUB_REF" != "refs/heads/hotfix" ]]; then
+            echo "==================================="
+            echo "[!] Can only release from the 'rc' or 'hotfix' branches"
+            echo "==================================="
+            exit 1
+          fi
+
+      - name: Checkout repo
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+
+      - name: Get Latest Self-Host Version
+        id: get-self-host
+        uses: bitwarden/gh-actions/get-release-version@3e4c4366c104a744e458b8f9eb92944237dd1099
+        with:
+          repository: bitwarden/self-host
+
+      - name: Check Release Version
+        id: get-release
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+          PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
+        run: |
+          if [ "$RELEASE_VERSION" == "$PREVIOUS_RELEASE_VERSION" ]; then
+            echo "[!] Already released v$RELEASE_VERSION. Please bump version to continue"
+            exit 1
+          fi
+
+      - name: Get branch name
+        id: branch
+        run: |
+          BRANCH_NAME=$(basename ${{ github.ref }})
+          echo "::set-output name=branch-name::$BRANCH_NAME"
+
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-20.04
+    needs:
+      - setup
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          ref: ${{ needs.setup.outputs.branch-name }}
+
+      - name: Create release
+        uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
+        with:
+          artifacts: 'bitwarden.sh,
+                      run.sh,
+                      bitwarden.ps1,
+                      run.ps1'
+          commit: ${{ github.sha }}
+          tag: "v${{ needs.setup.outputs.release_version }}"
+          name: "Version ${{ needs.setup.outputs.release_version }}"
+          body: "<insert release notes here>"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
