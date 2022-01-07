@@ -30,7 +30,7 @@ jobs:
 
       - name: Get Latest Self-Host Version
         id: get-self-host
-        uses: bitwarden/gh-actions/get-release-version@3e4c4366c104a744e458b8f9eb92944237dd1099
+        uses: bitwarden/gh-actions/get-release-version@f0108b4b74486a99918c7c3f7096a584eb8ccf2c
         with:
           repository: bitwarden/self-host
 
