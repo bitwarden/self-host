@@ -1,0 +1,55 @@
+---
+name: Update Links
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-links:
+    name: Update Links
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Login to Azure - Prod Subscription
+        uses: Azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Retrieve secrets
+        id: retrieve-secrets
+        uses: Azure/get-keyvault-secrets@80ccd3fafe5662407cc2e55f202ee34bfff8c403
+        with:
+          keyvault: "bitwarden-prod-kv"
+          secrets: "rebrandly-apikey"
+                    
+      - name: Update Bitwarden Script PowerShell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@9bc2bb10c26cb4d5a7c1d7c0d0285ae37588c847
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-ps"
+          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/bitwarden.ps1"
+
+      - name: Update Run Script PowerShell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@9bc2bb10c26cb4d5a7c1d7c0d0285ae37588c847
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-ps-run"
+          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/run.ps1"
+          
+      - name: Update Bitwarden Script Shell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@9bc2bb10c26cb4d5a7c1d7c0d0285ae37588c847
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-sh"
+          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/bitwarden.sh"
+
+      - name: Update Run Script Shell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@9bc2bb10c26cb4d5a7c1d7c0d0285ae37588c847
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-sh-run"
+          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/run.sh"
