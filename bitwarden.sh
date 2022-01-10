@@ -31,7 +31,8 @@ then
 fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
-GITHUB_BASE_URL="https://raw.githubusercontent.com/bitwarden/server/master"
+BITWARDEN_SCRIPT_URL="https://go.btwrdn.co/bw-sh"
+RUN_SCRIPT_URL="https://go.btwrdn.co/bw-sh-run"
 
 # Please do not create pull requests modifying the version numbers.
 COREVERSION="1.45.2"
@@ -47,7 +48,7 @@ echo ""
 # Functions
 
 function downloadSelf() {
-    if curl -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $GITHUB_BASE_URL/scripts/bitwarden.sh | grep -q "^http_code 20[0-9]"
+    if curl -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $BITWARDEN_SCRIPT_URL | grep -q "^http_code 20[0-9]"
     then
         mv $SCRIPT_PATH.1 $SCRIPT_PATH
         chmod u+x $SCRIPT_PATH
@@ -61,7 +62,7 @@ function downloadRunFile() {
     then
         mkdir $SCRIPTS_DIR
     fi
-    curl -s -o $SCRIPTS_DIR/run.sh $GITHUB_BASE_URL/scripts/run.sh
+    curl -s -o $SCRIPTS_DIR/run.sh $RUN_SCRIPT_URL
     chmod u+x $SCRIPTS_DIR/run.sh
     rm -f $SCRIPTS_DIR/install.sh
 }

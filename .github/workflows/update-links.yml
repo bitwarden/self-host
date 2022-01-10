@@ -21,7 +21,7 @@ jobs:
         with:
           keyvault: "bitwarden-prod-kv"
           secrets: "rebrandly-apikey"
-                    
+
       - name: Update Bitwarden Script PowerShell Link
         uses: bitwarden/gh-actions/update-rebrandly-link@9bc2bb10c26cb4d5a7c1d7c0d0285ae37588c847
         with:
@@ -37,7 +37,7 @@ jobs:
           domain: "go.btwrdn.co"
           slashtag: "bw-ps-run"
           destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/run.ps1"
-          
+
       - name: Update Bitwarden Script Shell Link
         uses: bitwarden/gh-actions/update-rebrandly-link@9bc2bb10c26cb4d5a7c1d7c0d0285ae37588c847
         with:
