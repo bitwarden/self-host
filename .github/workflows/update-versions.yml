@@ -11,14 +11,36 @@ jobs:
     runs-on: ubuntu-20.04
     outputs:
       core_version: ${{ steps.get-core.outputs.version }}
+      core_version_update: ${{ steps.core-update.outputs.update }}
       web_version: ${{ steps.get-web.outputs.version }}
+      web_version_update: ${{ steps.web-update.outputs.update }}
       key_connector_version: ${{ steps.get-key-connector.outputs.version }}
+      key_connector_version_update: ${{ steps.key-connector-update.outputs.update }}
+      
     steps:
+      - name: Checkout Branch
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+
       - name: Get Latest Core Version
         id: get-core
         uses: bitwarden/gh-actions/get-release-version@4b79bd97c66c599ca4dc21d1a58d7d4c3c07d630
         with:
           repository: bitwarden/server
+
+      - name: Check if Core Version needs updating
+        id: core-update
+        env:
+          LATEST_CORE_VERSION: ${{ steps.get-core.outputs.version }}
+        run: |
+          CORE_VERSION=$(sed -r -n "s/COREVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
+          echo "Core Version: $CORE_VERSION"
+          echo "Latest Core Version: $LATEST_CORE_VERSION"
+          if [ "$CORE_VERSION" != "$LATEST_CORE_VERSION" ]; then
+            echo "Needs Core update!"
+            echo "::set-output name=update::1"
+          else
+            echo "::set-output name=update::0"
+          fi
 
       - name: Get Latest Web Version
         id: get-web
@@ -26,15 +48,48 @@ jobs:
         with:
           repository: bitwarden/web
 
+      - name: Check if Web Version needs updating
+        id: web-update
+        env:
+          LATEST_WEB_VERSION: ${{ steps.get-web.outputs.version }}
+        run: |
+          WEB_VERSION=$(sed -r -n "s/WEBVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
+          echo "Web Version: $WEB_VERSION"
+          echo "Latest Web Version: $LATEST_WEB_VERSION"
+          if [ "$WEB_VERSION" != "$LATEST_WEB_VERSION" ]; then
+            echo "Needs Web update!"
+            echo "::set-output name=update::1"
+          else
+            echo "::set-output name=update::0"
+          fi
+
       - name: Get Latest Key Connector Version
         id: get-key-connector
         uses: bitwarden/gh-actions/get-release-version@4b79bd97c66c599ca4dc21d1a58d7d4c3c07d630
         with:
           repository: bitwarden/key-connector
 
+      - name: Check if Key Connector Version needs updating
+        id: key-connector-update
+        env:
+          LATEST_KEY_CONNECTOR_VERSION: ${{ steps.get-key-connector.outputs.version }}
+        run: |
+          KEY_CONNECTOR_VERSION=$(sed -r -n "s/KEYCONNECTORVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
+          echo "Key Connector Version: $KEY_CONNECTOR_VERSION"
+          echo "Latest Key Connector Version: $LATEST_KEY_CONNECTOR_VERSION"
+          if [ "$KEY_CONNECTOR_VERSION" != "$LATEST_KEY_CONNECTOR_VERSION" ]; then
+            echo "Needs Key Connector update!"
+            echo "::set-output name=update::1"
+          else
+            echo "::set-output name=update::0"
+          fi
+
 
   update-versions:
     name: "Create update_versions branch"
+    if: ${{ needs.setup.outputs.core-version-update == 1 }} ||
+        ${{ needs.setup.outputs.web-version-update == 1 }} ||
+        ${{ needs.setup.outputs.key-connector-update == 1 }}
     runs-on: ubuntu-20.04
     needs: setup
     steps:
