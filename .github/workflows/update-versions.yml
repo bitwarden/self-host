@@ -158,4 +158,4 @@ jobs:
               - [X] Other
 
               ## Objective
-              Automated version updates to core, web, and key-connector versions in `bitwarden.sh` and `bitwarden.ps1`."
+              Automated version updates to core, web, and key-connector versions in bitwarden.sh and bitwarden.ps1."
