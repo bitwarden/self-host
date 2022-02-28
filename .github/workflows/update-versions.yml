@@ -8,6 +8,7 @@ on:
 jobs:
   setup:
     name: Setup
+    if: github.ref_name == 'master' || github.ref_name == 'rc' || github.ref_name == 'hotfix'
     runs-on: ubuntu-20.04
     outputs:
       core_version: ${{ steps.get-core.outputs.version }}
@@ -140,12 +141,12 @@ jobs:
       - name: Create Update Versions PR
         env:
           PR_BRANCH: "update-versions"
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          BASE_BRANCH: master
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ github.ref_name }}
           TITLE: "Update core, web, and key-connector versions"
         run: |
           gh pr create --title "$TITLE" \
-            --base "$BASE" \
+            --base "$BASE_BRANCH" \
             --head "$PR_BRANCH" \
             --label "automated pr" \
             --body "
