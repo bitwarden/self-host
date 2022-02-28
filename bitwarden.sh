@@ -29,26 +29,35 @@ if [ $# -eq 2 ]
 then
     OUTPUT=$2
 fi
+if command -v docker-compose &> /dev/null
+then
+    dccmd='docker-compose'
+else
+    dccmd='docker compose'
+fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
-BITWARDEN_SCRIPT_URL="https://go.btwrdn.co/bw-sh"
-RUN_SCRIPT_URL="https://go.btwrdn.co/bw-sh-run"
+GITHUB_BASE_URL="https://raw.githubusercontent.com/bitwarden/server/master"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="1.45.2"
-WEBVERSION="2.25.0"
-KEYCONNECTORVERSION="1.0.0"
+COREVERSION="1.46.2"
+WEBVERSION="2.26.1"
+KEYCONNECTORVERSION="1.0.1"
 
 echo "bitwarden.sh version $COREVERSION"
 docker --version
-docker-compose --version
+if [[ "$dccmd" == "docker compose" ]]; then
+    $dccmd version
+else
+    $dccmd --version
+fi
 
 echo ""
 
 # Functions
 
 function downloadSelf() {
-    if curl -L -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $BITWARDEN_SCRIPT_URL | grep -q "^http_code 20[0-9]"
+    if curl -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $GITHUB_BASE_URL/scripts/bitwarden.sh | grep -q "^http_code 20[0-9]"
     then
         mv $SCRIPT_PATH.1 $SCRIPT_PATH
         chmod u+x $SCRIPT_PATH
@@ -62,7 +71,7 @@ function downloadRunFile() {
     then
         mkdir $SCRIPTS_DIR
     fi
-    curl -L -s -o $SCRIPTS_DIR/run.sh $RUN_SCRIPT_URL
+    curl -s -o $SCRIPTS_DIR/run.sh $GITHUB_BASE_URL/scripts/run.sh
     chmod u+x $SCRIPTS_DIR/run.sh
     rm -f $SCRIPTS_DIR/install.sh
 }
@@ -96,6 +105,7 @@ updatedb
 updaterun
 updateself
 updateconf
+uninstall
 renewcert
 rebuild
 help
@@ -149,6 +159,10 @@ case $1 in
         ;;
     "updateself")
         downloadSelf && echo "Updated self." && exit
+        ;;
+    "uninstall")
+        checkOutputDirExists
+        $SCRIPTS_DIR/run.sh uninstall $OUTPUT
         ;;
     "help")
         listCommands
