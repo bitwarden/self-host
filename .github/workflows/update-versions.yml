@@ -87,9 +87,10 @@ jobs:
 
   update-versions:
     name: "Create update_versions branch"
-    if: ${{ needs.setup.outputs.core-version-update == 1 }} ||
-        ${{ needs.setup.outputs.web-version-update == 1 }} ||
-        ${{ needs.setup.outputs.key-connector-update == 1 }}
+    if: |
+      needs.setup.outputs.core_version_update == 1 ||
+      needs.setup.outputs.web_version_update == 1 ||
+      needs.setup.outputs.key_connector_update == 1
     runs-on: ubuntu-20.04
     needs: setup
     steps:
