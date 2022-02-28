@@ -10,6 +10,7 @@ param (
     [switch] $updatedb,
     [switch] $updaterun,
     [switch] $updateself,
+    [switch] $uninstall,
     [switch] $help,
     [string] $output = ""
 )
@@ -23,25 +24,24 @@ if ($output -eq "") {
 }
 
 $scriptsDir = "${output}\scripts"
-$bitwardenScriptUrl = "https://go.btwrdn.co/bw-ps"
-$runScriptUrl = "https://go.btwrdn.co/bw-ps-run"
+$githubBaseUrl = "https://raw.githubusercontent.com/bitwarden/server/master"
 
 # Please do not create pull requests modifying the version numbers.
-$coreVersion = "1.45.2"
-$webVersion = "2.25.0"
-$keyConnectorVersion = "1.0.0"
+$coreVersion = "1.46.2"
+$webVersion = "2.26.1"
+$keyConnectorVersion = "1.0.1"
 
 # Functions
 
 function Get-Self {
-    Invoke-RestMethod -OutFile $scriptPath -Uri $bitwardenScriptUrl
+    Invoke-RestMethod -OutFile $scriptPath -Uri "${githubBaseUrl}/scripts/bitwarden.ps1"
 }
 
 function Get-Run-File {
     if (!(Test-Path -Path $scriptsDir)) {
         New-Item -ItemType directory -Path $scriptsDir | Out-Null
     }
-    Invoke-RestMethod -OutFile $scriptsDir\run.ps1 -Uri $runScriptUrl
+    Invoke-RestMethod -OutFile $scriptsDir\run.ps1 -Uri "${githubBaseUrl}/scripts/run.ps1"
 }
 
 function Test-Output-Dir-Exists {
@@ -69,6 +69,7 @@ Available commands:
 -updaterun
 -updateself
 -updateconf
+-uninstall
 -renewcert
 -rebuild
 -help
@@ -78,7 +79,7 @@ See more at https://bitwarden.com/help/article/install-on-premise/#script-comman
 }
 
 function Write-Line($str) {
-    if ($env:BITWARDEN_QUIET -ne "true") {
+    if($env:BITWARDEN_QUIET -ne "true") {
         Write-Host $str
     }
 }
@@ -103,7 +104,7 @@ https://bitwarden.com, https://github.com/bitwarden
 ===================================================
 "
 
-if ($env:BITWARDEN_QUIET -ne "true") {
+if($env:BITWARDEN_QUIET -ne "true") {
     Write-Line "bitwarden.ps1 version ${coreVersion}"
     docker --version
     docker-compose --version
@@ -155,6 +156,10 @@ elseif ($updaterun) {
 elseif ($updateself) {
     Get-Self
     Write-Line "Updated self."
+}
+elseif ($uninstall) {
+    Test-Output-Dir-Exists
+    Invoke-Expression "& `"$scriptsDir\run.ps1`" -uninstall -outputDir `"$output`" "
 }
 elseif ($help) {
     Show-Commands
