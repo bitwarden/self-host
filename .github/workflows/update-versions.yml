@@ -24,7 +24,7 @@ jobs:
 
       - name: Get Latest Core Version
         id: get-core
-        uses: bitwarden/gh-actions/get-release-version@4b79bd97c66c599ca4dc21d1a58d7d4c3c07d630
+        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
         with:
           repository: bitwarden/server
 
@@ -45,7 +45,7 @@ jobs:
 
       - name: Get Latest Web Version
         id: get-web
-        uses: bitwarden/gh-actions/get-release-version@4b79bd97c66c599ca4dc21d1a58d7d4c3c07d630
+        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
         with:
           repository: bitwarden/web
 
@@ -66,7 +66,7 @@ jobs:
 
       - name: Get Latest Key Connector Version
         id: get-key-connector
-        uses: bitwarden/gh-actions/get-release-version@4b79bd97c66c599ca4dc21d1a58d7d4c3c07d630
+        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
         with:
           repository: bitwarden/key-connector
 
