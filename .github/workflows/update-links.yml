@@ -34,6 +34,7 @@ jobs:
             echo "::set-output name=value::${{ github.event.inputs.release_tag }}"
           else
             echo "::set-output name=value::$GITHUB_REF_NAME"
+          fi
 
       - name: TEST TAG NAME
         run: echo "${{ steps.tag-name.outputs.value }}"
