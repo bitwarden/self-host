@@ -4,6 +4,11 @@ name: Update Links
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release Tag"
+        required: true
 
 jobs:
   update-links:
@@ -22,34 +27,45 @@ jobs:
           keyvault: "bitwarden-prod-kv"
           secrets: "rebrandly-apikey"
 
-      - name: Update Bitwarden Script PowerShell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
-        with:
-          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
-          domain: "go.btwrdn.co"
-          slashtag: "bw-ps"
-          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/bitwarden.ps1"
+      - name: Set tag name
+        id: tag-name
+        run: |
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "::set-output name=value::${{ inputs.release_tag }}"
+          else
+            echo "::set-output name=value::$GITHUB_REF_NAME"
 
-      - name: Update Run Script PowerShell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
-        with:
-          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
-          domain: "go.btwrdn.co"
-          slashtag: "bw-ps-run"
-          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/run.ps1"
+      - name: TEST TAG NAME
+        run: echo "${{ steps.tag-name.outputs.value }}"
 
-      - name: Update Bitwarden Script Shell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
-        with:
-          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
-          domain: "go.btwrdn.co"
-          slashtag: "bw-sh"
-          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/bitwarden.sh"
+      # - name: Update Bitwarden Script PowerShell Link
+      #   uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
+      #   with:
+      #     apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+      #     domain: "go.btwrdn.co"
+      #     slashtag: "bw-ps"
+      #     destination: "https://github.org/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/bitwarden.ps1"
 
-      - name: Update Run Script Shell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
-        with:
-          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
-          domain: "go.btwrdn.co"
-          slashtag: "bw-sh-run"
-          destination: "https://github.org/bitwarden/self-host/releases/download/${{ env.GITHUB_REF }}/run.sh"
+      # - name: Update Run Script PowerShell Link
+      #   uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
+      #   with:
+      #     apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+      #     domain: "go.btwrdn.co"
+      #     slashtag: "bw-ps-run"
+      #     destination: "https://github.org/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/run.ps1"
+
+      # - name: Update Bitwarden Script Shell Link
+      #   uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
+      #   with:
+      #     apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+      #     domain: "go.btwrdn.co"
+      #     slashtag: "bw-sh"
+      #     destination: "https://github.org/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/bitwarden.sh"
+
+      # - name: Update Run Script Shell Link
+      #   uses: bitwarden/gh-actions/update-rebrandly-link@664c8899c95490c65dac0df11519d24ed8419c85
+      #   with:
+      #     apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+      #     domain: "go.btwrdn.co"
+      #     slashtag: "bw-sh-run"
+      #     destination: "https://github.org/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/run.sh"
