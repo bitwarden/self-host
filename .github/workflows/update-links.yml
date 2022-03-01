@@ -31,7 +31,7 @@ jobs:
         id: tag-name
         run: |
           if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
-            echo "::set-output name=value::${{ inputs.release_tag }}"
+            echo "::set-output name=value::${{ github.event.inputs.release_tag }}"
           else
             echo "::set-output name=value::$GITHUB_REF_NAME"
 
