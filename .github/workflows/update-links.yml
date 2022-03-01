@@ -4,6 +4,8 @@ name: Update Links
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs: {}
 
 jobs:
   update-links:
