@@ -24,7 +24,8 @@ if ($output -eq "") {
 }
 
 $scriptsDir = "${output}\scripts"
-$githubBaseUrl = "https://raw.githubusercontent.com/bitwarden/server/master"
+$bitwardenScriptUrl = "https://go.btwrdn.co/bw-ps"
+$runScriptUrl = "https://go.btwrdn.co/bw-ps-run"
 
 # Please do not create pull requests modifying the version numbers.
 $coreVersion = "1.46.2"
@@ -34,14 +35,14 @@ $keyConnectorVersion = "1.0.1"
 # Functions
 
 function Get-Self {
-    Invoke-RestMethod -OutFile $scriptPath -Uri "${githubBaseUrl}/scripts/bitwarden.ps1"
+    Invoke-RestMethod -OutFile $scriptPath -Uri $bitwardenScriptUrl
 }
 
 function Get-Run-File {
     if (!(Test-Path -Path $scriptsDir)) {
         New-Item -ItemType directory -Path $scriptsDir | Out-Null
     }
-    Invoke-RestMethod -OutFile $scriptsDir\run.ps1 -Uri "${githubBaseUrl}/scripts/run.ps1"
+    Invoke-RestMethod -OutFile $scriptsDir\run.ps1 -Uri $runScriptUrl
 }
 
 function Test-Output-Dir-Exists {
@@ -79,7 +80,7 @@ See more at https://bitwarden.com/help/article/install-on-premise/#script-comman
 }
 
 function Write-Line($str) {
-    if($env:BITWARDEN_QUIET -ne "true") {
+    if ($env:BITWARDEN_QUIET -ne "true") {
         Write-Host $str
     }
 }
@@ -104,7 +105,7 @@ https://bitwarden.com, https://github.com/bitwarden
 ===================================================
 "
 
-if($env:BITWARDEN_QUIET -ne "true") {
+if ($env:BITWARDEN_QUIET -ne "true") {
     Write-Line "bitwarden.ps1 version ${coreVersion}"
     docker --version
     docker-compose --version
