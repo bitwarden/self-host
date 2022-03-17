@@ -28,8 +28,8 @@ $bitwardenScriptUrl = "https://go.btwrdn.co/bw-ps"
 $runScriptUrl = "https://go.btwrdn.co/bw-ps-run"
 
 # Please do not create pull requests modifying the version numbers.
-$coreVersion = "1.46.2"
-$webVersion = "2.26.1"
+$coreVersion = "1.47.1"
+$webVersion = "2.27.0"
 $keyConnectorVersion = "1.0.1"
 
 # Functions
