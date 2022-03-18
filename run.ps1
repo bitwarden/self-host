@@ -111,6 +111,7 @@ function Docker-Compose-Files {
         $env:COMPOSE_FILE = "${dockerDir}\docker-compose.yml"
     }
     $env:COMPOSE_HTTP_TIMEOUT = "300"
+    $env:COMPOSE_PROJECT_NAME = "bitwarden"
 }
 
 function Docker-Compose-Volumes {

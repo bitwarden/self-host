@@ -131,6 +131,7 @@ function dockerComposeFiles() {
         export COMPOSE_FILE="$DOCKER_DIR/docker-compose.yml"
     fi
     export COMPOSE_HTTP_TIMEOUT="300"
+    export COMPOSE_PROJECT_NAME="bitwarden"
 }
 
 function dockerComposeVolumes() {
