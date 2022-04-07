@@ -33,7 +33,7 @@ jobs:
         env:
           LATEST_CORE_VERSION: ${{ steps.get-core.outputs.version }}
         run: |
-          CORE_VERSION=$(grep '^ *"coreVersion":' version.json | awk '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          CORE_VERSION=$(grep '^ *"coreVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
           echo "Core Version: $CORE_VERSION"
           echo "Latest Core Version: $LATEST_CORE_VERSION"
           if [ "$CORE_VERSION" != "$LATEST_CORE_VERSION" ]; then
@@ -54,7 +54,7 @@ jobs:
         env:
           LATEST_WEB_VERSION: ${{ steps.get-web.outputs.version }}
         run: |
-          WEB_VERSION=$(grep '^ *"webVersion":' version.json | awk '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          WEB_VERSION=$(grep '^ *"webVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
           echo "Web Version: $WEB_VERSION"
           echo "Latest Web Version: $LATEST_WEB_VERSION"
           if [ "$WEB_VERSION" != "$LATEST_WEB_VERSION" ]; then
@@ -75,7 +75,7 @@ jobs:
         env:
           LATEST_KEY_CONNECTOR_VERSION: ${{ steps.get-key-connector.outputs.version }}
         run: |
-          KEY_CONNECTOR_VERSION=$(grep '^ *"keyConnectorVersion":' version.json | awk '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          KEY_CONNECTOR_VERSION=$(grep '^ *"keyConnectorVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
           echo "Key Connector Version: $KEY_CONNECTOR_VERSION"
           echo "Latest Key Connector Version: $LATEST_KEY_CONNECTOR_VERSION"
           if [ "$KEY_CONNECTOR_VERSION" != "$LATEST_KEY_CONNECTOR_VERSION" ]; then
@@ -111,7 +111,7 @@ jobs:
       - name: Update Core Version
         env:
           VERSION: ${{ needs.setup.outputs.core_version }}
-        run: sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"'$VERSION'"/' version.json
+        run: sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"' $VERSION'"/' version.json
 
       - name: Update Web Version
         env:

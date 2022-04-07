@@ -43,7 +43,7 @@ VERSION_ENDPOINT="https://go.btwrdn.co/bw-sh-versions"
 
 # Please do not create pull requests modifying the version numbers.
 function getVersion() {
-    echo $(curl -sL $VERSION_ENDPOINT | grep  '^ *"'${1}'":' | awk '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+    echo $(curl -sL $VERSION_ENDPOINT | grep  '^ *"'${1}'":' | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
 }
 
 COREVERSION=$(getVersion coreVersion)
