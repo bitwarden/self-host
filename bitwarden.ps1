@@ -26,11 +26,12 @@ if ($output -eq "") {
 $scriptsDir = "${output}\scripts"
 $bitwardenScriptUrl = "https://go.btwrdn.co/bw-ps"
 $runScriptUrl = "https://go.btwrdn.co/bw-ps-run"
+$versionEndpoint = "https://go.btwrdn.co/bw-sh-versions"
 
 # Please do not create pull requests modifying the version numbers.
-$coreVersion = "1.47.1"
-$webVersion = "2.27.0"
-$keyConnectorVersion = "1.0.1"
+$coreVersion = (Invoke-RestMethod -Uri $versionEndpoint).versions.coreVersion 
+$webVersion = (Invoke-RestMethod -Uri $versionEndpoint).versions.webVersion 
+$keyConnectorVersion = (Invoke-RestMethod -Uri $versionEndpoint).versions.keyConnectorVersion 
 
 # Functions
 
