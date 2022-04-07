@@ -39,11 +39,16 @@ fi
 SCRIPTS_DIR="$OUTPUT/scripts"
 BITWARDEN_SCRIPT_URL="https://go.btwrdn.co/bw-sh"
 RUN_SCRIPT_URL="https://go.btwrdn.co/bw-sh-run"
+VERSION_ENDPOINT="https://go.btwrdn.co/bw-sh-versions"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="1.47.1"
-WEBVERSION="2.27.0"
-KEYCONNECTORVERSION="1.0.1"
+function getVersion() {
+    echo $(curl -sL $VERSION_ENDPOINT | grep  '^ *"'${1}'":' | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+}
+
+COREVERSION=$(getVersion coreVersion)
+WEBVERSION=$(getVersion webVersion)
+KEYCONNECTORVERSION=$(getVersion keyConnectorVersion)
 
 echo "bitwarden.sh version $COREVERSION"
 docker --version
