@@ -24,6 +24,7 @@ EOF
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SCRIPT_NAME=$(basename "$0")
 SCRIPT_PATH="$DIR/$SCRIPT_NAME"
+VERSIONS_FILE="version.json"
 OUTPUT="$DIR/bwdata"
 if [ $# -eq 2 ]
 then
@@ -39,11 +40,11 @@ fi
 SCRIPTS_DIR="$OUTPUT/scripts"
 BITWARDEN_SCRIPT_URL="https://go.btwrdn.co/bw-sh"
 RUN_SCRIPT_URL="https://go.btwrdn.co/bw-sh-run"
-VERSION_ENDPOINT="https://go.btwrdn.co/bw-sh-versions"
+VERSIONS_URL="https://go.btwrdn.co/bw-sh-versions"
 
 # Please do not create pull requests modifying the version numbers.
 function getVersion() {
-    echo $(curl -sL $VERSION_ENDPOINT | grep  '^ *"'${1}'":' | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+    echo $(grep '^ *"'${1}'":' $VERSIONS_FILE | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
 }
 
 COREVERSION=$(getVersion coreVersion)
@@ -65,6 +66,7 @@ echo ""
 function downloadSelf() {
     if curl -L -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $BITWARDEN_SCRIPT_URL | grep -q "^http_code 20[0-9]"
     then
+        curl -L -s -o $VERSIONS_FILE $VERSIONS_URL
         mv $SCRIPT_PATH.1 $SCRIPT_PATH
         chmod u+x $SCRIPT_PATH
     else
