@@ -66,8 +66,7 @@ jobs:
           artifacts: 'bitwarden.sh,
                       run.sh,
                       bitwarden.ps1,
-                      run.ps1,
-                      version.json'
+                      run.ps1'
           commit: ${{ github.sha }}
           tag: "v${{ github.event.inputs.release_version }}"
           name: "Version ${{ github.event.inputs.release_version }}"

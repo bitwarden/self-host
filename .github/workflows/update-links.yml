@@ -36,14 +36,6 @@ jobs:
             echo "::set-output name=value::$GITHUB_REF_NAME"
           fi
 
-      - name: Update Bitwarden Version Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@340a677ffb0c53e50ca67cd2c12044cd7f7fc725
-        with:
-          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
-          domain: "go.btwrdn.co"
-          slashtag: "bw-sh-versions"
-          destination: "https://github.com/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/version.json"
-
       - name: Update Bitwarden Script PowerShell Link
         uses: bitwarden/gh-actions/update-rebrandly-link@340a677ffb0c53e50ca67cd2c12044cd7f7fc725
         with:
