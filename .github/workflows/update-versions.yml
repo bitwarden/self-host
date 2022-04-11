@@ -33,7 +33,7 @@ jobs:
         env:
           LATEST_CORE_VERSION: ${{ steps.get-core.outputs.version }}
         run: |
-          CORE_VERSION=$(grep '^ *"coreVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          CORE_VERSION=$(sed -r -n "s/COREVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
           echo "Core Version: $CORE_VERSION"
           echo "Latest Core Version: $LATEST_CORE_VERSION"
           if [ "$CORE_VERSION" != "$LATEST_CORE_VERSION" ]; then
@@ -54,7 +54,7 @@ jobs:
         env:
           LATEST_WEB_VERSION: ${{ steps.get-web.outputs.version }}
         run: |
-          WEB_VERSION=$(grep '^ *"webVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          WEB_VERSION=$(sed -r -n "s/WEBVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
           echo "Web Version: $WEB_VERSION"
           echo "Latest Web Version: $LATEST_WEB_VERSION"
           if [ "$WEB_VERSION" != "$LATEST_WEB_VERSION" ]; then
@@ -75,7 +75,7 @@ jobs:
         env:
           LATEST_KEY_CONNECTOR_VERSION: ${{ steps.get-key-connector.outputs.version }}
         run: |
-          KEY_CONNECTOR_VERSION=$(grep '^ *"keyConnectorVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          KEY_CONNECTOR_VERSION=$(sed -r -n "s/KEYCONNECTORVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
           echo "Key Connector Version: $KEY_CONNECTOR_VERSION"
           echo "Latest Key Connector Version: $LATEST_KEY_CONNECTOR_VERSION"
           if [ "$KEY_CONNECTOR_VERSION" != "$LATEST_KEY_CONNECTOR_VERSION" ]; then
@@ -111,17 +111,26 @@ jobs:
       - name: Update Core Version
         env:
           VERSION: ${{ needs.setup.outputs.core_version }}
-        run: sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"' $VERSION'"/' version.json
+        run: |
+          sed -i -e "/^\s*COREVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$coreVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"'$VERSION'"/' version.json
 
       - name: Update Web Version
         env:
           VERSION: ${{ needs.setup.outputs.web_version }}
-        run: sed -i -e '/"webVersion":/ s/"webVersion":[^,]*/"webVersion":"'$VERSION'"/' version.json
+        run: |
+          sed -i -e "/^\s*WEBVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$webVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"webVersion":/ s/"webVersion":[^,]*/"webVersion":"'$VERSION'"/' version.json
 
       - name: Update Key Connector Version
         env:
           VERSION: ${{ needs.setup.outputs.key_connector_version }}
-        run: sed -i -e '/"keyConnectorVersion":/ s/"keyConnectorVersion":[^,]*/"keyConnectorVersion":"'$VERSION'"/' version.json
+        run: |
+          sed -i -e "/^\s*KEYCONNECTORVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$keyConnectorVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"keyConnectorVersion":/ s/"keyConnectorVersion":[^,]*/"keyConnectorVersion":"'$VERSION'"/' version.json
 
       - name: Commit updated files
         run: |
@@ -152,4 +161,4 @@ jobs:
               - [X] Other
 
               ## Objective
-              Automated version updates to core, web, and key-connector versions in `version.json`."
+              Automated version updates to core, web, and key-connector versions in version.json, bitwarden.sh and bitwarden.ps1."
