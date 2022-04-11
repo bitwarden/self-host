@@ -114,6 +114,7 @@ jobs:
         run: |
           sed -i -e "/^\s*COREVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
           sed -i -e "/^\s*\$coreVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"'$VERSION'"/' version.json
 
       - name: Update Web Version
         env:
@@ -121,6 +122,7 @@ jobs:
         run: |
           sed -i -e "/^\s*WEBVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
           sed -i -e "/^\s*\$webVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"webVersion":/ s/"webVersion":[^,]*/"webVersion":"'$VERSION'"/' version.json
 
       - name: Update Key Connector Version
         env:
@@ -128,6 +130,7 @@ jobs:
         run: |
           sed -i -e "/^\s*KEYCONNECTORVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
           sed -i -e "/^\s*\$keyConnectorVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"keyConnectorVersion":/ s/"keyConnectorVersion":[^,]*/"keyConnectorVersion":"'$VERSION'"/' version.json
 
       - name: Commit updated files
         run: |
