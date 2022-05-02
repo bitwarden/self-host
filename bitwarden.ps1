@@ -29,7 +29,7 @@ $runScriptUrl = "https://go.btwrdn.co/bw-ps-run"
 
 # Please do not create pull requests modifying the version numbers.
 $coreVersion = "1.48.1"
-$webVersion = "2.28.0"
+$webVersion = "2.28.1"
 $keyConnectorVersion = "1.0.1"
 
 # Functions
