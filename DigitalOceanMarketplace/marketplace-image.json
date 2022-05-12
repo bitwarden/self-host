@@ -5,7 +5,7 @@
     "apt_packages_1": "fail2ban ca-certificates curl gnupg lsb-release",
     "apt_packages_2": "docker-ce docker-ce-cli containerd.io",
     "application_name": "Bitwarden",
-    "application_version": "1.47.1"
+    "application_version": "{{env `DIGITALOCEAN_IMG_VERSION`}}"
   },
   "sensitive-variables": [
     "do_token"
