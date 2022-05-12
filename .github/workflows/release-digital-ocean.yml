@@ -2,6 +2,7 @@
 name: Digital Ocean 1-Click Release
 
 on:
+  push:
   workflow_run:
     workflows:
       - Release
