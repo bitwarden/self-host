@@ -1,20 +1,16 @@
 ---
-name: Digital Ocean 1-Click Release
+name: Release Digital Ocean 1-Click
 
 on:
-  push:
-  workflow_run:
-    workflows:
-      - Release
-    types:
-      - completed
+  release:
+    types: [published]
+
   workflow_dispatch:
     inputs: {}
 
 jobs:
   build-image:
     name: Build Image
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
