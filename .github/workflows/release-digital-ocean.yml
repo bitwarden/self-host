@@ -5,6 +5,10 @@ on:
   release:
     types: [published]
 
+  push:
+    paths:
+      - "DigitalOceanMarketplace/**"
+
   workflow_dispatch:
     inputs: {}
 
