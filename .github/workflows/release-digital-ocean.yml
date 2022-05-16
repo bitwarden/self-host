@@ -44,3 +44,22 @@ jobs:
           DIGITALOCEAN_IMG_VERSION: ${{ steps.set-version.outputs.version }}
         working-directory: ./DigitalOceanMarketplace
         run: packer build marketplace-image.json
+
+      - name: Digital Ocean Image Cleanup
+        env:
+          DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
+        working-directory: ./DigitalOceanMarketplace
+        if: |
+          github.ref != 'refs/heads/master' ||
+          github.ref != 'refs/head/hotfix' ||
+          github.ref != 'refs/heads/rc'
+        run: |
+          brew install doctl
+          # Authenticate to Digital Ocean.
+          doctl auth init -t $DIGITALOCEAN_TOKEN
+
+          # Get the ID from the snapshot build.
+          DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+
+          # Force remove the snapshot
+          doctl compute image delete $DO_ARTIFACT -f

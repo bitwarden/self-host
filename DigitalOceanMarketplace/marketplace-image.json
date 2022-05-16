@@ -82,5 +82,12 @@
         "scripts/99-img-check.sh"
       ]
     }
+  ],
+  "post-processors": [
+    {
+      "type": "manifest",
+      "output": "manifest.json",
+      "strip_path": true
+    }
   ]
 }
