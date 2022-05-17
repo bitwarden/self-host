@@ -1,0 +1,65 @@
+---
+name: Release Digital Ocean 1-Click
+
+on:
+  release:
+    types: [published]
+
+  push:
+    paths:
+      - "DigitalOceanMarketplace/**"
+
+  workflow_dispatch:
+    inputs: {}
+
+jobs:
+  build-image:
+    name: Build Image
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+
+      - name: Login to Azure - Prod Subscription
+        uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Retrieve secrets
+        id: retrieve-secrets
+        uses: Azure/get-keyvault-secrets@b5c723b9ac7870c022b8c35befe620b7009b336f
+        with:
+          keyvault: "bitwarden-prod-kv"
+          secrets: "digital-ocean-api-key"
+
+      - name: Set version from version.json
+        id: set-version
+        run: |
+          VERSION=$(grep '^ *"coreVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          echo "::set-output name=version::$VERSION"
+
+      - name: Build Digital Ocean Image
+        env:
+          DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
+          DIGITALOCEAN_IMG_VERSION: ${{ steps.set-version.outputs.version }}
+        working-directory: ./DigitalOceanMarketplace
+        run: packer build marketplace-image.json
+
+      - name: Digital Ocean Image Cleanup
+        env:
+          DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
+        working-directory: ./DigitalOceanMarketplace
+        if: |
+          github.ref != 'refs/heads/master' ||
+          github.ref != 'refs/head/hotfix' ||
+          github.ref != 'refs/heads/rc'
+        run: |
+          brew install doctl
+          # Authenticate to Digital Ocean.
+          doctl auth init -t $DIGITALOCEAN_TOKEN
+
+          # Get the ID from the snapshot build.
+          DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+
+          # Force remove the snapshot
+          doctl compute image delete $DO_ARTIFACT -f
