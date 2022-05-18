@@ -35,7 +35,9 @@ jobs:
       - name: Set version from version.json
         id: set-version
         run: |
-          VERSION=$(grep '^ *"coreVersion":' version.json | awk -F\: '{ print $2 }' | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          VERSION=$(grep '^ *"coreVersion":' version.json \
+            | awk -F\: '{ print $2 }' \
+            | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
           echo "::set-output name=version::$VERSION"
 
       - name: Build Digital Ocean Image
@@ -50,9 +52,9 @@ jobs:
           DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
         working-directory: ./DigitalOceanMarketplace
         if: |
-          github.ref != 'refs/heads/master' ||
-          github.ref != 'refs/head/hotfix' ||
-          github.ref != 'refs/heads/rc'
+          contains(github.ref, 'master') == false &&
+          contains(github.ref, 'rc') == false &&
+          contains(github.ref, 'hotfix') == false
         run: |
           brew install doctl
           # Authenticate to Digital Ocean.
