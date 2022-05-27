@@ -87,10 +87,17 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.branch-name }}
 
+      - name: Retrieve secrets
+        id: retrieve-secrets
+        uses: Azure/get-keyvault-secrets@b5c723b9ac7870c022b8c35befe620b7009b336f
+        with:
+          keyvault: "bitwarden-prod-kv"
+          secrets: "aws-selfhost-version-access-id, aws-selfhost-version-access-key"
+
       - name: Upload version.json to S3 bucket
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY_ID_VERSION_S3 }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_VERSION_S3 }}
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
           AWS_DEFAULT_REGION: 'us-west-2'
           AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
         run: |
