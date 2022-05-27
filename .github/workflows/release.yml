@@ -97,7 +97,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY_ID_VERSION_S3 }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_VERSION_S3 }}
           AWS_DEFAULT_REGION: 'us-west-2'
-          AWS_S3_BUCKET_NAME: 'S3://public-s3-bitwarden-selfhost-version-artifact'
+          AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
         run: |
           aws s3 cp version.json $AWS_S3_BUCKET_NAME \
           --acl "public-read" \
