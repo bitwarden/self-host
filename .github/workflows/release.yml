@@ -101,5 +101,4 @@ jobs:
         run: |
           aws s3 cp version.json $AWS_S3_BUCKET_NAME \
           --acl "public-read" \
-          --recursive \
           --quiet
