@@ -15,33 +15,33 @@ jobs:
     outputs:
       branch-name: ${{ steps.branch.outputs.branch-name }}
     steps:
-      # - name: Branch check
-      #   run: |
-      #     if [[ "$GITHUB_REF" != "refs/heads/rc" ]] && [[ "$GITHUB_REF" != "refs/heads/hotfix" ]]; then
-      #       echo "==================================="
-      #       echo "[!] Can only release from the 'rc' or 'hotfix' branches"
-      #       echo "==================================="
-      #       exit 1
-      #     fi
+      - name: Branch check
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/rc" ]] && [[ "$GITHUB_REF" != "refs/heads/hotfix" ]]; then
+            echo "==================================="
+            echo "[!] Can only release from the 'rc' or 'hotfix' branches"
+            echo "==================================="
+            exit 1
+          fi
 
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
-      # - name: Get Latest Self-Host Version
-      #   id: get-self-host
-      #   uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
-      #   with:
-      #     repository: bitwarden/self-host
+      - name: Get Latest Self-Host Version
+        id: get-self-host
+        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
+        with:
+          repository: bitwarden/self-host
 
-      # - name: Check Release Version
-      #   env:
-      #     RELEASE_VERSION: ${{ github.event.inputs.release_version }}
-      #     PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
-      #   run: |
-      #     if [ "$RELEASE_VERSION" == "$PREVIOUS_RELEASE_VERSION" ]; then
-      #       echo "[!] Already released v$RELEASE_VERSION. Please bump version to continue"
-      #       exit 1
-      #     fi
+      - name: Check Release Version
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+          PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
+        run: |
+          if [ "$RELEASE_VERSION" == "$PREVIOUS_RELEASE_VERSION" ]; then
+            echo "[!] Already released v$RELEASE_VERSION. Please bump version to continue"
+            exit 1
+          fi
 
       - name: Get branch name
         id: branch
@@ -60,20 +60,20 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.branch-name }}
 
-      # - name: Create release
-      #   uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
-      #   with:
-      #     artifacts: 'bitwarden.sh,
-      #                 run.sh,
-      #                 bitwarden.ps1,
-      #                 run.ps1,
-      #                 version.json'
-      #     commit: ${{ github.sha }}
-      #     tag: "v${{ github.event.inputs.release_version }}"
-      #     name: "Version ${{ github.event.inputs.release_version }}"
-      #     body: "<insert release notes here>"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     draft: true
+      - name: Create release
+        uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
+        with:
+          artifacts: 'bitwarden.sh,
+                      run.sh,
+                      bitwarden.ps1,
+                      run.ps1,
+                      version.json'
+          commit: ${{ github.sha }}
+          tag: "v${{ github.event.inputs.release_version }}"
+          name: "Version ${{ github.event.inputs.release_version }}"
+          body: "<insert release notes here>"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
 
   release-version:
     name: Upload version.json
@@ -86,11 +86,6 @@ jobs:
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           ref: ${{ needs.setup.outputs.branch-name }}
-
-      # - name: Copy version.json to folder
-      #   run: |
-      #     mkdir version
-      #     cp version.json version/version.json
 
       - name: Upload version.json to S3 bucket
         env:
