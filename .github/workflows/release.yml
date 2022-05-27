@@ -87,12 +87,17 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.branch-name }}
 
+      - name: Copy version.json to folder
+        run: |
+          mkdir version
+          cp version.json version/version.json
+
       - name: Upload version.json to S3 bucket
         uses: shallwefootball/s3-upload-action@bcd7c2408245fd6cd19b5512a473b1a7a8b48a35  # v1.1.3
         id: S3
         with:
           aws_key_id: ${{ secrets.AWS_KEY_ID_VERSION_S3 }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY_VERSION_S3 }}
-          aws_bucket: 'bitwarden-selfhost-version-artifact'
-          source_dir: 'version.json'
+          aws_bucket: 'public-s3-bitwarden-selfhost-version-artifact'
+          source_dir: 'version'
           destination_dir: ''
