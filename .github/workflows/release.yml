@@ -87,6 +87,11 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.branch-name }}
 
+      - name: Login to Azure
+        uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
       - name: Retrieve secrets
         id: retrieve-secrets
         uses: Azure/get-keyvault-secrets@b5c723b9ac7870c022b8c35befe620b7009b336f
