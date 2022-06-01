@@ -37,8 +37,8 @@ else
 fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
-BITWARDEN_SCRIPT_URL="https://go.btwrdn.co/bw-sh"
-RUN_SCRIPT_URL="https://go.btwrdn.co/bw-sh-run"
+BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux"
+RUN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
 COREVERSION="1.48.1"
