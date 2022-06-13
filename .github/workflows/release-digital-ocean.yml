@@ -51,10 +51,7 @@ jobs:
         env:
           DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
         working-directory: ./DigitalOceanMarketplace
-        if: |
-          contains(github.ref, 'master') == false &&
-          contains(github.ref, 'rc') == false &&
-          contains(github.ref, 'hotfix') == false
+        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
         run: |
           brew install doctl
           # Authenticate to Digital Ocean.
