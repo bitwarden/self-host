@@ -15,14 +15,14 @@ jobs:
     outputs:
       branch-name: ${{ steps.branch.outputs.branch-name }}
     steps:
-      - name: Branch check
-        run: |
-          if [[ "$GITHUB_REF" != "refs/heads/rc" ]] && [[ "$GITHUB_REF" != "refs/heads/hotfix" ]]; then
-            echo "==================================="
-            echo "[!] Can only release from the 'rc' or 'hotfix' branches"
-            echo "==================================="
-            exit 1
-          fi
+      # - name: Branch check
+      #   run: |
+      #     if [[ "$GITHUB_REF" != "refs/heads/rc" ]] && [[ "$GITHUB_REF" != "refs/heads/hotfix" ]]; then
+      #       echo "==================================="
+      #       echo "[!] Can only release from the 'rc' or 'hotfix' branches"
+      #       echo "==================================="
+      #       exit 1
+      #     fi
 
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
