@@ -60,20 +60,20 @@ jobs:
         with:
           ref: ${{ needs.setup.outputs.branch-name }}
 
-      - name: Create release
-        uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
-        with:
-          artifacts: 'bitwarden.sh,
-                      run.sh,
-                      bitwarden.ps1,
-                      run.ps1,
-                      version.json'
-          commit: ${{ github.sha }}
-          tag: "v${{ github.event.inputs.release_version }}"
-          name: "Version ${{ github.event.inputs.release_version }}"
-          body: "<insert release notes here>"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
+      # - name: Create release
+      #   uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
+      #   with:
+      #     artifacts: 'bitwarden.sh,
+      #                 run.sh,
+      #                 bitwarden.ps1,
+      #                 run.ps1,
+      #                 version.json'
+      #     commit: ${{ github.sha }}
+      #     tag: "v${{ github.event.inputs.release_version }}"
+      #     name: "Version ${{ github.event.inputs.release_version }}"
+      #     body: "<insert release notes here>"
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     draft: true
 
   release-version:
     name: Upload version.json
@@ -99,16 +99,16 @@ jobs:
           keyvault: "bitwarden-prod-kv"
           secrets: "aws-selfhost-version-access-id, aws-selfhost-version-access-key"
 
-      - name: Upload version.json to S3 bucket
-        env:
-          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
-          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
-          AWS_DEFAULT_REGION: 'us-west-2'
-          AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
-        run: |
-          aws s3 cp version.json $AWS_S3_BUCKET_NAME \
-          --acl "public-read" \
-          --quiet
+      # - name: Upload version.json to S3 bucket
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
+      #     AWS_DEFAULT_REGION: 'us-west-2'
+      #     AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
+      #   run: |
+      #     aws s3 cp version.json $AWS_S3_BUCKET_NAME \
+      #     --acl "public-read" \
+      #     --quiet
 
   tag-docker-latest:
     name: Tag Docker image latest
@@ -139,14 +139,11 @@ jobs:
           - service_name: Web
     steps:
       - name: Print environment
-        env:
-          RELEASE_OPTION: ${{ github.event.inputs.release_type }}
         run: |
           whoami
           docker --version
           echo "GitHub ref: $GITHUB_REF"
           echo "GitHub event: $GITHUB_EVENT"
-          echo "Github Release Option: $RELEASE_OPTION"
 
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
