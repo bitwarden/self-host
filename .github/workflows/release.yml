@@ -181,13 +181,13 @@ jobs:
         run: |
           docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION bitwarden/$SERVICE_NAME:latest
 
-      - name: Push latest image
-        env:
-          DOCKER_CONTENT_TRUST: 1
-          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
-        run: |
-          docker push bitwarden/$SERVICE_NAME:latest
+      # - name: Push latest image
+      #   env:
+      #     DOCKER_CONTENT_TRUST: 1
+      #     DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+      #     SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+      #   run: |
+      #     docker push bitwarden/$SERVICE_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
         run: |
@@ -210,12 +210,12 @@ jobs:
         run: |
           docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
 
-      - name: Push version and latest image
-        env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
-          REGISTRY: bitwardenqa.azurecr.io
-        run: |
-          docker push $REGISTRY/$SERVICE_NAME:latest
+      # - name: Push version and latest image
+      #   env:
+      #     SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+      #     REGISTRY: bitwardenqa.azurecr.io
+      #   run: |
+      #     docker push $REGISTRY/$SERVICE_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
