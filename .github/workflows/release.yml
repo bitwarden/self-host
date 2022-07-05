@@ -176,7 +176,7 @@ jobs:
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
         run: |
-          docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION bitwarden/$SERVICE_NAME:latest
+          docker tag bitwarden/$SERVICE_NAME:latest
 
       # - name: Push latest image
       #   env:
@@ -200,12 +200,12 @@ jobs:
       - name: Login to Azure ACR
         run: az acr login -n bitwardenqa
 
-      - name: Tag version and latest
+      - name: Tag latest
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
         run: |
-          docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
+          docker tag $REGISTRY/$SERVICE_NAME:latest
 
       # - name: Push version and latest image
       #   env:
