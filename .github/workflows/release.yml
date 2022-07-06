@@ -176,7 +176,7 @@ jobs:
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
         run: |
-          docker tag bitwarden/$SERVICE_NAME:latest
+          docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION bitwarden/$SERVICE_NAME:latest
 
       - name: Push latest image
         env:
@@ -205,7 +205,70 @@ jobs:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
         run: |
-          docker tag $REGISTRY/$SERVICE_NAME:latest
+          docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
+
+      - name: Push version and latest image
+        env:
+          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          REGISTRY: bitwardenqa.azurecr.io
+        run: |
+          docker push $REGISTRY/$SERVICE_NAME:latest
+
+      - name: Log out of Docker
+        run: docker logout
+
+  tag-docker-web-sh-latest:
+    name: Tag Docker image latest
+    runs-on: ubuntu-20.04
+    needs:
+      - setup
+      - release
+    env:
+      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+      _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
+      SERVICE_NAME: web-sh
+    steps:
+      - name: Print environment
+        run: |
+          whoami
+          docker --version
+          echo "GitHub ref: $GITHUB_REF"
+          echo "GitHub event: $GITHUB_EVENT"
+
+      - name: Checkout repo
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          ref: ${{ needs.setup.outputs.branch-name }}
+
+      - name: Setup service name
+        id: setup
+        run: |
+          SERVICE_NAME=$(echo "${{ matrix.service_name }}" | awk '{print tolower($0)}')
+          echo "Matrix name: ${{ matrix.service_name }}"
+          echo "SERVICE_NAME: $SERVICE_NAME"
+
+      ########## ACR ##########
+      - name: Login to Azure - QA Subscription
+        uses: Azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
+        with:
+          creds: ${{ secrets.AZURE_QA_KV_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: az acr login -n bitwardenqa
+
+      - name: Pull versioned image
+        env:
+          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          REGISTRY: bitwardenqa.azurecr.io
+        run: |
+          docker pull $REGISTRY/$SERVICE_NAME:$_BRANCH_NAME
+
+      - name: Tag latest
+        env:
+          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          REGISTRY: bitwardenqa.azurecr.io
+        run: |
+          docker tag $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
 
       - name: Push version and latest image
         env:
