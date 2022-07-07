@@ -261,7 +261,7 @@ jobs:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
         run: |
-          docker pull $REGISTRY/$SERVICE_NAME:$_BRANCH_NAME
+          docker pull $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION
 
       - name: Tag latest
         env:
