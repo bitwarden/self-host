@@ -41,9 +41,9 @@ BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=
 RUN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="2022.6.2"
-WEBVERSION="2022.6.2"
-KEYCONNECTORVERSION="2022.5.0"
+COREVERSION="v2022.6.2"
+WEBVERSION="web-v2022.6.2"
+KEYCONNECTORVERSION="v2022.5.0"
 
 echo "bitwarden.sh version $COREVERSION"
 docker --version
