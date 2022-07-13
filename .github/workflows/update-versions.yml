@@ -47,7 +47,7 @@ jobs:
         id: get-web
         uses: bitwarden/gh-actions/get-release-version@aa9092a81c74b0c5dd6c7feb7ff345bb4aaf3d85
         with:
-          repository: bitwarden/web
+          repository: bitwarden/clients
           monorepo: true
           monorepo-project: web
 
