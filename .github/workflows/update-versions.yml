@@ -8,7 +8,7 @@ on:
 jobs:
   setup:
     name: Setup
-    if: github.ref_name == 'DEVOPS-873-update-self-host-update-version-to-support-monorepo' || github.ref_name == 'rc' || github.ref_name == 'hotfix'
+    if: github.ref_name == 'master' || github.ref_name == 'rc' || github.ref_name == 'hotfix'
     runs-on: ubuntu-20.04
     outputs:
       core_version: ${{ steps.get-core.outputs.version }}
