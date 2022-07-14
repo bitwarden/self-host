@@ -24,9 +24,10 @@ jobs:
 
       - name: Get Latest Core Version
         id: get-core
-        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
+        uses: bitwarden/gh-actions/get-release-version@d6bd975229dec58f8394b4bfdfc461206ac8e62a
         with:
           repository: bitwarden/server
+          trim: true
 
       - name: Check if Core Version needs updating
         id: core-update
@@ -45,9 +46,12 @@ jobs:
 
       - name: Get Latest Web Version
         id: get-web
-        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
+        uses: bitwarden/gh-actions/get-release-version@d6bd975229dec58f8394b4bfdfc461206ac8e62a
         with:
-          repository: bitwarden/web
+          repository: bitwarden/clients
+          monorepo: true
+          monorepo-project: web
+          trim: true
 
       - name: Check if Web Version needs updating
         id: web-update
@@ -66,9 +70,10 @@ jobs:
 
       - name: Get Latest Key Connector Version
         id: get-key-connector
-        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
+        uses: bitwarden/gh-actions/get-release-version@d6bd975229dec58f8394b4bfdfc461206ac8e62a
         with:
           repository: bitwarden/key-connector
+          trim: true
 
       - name: Check if Key Connector Version needs updating
         id: key-connector-update
