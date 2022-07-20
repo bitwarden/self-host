@@ -195,7 +195,7 @@ function updateDatabase() {
 }
 
 function updatebw() {
-    KEY_CONNECTOR_ENABLED=$(grep -A3 'enable_key_connector:' $OUTPUT_DIR/config.yml | tail -n1 | awk '{ print $2}')
+    KEY_CONNECTOR_ENABLED=$(grep 'enable_key_connector:' $OUTPUT_DIR/config.yml | awk '{ print $2}')
     CORE_ID=$($dccmd ps -q admin)
     WEB_ID=$($dccmd ps -q web)
     if [ "$KEY_CONNECTOR_ENABLED" = true ];
