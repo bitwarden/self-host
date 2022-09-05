@@ -94,10 +94,18 @@ jobs:
 
       - name: Retrieve secrets
         id: retrieve-secrets
-        uses: Azure/get-keyvault-secrets@b5c723b9ac7870c022b8c35befe620b7009b336f
-        with:
-          keyvault: "bitwarden-prod-kv"
-          secrets: "aws-selfhost-version-access-id, aws-selfhost-version-access-key"
+        env:
+          KEYVAULT: bitwarden-prod-kv
+          SECRETS: |
+            aws-selfhost-version-access-id,
+            aws-selfhost-version-access-key
+        run: |
+          for i in ${SECRETS//,/ }
+          do
+            VALUE=$(az keyvault secret show --vault-name $KEYVAULT --name $i --query value --output tsv)
+            echo "::add-mask::$VALUE"
+            echo "::set-output name=$i::$VALUE"
+          done
 
       - name: Upload version.json to S3 bucket
         env:
