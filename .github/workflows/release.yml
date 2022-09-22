@@ -145,6 +145,7 @@ jobs:
           - service_name: Setup
           - service_name: Sso
           - service_name: Web
+          - service_name: Scim
     steps:
       - name: Print environment
         run: |
