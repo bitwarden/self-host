@@ -241,6 +241,7 @@ jobs:
     env:
       _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
       _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
+      SERVICE_NAME: ${{ matrix.service_name }}
     steps:
       - name: Print environment
         run: |
