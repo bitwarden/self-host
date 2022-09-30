@@ -226,16 +226,22 @@ jobs:
       - name: Log out of Docker
         run: docker logout
 
-  tag-docker-web-sh-latest:
-    name: Tag Docker image latest
+  tag-docker-bitwardenqa-latest:
+    name: Tag Docker images from bitwardenqa latest
     runs-on: ubuntu-20.04
     needs:
       - setup
       - release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service_name: web-sh
+          - service_name: web-ee
     env:
       _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
       _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
-      SERVICE_NAME: web-sh
+      SERVICE_NAME: ${{ matrix.service_name }}
     steps:
       - name: Print environment
         run: |
