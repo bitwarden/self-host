@@ -98,7 +98,11 @@ jobs:
           KEYVAULT: bitwarden-prod-kv
           SECRETS: |
             aws-selfhost-version-access-id,
-            aws-selfhost-version-access-key
+            aws-selfhost-version-access-key,
+            r2-electron-access-id,
+            r2-electron-access-key,
+            r2-bitwarden-selfhost-version-bucket-name,
+            cf-prod-account
         run: |
           for i in ${SECRETS//,/ }
           do
@@ -117,6 +121,18 @@ jobs:
           aws s3 cp version.json $AWS_S3_BUCKET_NAME \
           --acl "public-read" \
           --quiet
+
+      - name: Upload version.json to R2 bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.r2-electron-access-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.r2-electron-access-key }}
+          AWS_DEFAULT_REGION: 'us-east-1'
+          AWS_S3_BUCKET_NAME: ${{ steps.retrieve-secrets.outputs.r2-bitwarden-selfhost-version-bucket-name }}
+          CF_ACCOUNT: ${{ steps.retrieve-secrets.outputs.cf-prod-account }}
+        run: |
+          aws s3 cp version.json $AWS_S3_BUCKET_NAME \
+          --quiet \
+          --endpoint-url https://${CF_ACCOUNT}.r2.cloudflarestorage.com
 
   tag-docker-latest:
     name: Tag Docker image latest
