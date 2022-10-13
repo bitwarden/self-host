@@ -210,7 +210,7 @@ jobs:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
         run: |
           if [ "$SERVICE_NAME" == "scim" ]; then
-            $DOCKER_CONTENT_TRUST=0 
+            $DOCKER_CONTENT_TRUST==0 
           fi
           docker push bitwarden/$SERVICE_NAME:latest
 
