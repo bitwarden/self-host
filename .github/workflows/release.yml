@@ -209,6 +209,9 @@ jobs:
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
         run: |
+          if [ "$SERVICE_NAME" == "scim" ]; then
+            export $DOCKER_CONTENT_TRUST=0 
+          fi
           docker push bitwarden/$SERVICE_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
