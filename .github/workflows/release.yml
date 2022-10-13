@@ -209,8 +209,8 @@ jobs:
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
         run: |
-          if [ "$SERVICE_NAME" == "Scim" ]; then
-            $DOCKER_CONTENT_TRUST=0 
+          if [ "$SERVICE_NAME" == "scim" ]; then
+            export $DOCKER_CONTENT_TRUST=0 
           fi
           docker push bitwarden/$SERVICE_NAME:latest
 
