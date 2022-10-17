@@ -71,8 +71,8 @@ SHADOW=$(cat /etc/shadow)
 
 function checkAgent {
   # Check for the presence of the DO directory in the filesystem
+  find /opt/digitalocean/ -type d -empty -delete
   if [ -d /opt/digitalocean ];then
-     find /opt/digitalocean/ -type d -empty -delete
      echo -en "\e[41m[FAIL]\e[0m DigitalOcean directory detected.\n"
             ((FAIL++))
             STATUS=2
