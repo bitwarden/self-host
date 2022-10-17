@@ -59,6 +59,7 @@ jobs:
           DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
         working-directory: ./DigitalOceanMarketplace
         if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        runs-on: macos-latest
         run: |
           brew install doctl
           # Authenticate to Digital Ocean.
