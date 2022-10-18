@@ -54,6 +54,10 @@ jobs:
         working-directory: ./DigitalOceanMarketplace
         run: packer build marketplace-image.json
 
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Digital Ocean Image Cleanup
         env:
           DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
