@@ -279,6 +279,7 @@ jobs:
           SERVICE_NAME=$(echo "${{ matrix.service_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.service_name }}"
           echo "SERVICE_NAME: $SERVICE_NAME"
+          echo "::set-output name=service_name::$SERVICE_NAME"
 
       ########## ACR ##########
       - name: Login to Azure - QA Subscription
