@@ -1,0 +1,19 @@
+---
+name: Build Self-Host
+
+on:
+  push:
+    branches-ignore:
+      - "l10n_master"
+      - "gh-pages"
+    paths-ignore:
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+jobs:
+  stub:
+    name: Stub
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Success
+        run: exit 0
