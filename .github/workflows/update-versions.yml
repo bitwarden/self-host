@@ -39,9 +39,9 @@ jobs:
           echo "Latest Core Version: $LATEST_CORE_VERSION"
           if [ "$CORE_VERSION" != "$LATEST_CORE_VERSION" ]; then
             echo "Needs Core update!"
-            echo "::set-output name=update::1"
+            echo "update=1" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=update::0"
+            echo "update=0" >> $GITHUB_OUTPUT
           fi
 
       - name: Get Latest Web Version
@@ -63,9 +63,9 @@ jobs:
           echo "Latest Web Version: $LATEST_WEB_VERSION"
           if [ "$WEB_VERSION" != "$LATEST_WEB_VERSION" ]; then
             echo "Needs Web update!"
-            echo "::set-output name=update::1"
+            echo "update=1" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=update::0"
+            echo "update=0" >> $GITHUB_OUTPUT
           fi
 
       - name: Get Latest Key Connector Version
@@ -85,9 +85,9 @@ jobs:
           echo "Latest Key Connector Version: $LATEST_KEY_CONNECTOR_VERSION"
           if [ "$KEY_CONNECTOR_VERSION" != "$LATEST_KEY_CONNECTOR_VERSION" ]; then
             echo "Needs Key Connector update!"
-            echo "::set-output name=update::1"
+            echo "update=1" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=update::0"
+            echo "update=0" >> $GITHUB_OUTPUT
           fi
 
 
