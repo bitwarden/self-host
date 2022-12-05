@@ -31,16 +31,16 @@ jobs:
           do
             VALUE=$(az keyvault secret show --vault-name $KEYVAULT --name $i --query value --output tsv)
             echo "::add-mask::$VALUE"
-            echo "::set-output name=$i::$VALUE"
+            echo "$i=$VALUE" >> $GITHUB_OUTPUT
           done
 
       - name: Set tag name
         id: tag-name
         run: |
           if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
-            echo "::set-output name=value::${{ github.event.inputs.release_tag }}"
+            echo "value=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=value::$GITHUB_REF_NAME"
+            echo "value=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
           fi
 
       - name: Update Bitwarden Script PowerShell Link

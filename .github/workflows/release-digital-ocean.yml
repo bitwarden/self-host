@@ -36,7 +36,7 @@ jobs:
           do
             VALUE=$(az keyvault secret show --vault-name $KEYVAULT --name $i --query value --output tsv)
             echo "::add-mask::$VALUE"
-            echo "::set-output name=$i::$VALUE"
+            echo "$i=$VALUE" >> $GITHUB_OUTPUT
           done
 
       - name: Set version from version.json
@@ -45,7 +45,7 @@ jobs:
           VERSION=$(grep '^ *"coreVersion":' version.json \
             | awk -F\: '{ print $2 }' \
             | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build Digital Ocean Image
         env:

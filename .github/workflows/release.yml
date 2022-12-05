@@ -47,7 +47,7 @@ jobs:
         id: branch
         run: |
           BRANCH_NAME=$(basename ${{ github.ref }})
-          echo "::set-output name=branch-name::$BRANCH_NAME"
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
 
   release:
@@ -108,7 +108,7 @@ jobs:
           do
             VALUE=$(az keyvault secret show --vault-name $KEYVAULT --name $i --query value --output tsv)
             echo "::add-mask::$VALUE"
-            echo "::set-output name=$i::$VALUE"
+            echo "$i=$VALUE" >> $GITHUB_OUTPUT
           done
 
       - name: Upload version.json to S3 bucket
@@ -181,7 +181,7 @@ jobs:
           SERVICE_NAME=$(echo "${{ matrix.service_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.service_name }}"
           echo "SERVICE_NAME: $SERVICE_NAME"
-          echo "::set-output name=service_name::$SERVICE_NAME"
+          echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
 
       ########## DockerHub ##########
       - name: Setup DCT
@@ -194,14 +194,12 @@ jobs:
       - name: Pull versioned image
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
-        run: |
-          docker pull bitwarden/$SERVICE_NAME:$_RELEASE_VERSION
+        run: docker pull bitwarden/$SERVICE_NAME:$_RELEASE_VERSION
 
       - name: Tag latest
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
-        run: |
-          docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION bitwarden/$SERVICE_NAME:latest
+        run: docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION bitwarden/$SERVICE_NAME:latest
 
       - name: Push latest image
         env:
@@ -232,15 +230,13 @@ jobs:
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: |
-          docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
+        run: docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
 
       - name: Push version and latest image
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: |
-          docker push $REGISTRY/$SERVICE_NAME:latest
+        run: docker push $REGISTRY/$SERVICE_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
@@ -279,7 +275,7 @@ jobs:
           SERVICE_NAME=$(echo "${{ matrix.service_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.service_name }}"
           echo "SERVICE_NAME: $SERVICE_NAME"
-          echo "::set-output name=service_name::$SERVICE_NAME"
+          echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
 
       ########## ACR ##########
       - name: Login to Azure - QA Subscription
@@ -294,22 +290,19 @@ jobs:
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: |
-          docker pull $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION
+        run: docker pull $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION
 
       - name: Tag latest
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: |
-          docker tag $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
+        run: docker tag $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
 
       - name: Push version and latest image
         env:
           SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: |
-          docker push $REGISTRY/$SERVICE_NAME:latest
+        run: docker push $REGISTRY/$SERVICE_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
