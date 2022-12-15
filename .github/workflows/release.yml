@@ -11,9 +11,7 @@ on:
 jobs:
   setup:
     name: Setup
-    runs-on: ubuntu-20.04
-    outputs:
-      branch-name: ${{ steps.branch.outputs.branch-name }}
+    runs-on: ubuntu-22.04
     steps:
       - name: Branch check
         run: |
@@ -43,22 +41,16 @@ jobs:
             exit 1
           fi
 
-      - name: Get branch name
-        id: branch
-        run: |
-          BRANCH_NAME=$(basename ${{ github.ref }})
-          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: setup
     steps:
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
-          ref: ${{ needs.setup.outputs.branch-name }}
+          ref: master
 
       - name: Create release
         uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
@@ -77,15 +69,15 @@ jobs:
 
   release-version:
     name: Upload version.json
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs:
-     - setup
-     - release
+      - setup
+      - release
     steps:
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
-          ref: ${{ needs.setup.outputs.branch-name }}
+          ref: master
 
       - name: Login to Azure
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
@@ -94,22 +86,15 @@ jobs:
 
       - name: Retrieve secrets
         id: retrieve-secrets
-        env:
-          KEYVAULT: bitwarden-prod-kv
-          SECRETS: |
-            aws-selfhost-version-access-id,
+        uses: bitwarden/gh-actions/get-keyvault-secrets@c3b3285993151c5af47cefcb3b9134c28ab479af
+        with:
+          keyvault: "bitwarden-prod-kv"
+          secrets: "aws-selfhost-version-access-id,
             aws-selfhost-version-access-key,
             r2-electron-access-id,
             r2-electron-access-key,
             r2-bitwarden-selfhost-version-bucket-name,
-            cf-prod-account
-        run: |
-          for i in ${SECRETS//,/ }
-          do
-            VALUE=$(az keyvault secret show --vault-name $KEYVAULT --name $i --query value --output tsv)
-            echo "::add-mask::$VALUE"
-            echo "$i=$VALUE" >> $GITHUB_OUTPUT
-          done
+            cf-prod-account"
 
       - name: Upload version.json to S3 bucket
         env:
@@ -135,33 +120,32 @@ jobs:
           --endpoint-url https://${CF_ACCOUNT}.r2.cloudflarestorage.com
 
   tag-docker-latest:
-    name: Tag Docker image latest
-    runs-on: ubuntu-20.04
+    name: Tag Docker images latest
+    runs-on: ubuntu-22.04
     needs:
       - setup
       - release
     env:
       _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
-      _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
+      _BRANCH_NAME: master
     strategy:
       fail-fast: false
       matrix:
         include:
-          - service_name: Admin
-          - service_name: Api
-          - service_name: Attachments
-          - service_name: Events
-          - service_name: Icons
-          - service_name: Identity
-          - service_name: K8S-Proxy
-          - service_name: MsSql
-          - service_name: Nginx
-          - service_name: Notifications
-          - service_name: Server
-          - service_name: Setup
-          - service_name: Sso
-          - service_name: Web
-          - service_name: Scim
+          - project_name: Admin
+          - project_name: Api
+          - project_name: Attachments
+          - project_name: Events
+          - project_name: Icons
+          - project_name: Identity
+          - project_name: MsSql
+          - project_name: Nginx
+          - project_name: Notifications
+          - project_name: Server
+          - project_name: Setup
+          - project_name: Sso
+          - project_name: Web
+          - project_name: Scim
     steps:
       - name: Print environment
         run: |
@@ -173,15 +157,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
-          ref: ${{ needs.setup.outputs.branch-name }}
+          ref: master
 
-      - name: Setup service name
+      - name: Setup project name
         id: setup
         run: |
-          SERVICE_NAME=$(echo "${{ matrix.service_name }}" | awk '{print tolower($0)}')
-          echo "Matrix name: ${{ matrix.service_name }}"
-          echo "SERVICE_NAME: $SERVICE_NAME"
-          echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+          PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
+          echo "Matrix name: ${{ matrix.project_name }}"
+          echo "PROJECT_NAME: $PROJECT_NAME"
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
 
       ########## DockerHub ##########
       - name: Setup DCT
@@ -193,24 +177,24 @@ jobs:
 
       - name: Pull versioned image
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
-        run: docker pull bitwarden/$SERVICE_NAME:$_RELEASE_VERSION
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+        run: docker pull bitwarden/$PROJECT_NAME:$_RELEASE_VERSION
 
       - name: Tag latest
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
-        run: docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION bitwarden/$SERVICE_NAME:latest
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+        run: docker tag bitwarden/$PROJECT_NAME:$_RELEASE_VERSION bitwarden/$PROJECT_NAME:latest
 
       - name: Push latest image
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
         run: |
-          if [ "$SERVICE_NAME" == "scim" ]; then
+          if [ "$PROJECT_NAME" == "scim" ]; then
             export DOCKER_CONTENT_TRUST=0
           fi
-          docker push bitwarden/$SERVICE_NAME:latest
+          docker push bitwarden/$PROJECT_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
         run: |
@@ -228,22 +212,22 @@ jobs:
 
       - name: Tag latest
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker tag bitwarden/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
+        run: docker tag bitwarden/$PROJECT_NAME:$_RELEASE_VERSION $REGISTRY/$PROJECT_NAME:latest
 
       - name: Push version and latest image
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker push $REGISTRY/$SERVICE_NAME:latest
+        run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
 
-  tag-docker-bitwardenqa-latest:
-    name: Tag Docker images from bitwardenqa latest
-    runs-on: ubuntu-20.04
+  tag-docker-web-latest:
+    name: Tag Web Docker images from bitwardenqa latest
+    runs-on: ubuntu-22.04
     needs:
       - setup
       - release
@@ -251,11 +235,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - service_name: web-sh
-          - service_name: web-ee
+          - project_name: web-sh
+          # - project_name: web-ee # Needs to be fixed in Web client release workflow.
     env:
       _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
-      _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
+      _BRANCH_NAME: master
     steps:
       - name: Print environment
         run: |
@@ -267,15 +251,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
-          ref: ${{ needs.setup.outputs.branch-name }}
+          ref: master
 
-      - name: Setup service name
+      - name: Setup project name
         id: setup
         run: |
-          SERVICE_NAME=$(echo "${{ matrix.service_name }}" | awk '{print tolower($0)}')
-          echo "Matrix name: ${{ matrix.service_name }}"
-          echo "SERVICE_NAME: $SERVICE_NAME"
-          echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+          PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
+          echo "Matrix name: ${{ matrix.project_name }}"
+          echo "PROJECT_NAME: $PROJECT_NAME"
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
 
       ########## ACR ##########
       - name: Login to Azure - QA Subscription
@@ -288,21 +272,21 @@ jobs:
 
       - name: Pull versioned image
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker pull $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION
+        run: docker pull $REGISTRY/$PROJECT_NAME:$_RELEASE_VERSION
 
       - name: Tag latest
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker tag $REGISTRY/$SERVICE_NAME:$_RELEASE_VERSION $REGISTRY/$SERVICE_NAME:latest
+        run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_VERSION $REGISTRY/$PROJECT_NAME:latest
 
       - name: Push version and latest image
         env:
-          SERVICE_NAME: ${{ steps.setup.outputs.service_name }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker push $REGISTRY/$SERVICE_NAME:latest
+        run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
