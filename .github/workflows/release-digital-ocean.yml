@@ -49,9 +49,8 @@ jobs:
           packer version
           packer build marketplace-image.json
 
-      # - name: Set up Homebrew
-      #   id: set-up-homebrew
-      #   uses: Homebrew/actions/setup-homebrew@master
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@659165717b1fd1b535840baa14e399a305d20561
 
       - name: Digital Ocean Image Cleanup
         env:
