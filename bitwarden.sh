@@ -60,6 +60,9 @@ echo ""
 function downloadSelf() {
     if curl -L -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $BITWARDEN_SCRIPT_URL | grep -q "^http_code 20[0-9]"
     then
+        if [ -e $SCRIPT_PATH ]; then
+            chmod --reference $SCRIPT_PATH $SCRIPT_PATH.1
+        fi
         mv -f $SCRIPT_PATH.1 $SCRIPT_PATH
         chmod u+x $SCRIPT_PATH
     else
