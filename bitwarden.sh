@@ -79,7 +79,7 @@ function downloadRunFile() {
         rm -f $SCRIPTS_DIR/install.sh
     else
         echo "Unable to download run script from $RUN_SCRIPT_URL. Received status code: $run_file_status_code"
-        echo "http responnse:"
+        echo "http response:"
         cat $SCRIPTS_DIR/run.sh
         rm -f $SCRIPTS_DIR/run.sh
         exit 1
