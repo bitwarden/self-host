@@ -41,7 +41,7 @@ BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=
 RUN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="2023.2.0"
+COREVERSION="2023.2.1"
 WEBVERSION="2023.2.0"
 KEYCONNECTORVERSION="2022.5.0"
 
