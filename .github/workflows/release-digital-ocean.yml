@@ -22,13 +22,13 @@ jobs:
       - name: Login to Azure - Prod Subscription
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_CI_KV_CREDENTIALS }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
         uses: bitwarden/gh-actions/get-keyvault-secrets@c3b3285993151c5af47cefcb3b9134c28ab479af
         with:
-          keyvault: "bitwarden-prod-kv"
+          keyvault: "bitwarden-ci"
           secrets: "digital-ocean-api-key"
 
       - name: Set version from version.json
