@@ -22,7 +22,7 @@ jobs:
       - name: Login to Azure - Prod Subscription
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
-          creds: ${{ secrets.AZURE_CI_KV_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
