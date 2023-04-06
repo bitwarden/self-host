@@ -82,13 +82,13 @@ jobs:
       - name: Login to Azure
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
         uses: bitwarden/gh-actions/get-keyvault-secrets@c3b3285993151c5af47cefcb3b9134c28ab479af
         with:
-          keyvault: "bitwarden-prod-kv"
+          keyvault: "bitwarden-ci"
           secrets: "aws-selfhost-version-access-id,
             aws-selfhost-version-access-key,
             r2-electron-access-id,
@@ -172,8 +172,8 @@ jobs:
         id: setup-dct
         uses: bitwarden/gh-actions/setup-docker-trust@a8c384a05a974c05c48374c818b004be221d43ff
         with:
-          azure-creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
-          azure-keyvault-name: "bitwarden-prod-kv"
+          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}
+          azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull versioned image
         env:
