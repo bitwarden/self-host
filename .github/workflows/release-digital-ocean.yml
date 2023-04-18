@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
 
-      - name: Login to Azure - Prod Subscription
+      - name: Login to Azure - CI Subscription
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}

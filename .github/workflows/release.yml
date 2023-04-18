@@ -79,7 +79,7 @@ jobs:
         with:
           ref: master
 
-      - name: Login to Azure
+      - name: Login to Azure - CI Subscription
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}
