@@ -82,7 +82,7 @@ jobs:
       - name: Login to Azure - CI Subscription
         uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}
+          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
@@ -172,7 +172,7 @@ jobs:
         id: setup-dct
         uses: bitwarden/gh-actions/setup-docker-trust@a8c384a05a974c05c48374c818b004be221d43ff
         with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPLE }}
+          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull versioned image
