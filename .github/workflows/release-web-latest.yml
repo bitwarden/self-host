@@ -10,11 +10,28 @@ on:
           required: true
 
 jobs:
+  get-version:
+    name: Get Web version
+    runs-on: ubuntu-22.04
+    outputs:
+        _RELEASE_VERSION: ${{ steps.get-version.outputs.version }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+    
+      - name: Get version
+        id: get-version
+        run: |
+            VERSION=$(jq -r '.versions.webVersion' < version.json)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+
   tag-web-latest:
     name: Tag Web version as latest
     runs-on: ubuntu-22.04
+    needs:
+        - get-version
     env:
-      _RELEASE_VERSION: ${{ github.event.inputs.tag }}
+      _RELEASE_VERSION: ${{ needs.get-version.outputs._RELEASE_VERSION }}
     steps:
       ########## DockerHub ##########
       - name: Setup DCT
