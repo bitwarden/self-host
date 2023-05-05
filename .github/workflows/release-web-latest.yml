@@ -1,0 +1,55 @@
+# Manual workflow to tag a web version with :latest
+---
+name: Update Web Latest Tag
+
+on:
+  workflow_dispatch:
+
+jobs:
+  get-version:
+    name: Get Web version
+    runs-on: ubuntu-22.04
+    outputs:
+        _RELEASE_VERSION: ${{ steps.get-version.outputs.version }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+    
+      - name: Get version
+        id: get-version
+        run: |
+            VERSION=$(jq -r '.versions.webVersion' < version.json)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  tag-web-latest:
+    name: Tag Web version as latest
+    runs-on: ubuntu-22.04
+    needs:
+        - get-version
+    env:
+      _RELEASE_VERSION: ${{ needs.get-version.outputs._RELEASE_VERSION }}
+    steps:
+      ########## DockerHub ##########
+      - name: Setup DCT
+        id: setup-dct
+        uses: bitwarden/gh-actions/setup-docker-trust@a8c384a05a974c05c48374c818b004be221d43ff
+        with:
+          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          azure-keyvault-name: "bitwarden-ci"
+
+      - name: Pull versioned image
+        run: docker pull bitwarden/web:$_RELEASE_VERSION
+
+      - name: Tag latest
+        run: docker tag bitwarden/web:$_RELEASE_VERSION bitwarden/web:latest
+
+      - name: Push latest image
+        env:
+          DOCKER_CONTENT_TRUST: 1
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+        run: docker push bitwarden/web:latest
+
+      - name: Log out of Docker and disable Docker Notary
+        run: |
+          docker logout
+          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
