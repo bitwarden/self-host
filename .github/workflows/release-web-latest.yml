@@ -4,10 +4,6 @@ name: Update Web Latest Tag
 
 on:
   workflow_dispatch:
-    inputs:
-        tag:
-          description: 'Version to tag as latest'
-          required: true
 
 jobs:
   get-version:
