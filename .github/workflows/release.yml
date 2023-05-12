@@ -12,6 +12,9 @@ jobs:
   setup:
     name: Setup
     runs-on: ubuntu-22.04
+    outputs:
+      _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
+      _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
     steps:
       - name: Branch check
         run: |
@@ -23,7 +26,7 @@ jobs:
           fi
 
       - name: Checkout repo
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Get Latest Self-Host Version
         id: get-self-host
@@ -41,6 +44,15 @@ jobs:
             exit 1
           fi
 
+      - name: Set Release Tags
+        id: set-tags
+        run: |
+          WEB=$(jq -r 'versions.webVersion' < version.json)
+          CORE=$(jq -r 'versions.coreVersion' < version.json)
+
+          echo "WEB_RELEASE_TAG=$WEB" >> $GITHUB_OUTPUT
+          echo "CORE_RELEASE_TAG=$CORE" >> $GITHUB_OUTPUT
+
 
   release:
     name: Create GitHub Release
@@ -48,12 +60,12 @@ jobs:
     needs: setup
     steps:
       - name: Checkout repo
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: master
 
       - name: Create release
-        uses: ncipollo/release-action@95215a3cb6e6a1908b3c44e00b4fdb15548b1e09
+        uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e # v1.12.0
         with:
           artifacts: 'bitwarden.sh,
                       run.sh,
@@ -75,12 +87,12 @@ jobs:
       - release
     steps:
       - name: Checkout repo
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: master
 
       - name: Login to Azure - CI Subscription
-        uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
 
@@ -126,7 +138,7 @@ jobs:
       - setup
       - release
     env:
-      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+      _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
       _BRANCH_NAME: master
     strategy:
       fail-fast: false
@@ -145,6 +157,7 @@ jobs:
           - project_name: Setup
           - project_name: Sso
           - project_name: Web
+            release_tag: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
           - project_name: Scim
     steps:
       - name: Print environment
@@ -155,17 +168,24 @@ jobs:
           echo "GitHub event: $GITHUB_EVENT"
 
       - name: Checkout repo
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: master
 
-      - name: Setup project name
+      - name: Setup project name and release tag
         id: setup
         run: |
           PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.project_name }}"
           echo "PROJECT_NAME: $PROJECT_NAME"
           echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+
+          if [ -z "${{ matrix.release_tag }}" ]; then
+            # Use core release tag by default.
+            echo "RELEASE_TAG=$_CORE_RELEASE_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_OUTPUT
+          fi
 
       ########## DockerHub ##########
       - name: Setup DCT
@@ -178,12 +198,12 @@ jobs:
       - name: Pull versioned image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-        run: docker pull bitwarden/$PROJECT_NAME:$_RELEASE_VERSION
+        run: docker pull bitwarden/$PROJECT_NAME:$RELEASE_TAG
 
       - name: Tag latest
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-        run: docker tag bitwarden/$PROJECT_NAME:$_RELEASE_VERSION bitwarden/$PROJECT_NAME:latest
+        run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG bitwarden/$PROJECT_NAME:latest
 
       - name: Push latest image
         env:
@@ -203,7 +223,7 @@ jobs:
 
       ########## ACR ##########
       - name: Login to Azure - QA Subscription
-        uses: Azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
         with:
           creds: ${{ secrets.AZURE_QA_KV_CREDENTIALS }}
 
@@ -214,7 +234,7 @@ jobs:
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker tag bitwarden/$PROJECT_NAME:$_RELEASE_VERSION $REGISTRY/$PROJECT_NAME:latest
+        run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
       - name: Push version and latest image
         env:
@@ -238,7 +258,7 @@ jobs:
           - project_name: web-sh
           # - project_name: web-ee # Needs to be fixed in Web client release workflow.
     env:
-      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+      _RELEASE_TAG: ${{ needs.setup.outputs._WEB_RELEASE_TAG}}
       _BRANCH_NAME: master
     steps:
       - name: Print environment
@@ -249,7 +269,7 @@ jobs:
           echo "GitHub event: $GITHUB_EVENT"
 
       - name: Checkout repo
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: master
 
@@ -263,7 +283,7 @@ jobs:
 
       ########## ACR ##########
       - name: Login to Azure - QA Subscription
-        uses: Azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
         with:
           creds: ${{ secrets.AZURE_QA_KV_CREDENTIALS }}
 
@@ -274,13 +294,13 @@ jobs:
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker pull $REGISTRY/$PROJECT_NAME:$_RELEASE_VERSION
+        run: docker pull $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG
 
       - name: Tag latest
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-        run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_VERSION $REGISTRY/$PROJECT_NAME:latest
+        run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
       - name: Push version and latest image
         env:
