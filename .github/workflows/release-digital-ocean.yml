@@ -17,16 +17,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repo
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
 
       - name: Login to Azure - CI Subscription
-        uses: Azure/login@ec3c14589bd3e9312b3cc8c41e6860e258df9010
+        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@c3b3285993151c5af47cefcb3b9134c28ab479af
+        uses: bitwarden/gh-actions/get-keyvault-secrets@34ecb67b2a357795dc893549df0795e7383ff50f
         with:
           keyvault: "bitwarden-ci"
           secrets: "digital-ocean-api-key"
@@ -49,7 +49,7 @@ jobs:
           packer build marketplace-image.json
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@bf8757bc21b0cba89461f996ff351821727cf53d
+        uses: Homebrew/actions/setup-homebrew@bf8757bc21b0cba89461f996ff351821727cf53d # v1.0.0 NB: does not have an official release yet
 
       - name: Digital Ocean Image Cleanup
         env:

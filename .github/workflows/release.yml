@@ -30,7 +30,7 @@ jobs:
 
       - name: Get Latest Self-Host Version
         id: get-self-host
-        uses: bitwarden/gh-actions/get-release-version@664c8899c95490c65dac0df11519d24ed8419c85
+        uses: bitwarden/gh-actions/get-release-version@34ecb67b2a357795dc893549df0795e7383ff50f
         with:
           repository: bitwarden/self-host
 
@@ -98,7 +98,7 @@ jobs:
 
       - name: Retrieve secrets
         id: retrieve-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@c3b3285993151c5af47cefcb3b9134c28ab479af
+        uses: bitwarden/gh-actions/get-keyvault-secrets@34ecb67b2a357795dc893549df0795e7383ff50f
         with:
           keyvault: "bitwarden-ci"
           secrets: "aws-selfhost-version-access-id,
@@ -190,7 +190,7 @@ jobs:
       ########## DockerHub ##########
       - name: Setup DCT
         id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@a8c384a05a974c05c48374c818b004be221d43ff
+        uses: bitwarden/gh-actions/setup-docker-trust@82bfda66185116020992660f6c73aa53277d081d
         with:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
