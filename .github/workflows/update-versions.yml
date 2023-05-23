@@ -20,11 +20,11 @@ jobs:
 
     steps:
       - name: Checkout Branch
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Get Latest Core Version
         id: get-core
-        uses: bitwarden/gh-actions/get-release-version@d6bd975229dec58f8394b4bfdfc461206ac8e62a
+        uses: bitwarden/gh-actions/get-release-version@34ecb67b2a357795dc893549df0795e7383ff50f
         with:
           repository: bitwarden/server
           trim: true
@@ -46,7 +46,7 @@ jobs:
 
       - name: Get Latest Web Version
         id: get-web
-        uses: bitwarden/gh-actions/get-release-version@d6bd975229dec58f8394b4bfdfc461206ac8e62a
+        uses: bitwarden/gh-actions/get-release-version@34ecb67b2a357795dc893549df0795e7383ff50f
         with:
           repository: bitwarden/clients
           monorepo: true
@@ -70,7 +70,7 @@ jobs:
 
       - name: Get Latest Key Connector Version
         id: get-key-connector
-        uses: bitwarden/gh-actions/get-release-version@d6bd975229dec58f8394b4bfdfc461206ac8e62a
+        uses: bitwarden/gh-actions/get-release-version@34ecb67b2a357795dc893549df0795e7383ff50f
         with:
           repository: bitwarden/key-connector
           trim: true
@@ -101,7 +101,7 @@ jobs:
     needs: setup
     steps:
       - name: Checkout Branch
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Create Update Versions Branch
         run: |
@@ -109,7 +109,7 @@ jobs:
           git push -u origin update-versions
 
       - name: Checkout Update Versions Branch
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: update-versions
 
