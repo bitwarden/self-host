@@ -44,7 +44,7 @@ jobs:
           fi
 
       - name: Update Bitwarden Script PowerShell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@34ecb67b2a357795dc893549df0795e7383ff50f
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
         with:
           apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
           domain: "go.btwrdn.co"
@@ -52,7 +52,7 @@ jobs:
           destination: "https://github.com/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/bitwarden.ps1"
 
       - name: Update Run Script PowerShell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@34ecb67b2a357795dc893549df0795e7383ff50f
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
         with:
           apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
           domain: "go.btwrdn.co"
@@ -60,7 +60,7 @@ jobs:
           destination: "https://github.com/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/run.ps1"
 
       - name: Update Bitwarden Script Shell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@34ecb67b2a357795dc893549df0795e7383ff50f
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
         with:
           apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
           domain: "go.btwrdn.co"
@@ -68,7 +68,7 @@ jobs:
           destination: "https://github.com/bitwarden/self-host/releases/download/${{ steps.tag-name.outputs.value }}/bitwarden.sh"
 
       - name: Update Run Script Shell Link
-        uses: bitwarden/gh-actions/update-rebrandly-link@34ecb67b2a357795dc893549df0795e7383ff50f
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
         with:
           apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
           domain: "go.btwrdn.co"
