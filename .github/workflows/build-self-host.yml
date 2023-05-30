@@ -109,7 +109,8 @@ jobs:
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
-          ref: ${{ steps.tag.outputs.image_tag }}
+          # ref: ${{ github.ref }}
+          ref: 'refs/heads/master'
           path: 'server'
 
       - name: Build Docker image
