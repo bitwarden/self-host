@@ -182,9 +182,9 @@ jobs:
 
           if [ -z "${{ matrix.release_tag }}" ]; then
             # Use core release tag by default.
-            echo "RELEASE_TAG=$_CORE_RELEASE_TAG" >> $GITHUB_OUTPUT
+            echo "release_tag=$_CORE_RELEASE_TAG" >> $GITHUB_OUTPUT
           else
-            echo "RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_OUTPUT
+            echo "release_tag=${{ matrix.release_tag }}" >> $GITHUB_OUTPUT
           fi
 
       ########## DockerHub ##########
@@ -198,11 +198,13 @@ jobs:
       - name: Pull versioned image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker pull bitwarden/$PROJECT_NAME:$RELEASE_TAG
 
       - name: Tag latest
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG bitwarden/$PROJECT_NAME:latest
 
       - name: Push latest image
@@ -234,12 +236,14 @@ jobs:
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
+          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
       - name: Push version and latest image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
+          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
@@ -282,30 +286,30 @@ jobs:
           echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
 
       ########## ACR ##########
-      - name: Login to Azure - QA Subscription
+      - name: Login to Azure - Prod Subscription
         uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
         with:
-          creds: ${{ secrets.AZURE_QA_KV_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
       - name: Login to Azure ACR
-        run: az acr login -n bitwardenqa
+        run: az acr login -n bitwardenprod
 
       - name: Pull versioned image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenqa.azurecr.io
+          REGISTRY: bitwardenprod.azurecr.io
         run: docker pull $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG
 
       - name: Tag latest
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenqa.azurecr.io
+          REGISTRY: bitwardenprod.azurecr.io
         run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
       - name: Push version and latest image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenqa.azurecr.io
+          REGISTRY: bitwardenprod.azurecr.io
         run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
