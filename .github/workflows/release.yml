@@ -239,11 +239,10 @@ jobs:
           RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
-      - name: Push version and latest image
+      - name: Push latest image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenqa.azurecr.io
-          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
@@ -306,7 +305,7 @@ jobs:
           REGISTRY: bitwardenprod.azurecr.io
         run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
-      - name: Push version and latest image
+      - name: Push latest image
         env:
           PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
           REGISTRY: bitwardenprod.azurecr.io
