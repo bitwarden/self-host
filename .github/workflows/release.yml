@@ -47,8 +47,8 @@ jobs:
       - name: Set Release Tags
         id: set-tags
         run: |
-          WEB=$(jq -r 'versions.webVersion' < version.json)
-          CORE=$(jq -r 'versions.coreVersion' < version.json)
+          WEB=$(jq -r '.versions.webVersion' < version.json)
+          CORE=$(jq -r '.versions.coreVersion' < version.json)
 
           echo "WEB_RELEASE_TAG=$WEB" >> $GITHUB_OUTPUT
           echo "CORE_RELEASE_TAG=$CORE" >> $GITHUB_OUTPUT
