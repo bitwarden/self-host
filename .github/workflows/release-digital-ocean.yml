@@ -49,6 +49,7 @@ jobs:
         working-directory: ./DigitalOceanMarketplace
         run: |
           packer version
+          packer init
           packer build marketplace-image.pkr.hcl
 
       - name: Install doctl
