@@ -39,6 +39,9 @@ jobs:
             | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Set up Hashicorp Packer
+        uses: hashicorp/setup-packer@ae6b3ed3bec089bbfb576ab7d714df7cbc4b88a4 # v2.0.0
+
       - name: Build Digital Ocean Image
         env:
           DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
