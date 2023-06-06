@@ -51,18 +51,17 @@ jobs:
           packer version
           packer build marketplace-image.json
 
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@bf8757bc21b0cba89461f996ff351821727cf53d # v1.0.0 NB: does not have an official release yet
+      - name: Install doctl
+        uses: digitalocean/action-doctl@ba7726ed64a9c5eb774152b1ea03bf67ee81ad6e # v2.3.0
+        with:
+          token: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
 
       - name: Digital Ocean Image Cleanup
-        env:
-          DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
         working-directory: ./DigitalOceanMarketplace
         if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
         run: |
-          brew install doctl
           # Authenticate to Digital Ocean.
-          doctl auth init -t $DIGITALOCEAN_TOKEN
+          # doctl auth init -t $DIGITALOCEAN_TOKEN
 
           # Get the ID from the snapshot build.
           DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
