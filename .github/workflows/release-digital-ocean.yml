@@ -49,7 +49,7 @@ jobs:
         working-directory: ./DigitalOceanMarketplace
         run: |
           packer version
-          packer build marketplace-image.json
+          packer build marketplace-image.pkr.hcl
 
       - name: Install doctl
         uses: digitalocean/action-doctl@ba7726ed64a9c5eb774152b1ea03bf67ee81ad6e # v2.3.0
