@@ -118,9 +118,10 @@ build {
       "apt-get -qqy -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install ${var.docker_packages}",
       "apt-get -qqy clean",
       "rm -rf /opt/digitalocean",
-      "echo > /var/log/auth.log",
-      "echo > /var/log/kern.log",
-      "echo > /var/log/ufw.log"
+      "rm -rf /var/log/auth.log",
+      "rm -rf /var/log/kern.log",
+      "rm -rf /var/log/ufw.log",
+      "rm -rf /var/log/ubuntu-advantage.log"
     ]
   }
 
