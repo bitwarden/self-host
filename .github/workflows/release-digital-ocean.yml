@@ -61,11 +61,11 @@ jobs:
         working-directory: ./DigitalOceanMarketplace
         if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
         run: |
-          # Authenticate to Digital Ocean.
-          # doctl auth init -t $DIGITALOCEAN_TOKEN
-
           # Get the ID from the snapshot build.
           DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
 
+          # Log ID to console.
+          echo "$DO_ARTIFACT"
+          
           # Force remove the snapshot
           doctl compute image delete $DO_ARTIFACT -f
