@@ -121,7 +121,8 @@ build {
       "rm -rf /var/log/auth.log",
       "rm -rf /var/log/kern.log",
       "rm -rf /var/log/ufw.log",
-      "rm -rf /var/log/ubuntu-advantage.log"
+      "rm -rf /var/log/ubuntu-advantage.log",
+      "rm -rf /var/log/droplet-agent.update.log"
     ]
   }
 

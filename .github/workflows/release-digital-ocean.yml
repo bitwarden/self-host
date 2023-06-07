@@ -64,8 +64,5 @@ jobs:
           # Get the ID from the snapshot build.
           DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
 
-          # Log ID to console.
-          echo "$DO_ARTIFACT"
-          
           # Force remove the snapshot
           doctl compute image delete $DO_ARTIFACT -f
