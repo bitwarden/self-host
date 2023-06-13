@@ -46,7 +46,7 @@ source "digitalocean" "bitwarden_self_host" {
   api_token     = "${var.do_token}"
   image         = "ubuntu-22-04-x64"
   region        = "nyc3"
-  size          = "s-1vcpu-1gb"
+  size          = "s-1vcpu-2gb"
   snapshot_name = "${local.image_name}"
   ssh_username  = "root"
 }

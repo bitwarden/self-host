@@ -53,6 +53,7 @@ jobs:
           packer build marketplace-image.pkr.hcl
 
       - name: Install doctl
+        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
         uses: digitalocean/action-doctl@ba7726ed64a9c5eb774152b1ea03bf67ee81ad6e # v2.3.0
         with:
           token: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
