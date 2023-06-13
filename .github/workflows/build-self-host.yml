@@ -7,6 +7,17 @@ on:
       - "docker-unified/**"
       - ".github/workflows/build-self-host.yml"
   workflow_dispatch:
+    inputs:
+      server_branch:
+        description: "Server branch name to deploy (examples: 'master', 'rc', 'feature/sm')"
+        required: true
+        type: string
+        default: master
+      web_tag:
+        description: "Web branch name to deploy (examples: 'master', 'rc', 'feature/sm')"
+        required: true
+        type: string
+        default: master
   pull_request:
     paths:
       - ".github/workflows/build-self-host.yml"
@@ -23,11 +34,13 @@ jobs:
       - name: Check Branch to Publish
         env:
           PUBLISH_BRANCHES: "master,rc,hotfix-rc"
+          WEB_TAG: ${{ github.event.inputs.web_tag }}
+          SERVER_TAG: ${{ github.event.inputs.server_branch }}
         id: publish-branch-check
         run: |
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " ]]; then
+          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " && " ${publish_branches[*]} " =~ " ${SERVER_TAG} " && " ${publish_branches[*]} " =~ " ${WEB_TAG} " ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
@@ -100,7 +113,7 @@ jobs:
             echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout repo
+      - name: Checkout server repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           repository: bitwarden/server
@@ -109,10 +122,19 @@ jobs:
           ref: 'refs/heads/master'
           path: 'server'
 
+      - name: Checkout clients repo
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          repository: bitwarden/clients
+          token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          # ref: ${{ github.ref }}
+          ref: 'refs/heads/master'
+          path: 'clients'
+
       - name: Build and push Docker image
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v3.2.0
         with:
-          context: server
+          context: .
           file: docker-unified/Dockerfile
           platforms: |
             linux/amd64,
