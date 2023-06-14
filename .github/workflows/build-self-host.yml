@@ -1,5 +1,5 @@
 ---
-name: Build Self-Host
+name: Build Self-Host Unified
 
 on:
   push:
@@ -10,11 +10,6 @@ on:
     inputs:
       server_branch:
         description: "Server branch name to deploy (examples: 'master', 'rc', 'feature/sm')"
-        required: true
-        type: string
-        default: master
-      web_tag:
-        description: "Web branch name to deploy (examples: 'master', 'rc', 'feature/sm')"
         required: true
         type: string
         default: master
@@ -40,7 +35,7 @@ jobs:
         run: |
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " && " ${publish_branches[*]} " =~ " ${SERVER_TAG} " && " ${publish_branches[*]} " =~ " ${WEB_TAG} " ]]; then
+          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " && " ${publish_branches[*]} " =~ " ${SERVER_TAG} " ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
@@ -118,8 +113,7 @@ jobs:
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
-          # ref: ${{ github.ref }}
-          ref: 'refs/heads/master'
+          ref: ${{ inputs.server_branch }}
           path: 'server'
 
       - name: Build and push Docker image
