@@ -2,7 +2,7 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM node AS web-setup
+FROM --platform=$BUILDPLATFORM debian AS web-setup
 
 # Add packages
 RUN apt-get update && apt-get install -y \
@@ -13,34 +13,28 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /tmp
 
-COPY clients/apps/web ./
+# Download tags from 'clients' repository
+RUN --mount=type=secret,id=GH_PAT,target=/etc/secrets/GH_PAT if [ -e "/etc/secrets/GH_PAT" ]; then \
+curl --header "Authorization: token $(cat /etc/secrets/GH_PAT)" \
+  https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; else \
+  curl https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; fi
 
-RUN npm ci
+RUN cat tags.json
 
-RUN npm run dist:bit:selfhost
+# Grab last tag/release of the 'web' client
+RUN cat tags.json | jq -r 'last(.[] | select(.ref|test("refs/tags/web-v[0-9]{4}.[0-9]{1,2}.[0-9]+"))) | .ref | split("/")[2]' > tag.txt
 
-# # Download tags from 'clients' repository
-# RUN --mount=type=secret,id=GH_PAT,target=/etc/secrets/GH_PAT if [ -e "/etc/secrets/GH_PAT" ]; then \
-# curl --header "Authorization: token $(cat /etc/secrets/GH_PAT)" \
-#   https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; else \
-#   curl https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; fi
+# Extract the version of the 'web' client
+RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
 
-# RUN cat tags.json
+# Download the built release artifact for the 'web' client
+RUN TAG=$(cat tag.txt) \
+  && VERSION=$(cat version.txt) \
+  && curl -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O
 
-# # Grab last tag/release of the 'web' client
-# RUN cat tags.json | jq -r 'last(.[] | select(.ref|test("refs/tags/web-v[0-9]{4}.[0-9]{1,2}.[0-9]+"))) | .ref | split("/")[2]' > tag.txt
-
-# # Extract the version of the 'web' client
-# RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
-
-# # Download the built release artifact for the 'web' client
-# RUN TAG=$(cat tag.txt) \
-#   && VERSION=$(cat version.txt) \
-#   && curl -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O
-
-# # Unzip the 'web' client to /tmp/build
-# RUN VERSION=$(cat version.txt) \
-#   && unzip web-$VERSION-selfhosted-COMMERCIAL.zip
+# Unzip the 'web' client to /tmp/build
+RUN VERSION=$(cat version.txt) \
+  && unzip web-$VERSION-selfhosted-COMMERCIAL.zip
 
 ###############################################
 #                 Build stage                 #
@@ -70,25 +64,25 @@ RUN npm install -g gulp
 
 # Copy csproj files as distinct layers
 WORKDIR /source
-COPY server/src/Admin/*.csproj ./src/Admin/
-COPY server/src/Api/*.csproj ./src/Api/
-COPY server/src/Events/*.csproj ./src/Events/
-COPY server/src/Icons/*.csproj ./src/Icons/
-COPY server/src/Identity/*.csproj ./src/Identity/
-COPY server/src/Notifications/*.csproj ./src/Notifications/
-COPY server/bitwarden_license/src/Sso/*.csproj ./bitwarden_license/src/Sso/
-COPY server/bitwarden_license/src/Scim/*.csproj ./bitwarden_license/src/Scim/
-COPY server/src/Core/*.csproj ./src/Core/
-COPY server/src/Infrastructure.Dapper/*.csproj ./src/Infrastructure.Dapper/
-COPY server/src/Infrastructure.EntityFramework/*.csproj ./src/Infrastructure.EntityFramework/
-COPY server/src/SharedWeb/*.csproj ./src/SharedWeb/
-COPY server/util/Migrator/*.csproj ./util/Migrator/
-COPY server/util/MySqlMigrations/*.csproj ./util/MySqlMigrations/
-COPY server/util/PostgresMigrations/*.csproj ./util/PostgresMigrations/
-COPY server/util/SqliteMigrations/*.csproj ./util/SqliteMigrations/
-COPY server/bitwarden_license/src/Commercial.Core/*.csproj ./bitwarden_license/src/Commercial.Core/
-COPY server/bitwarden_license/src/Commercial.Infrastructure.EntityFramework/*.csproj ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
-COPY server/Directory.Build.props .
+COPY src/Admin/*.csproj ./src/Admin/
+COPY src/Api/*.csproj ./src/Api/
+COPY src/Events/*.csproj ./src/Events/
+COPY src/Icons/*.csproj ./src/Icons/
+COPY src/Identity/*.csproj ./src/Identity/
+COPY src/Notifications/*.csproj ./src/Notifications/
+COPY bitwarden_license/src/Sso/*.csproj ./bitwarden_license/src/Sso/
+COPY bitwarden_license/src/Scim/*.csproj ./bitwarden_license/src/Scim/
+COPY src/Core/*.csproj ./src/Core/
+COPY src/Infrastructure.Dapper/*.csproj ./src/Infrastructure.Dapper/
+COPY src/Infrastructure.EntityFramework/*.csproj ./src/Infrastructure.EntityFramework/
+COPY src/SharedWeb/*.csproj ./src/SharedWeb/
+COPY util/Migrator/*.csproj ./util/Migrator/
+COPY util/MySqlMigrations/*.csproj ./util/MySqlMigrations/
+COPY util/PostgresMigrations/*.csproj ./util/PostgresMigrations/
+COPY util/SqliteMigrations/*.csproj ./util/SqliteMigrations/
+COPY bitwarden_license/src/Commercial.Core/*.csproj ./bitwarden_license/src/Commercial.Core/
+COPY bitwarden_license/src/Commercial.Infrastructure.EntityFramework/*.csproj ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
+COPY Directory.Build.props .
 
 # Restore Admin project dependencies and tools
 WORKDIR /source/src/Admin
