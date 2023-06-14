@@ -26,15 +26,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
 
+      - name: Get server branch to checkout
+        id: server-branch-name
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          SERVER_BRANCH: ${{ github.event.inputs.server_branch }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "server_branch=$SERVER_BRANCH" >> $GITHUB_OUTPUT
+            echo "Branch: $SERVER_BRANCH"
+          else
+            echo "server_branch=master" >> $GITHUB_OUTPUT
+            echo "Branch: master"
+          fi
+
       - name: Check Branch to Publish
         env:
           PUBLISH_BRANCHES: "master,rc,hotfix-rc"
-          SERVER_TAG: ${{ github.event.inputs.server_branch }}
+          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " && " ${publish_branches[*]} " =~ " ${SERVER_TAG} " ]]; then
+          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " && " ${publish_branches[*]} " =~ " ${SERVER_BRANCH} " ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
@@ -105,20 +119,6 @@ jobs:
             echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           else
             echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Get server branch to checkout
-        id: server-branch-name
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          SERVER_BRANCH: ${{ github.event.inputs.server_branch }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "server_branch=$SERVER_BRANCH" >> $GITHUB_OUTPUT
-            echo "Branch: $SERVER_BRANCH"
-          else
-            echo "server_branch=master" >> $GITHUB_OUTPUT
-            echo "Branch: master"
           fi
 
       - name: Checkout server repo
