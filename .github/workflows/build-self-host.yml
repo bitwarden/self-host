@@ -107,12 +107,26 @@ jobs:
             echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Get server branch to checkout
+        id: server-branch-name
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          SERVER_BRANCH: ${{ github.event.inputs.server_branch }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "server_branch=$SERVER_BRANCH" >> $GITHUB_OUTPUT
+            echo "Branch: $SERVER_BRANCH"
+          else
+            echo "server_branch=master" >> $GITHUB_OUTPUT
+            echo "Branch: master"
+          fi
+
       - name: Checkout server repo
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
-          ref: ${{ github.event.inputs.server_branch }}
+          ref: ${{ steps.server-branch-name.outputs.server_branch }}
           path: 'server'
 
       - name: Build and push Docker image
