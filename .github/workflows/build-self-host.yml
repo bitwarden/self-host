@@ -29,7 +29,6 @@ jobs:
       - name: Check Branch to Publish
         env:
           PUBLISH_BRANCHES: "master,rc,hotfix-rc"
-          WEB_TAG: ${{ github.event.inputs.web_tag }}
           SERVER_TAG: ${{ github.event.inputs.server_branch }}
         id: publish-branch-check
         run: |
@@ -113,7 +112,7 @@ jobs:
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
-          ref: ${{ inputs.server_branch }}
+          ref: ${{ github.event.inputs.server_branch }}
           path: 'server'
 
       - name: Build and push Docker image
