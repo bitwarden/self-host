@@ -4,7 +4,7 @@
 # © 2021-2022 DigitalOcean LLC.
 # This code is licensed under Apache 2.0 license (see LICENSE.md for details)
 
-VERSION="v. 1.8"
+VERSION="v. 1.8.1"
 RUNDATE=$( date )
 
 # Script should be run with SUDO
@@ -75,7 +75,7 @@ function checkAgent {
      echo -en "\e[41m[FAIL]\e[0m DigitalOcean directory detected.\n"
             ((FAIL++))
             STATUS=2
-      if [[ $OS == "CentOS Linux" ]] || [[ $OS == "CentOS Stream" ]] || [[ $OS == "Rocky Linux" ]]; then
+      if [[ $OS == "CentOS Linux" ]] || [[ $OS == "CentOS Stream" ]] || [[ $OS == "Rocky Linux" ]] || [[ $OS == "AlmaLinux" ]]; then
         echo "To uninstall the agent: 'sudo yum remove droplet-agent'"
         echo "To remove the DO directory: 'find /opt/digitalocean/ -type d -empty -delete'"
       elif [[ $OS == "Ubuntu" ]] || [[ $OS == "Debian" ]]; then
@@ -357,7 +357,7 @@ function checkFirewall {
         # shellcheck disable=SC2031
         ((WARN++))
       fi
-    elif [[ $OS == "CentOS Linux" ]] || [[ $OS == "CentOS Stream" ]] || [[ $OS == "Rocky Linux" ]]; then
+    elif [[ $OS == "CentOS Linux" ]] || [[ $OS == "CentOS Stream" ]] || [[ $OS == "Rocky Linux" ]] || [[ $OS == "AlmaLinux" ]]; then
       if [ -f /usr/lib/systemd/system/csf.service ]; then
         fw="csf"
         if [[ $(systemctl status $fw >/dev/null 2>&1) ]]; then
@@ -456,7 +456,7 @@ function checkUpdates {
             echo -en "\e[32m[PASS]\e[0m There are no pending security updates for this image.\n\n"
             ((PASS++))
         fi
-    elif [[ $OS == "CentOS Linux" ]] || [[ $OS == "CentOS Stream" ]] || [[ $OS == "Rocky Linux" ]]; then
+    elif [[ $OS == "CentOS Linux" ]] || [[ $OS == "CentOS Stream" ]] || [[ $OS == "Rocky Linux" ]] || [[ $OS == "AlmaLinux" ]]; then
         echo -en "\nChecking for available security updates, this may take a minute...\n\n"
 
         update_count=$(yum check-update --security --quiet | wc -l)
@@ -542,12 +542,21 @@ elif [[ $OS == "CentOS Stream" ]]; then
         ost=1
     if [[ $VER == "8" ]]; then
         osv=1
+    elif [[ $VER == "9" ]]; then
+        osv=1
     else
         osv=2
     fi
 elif [[ $OS == "Rocky Linux" ]]; then
         ost=1
     if [[ $VER =~ 8\. ]]; then
+        osv=1
+    else
+        osv=2
+    fi
+elif [[ $OS == "AlmaLinux" ]]; then
+        ost=1
+    if [[ "$VERSION" =~ 8.* ]] || [[ "$VERSION" =~ 9.* ]]; then
         osv=1
     else
         osv=2
