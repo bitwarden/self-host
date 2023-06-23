@@ -313,3 +313,91 @@ jobs:
 
       - name: Log out of Docker
         run: docker logout
+
+  release-unified:
+    name: Release Self-host unified
+    runs-on: ubuntu-22.04
+    needs:
+      - setup
+      - release
+    env:
+      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+      _BRANCH_NAME: master
+    steps:
+
+      ########## DockerHub ##########
+      - name: Setup DCT
+        id: setup-dct
+        uses: bitwarden/gh-actions/setup-docker-trust@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
+        with:
+          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          azure-keyvault-name: "bitwarden-ci"
+
+      - name: Pull latest self-host image
+        run: |
+          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+            docker pull bitwarden/self-host:latest
+          else
+            docker pull bitwarden/self-host:$_BRANCH_NAME
+          fi
+
+      - name: Tag version and latest
+        run: |
+          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+            docker tag bitwarden/self-host:latest bitwarden/self-host:dryrun
+          else
+            docker tag bitwarden/self-host:$_BRANCH_NAME bitwarden/self-host:$_RELEASE_VERSION
+          fi
+
+      - name: Push version and latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' && matrix.origin_docker_repo == 'bitwarden' }}
+        env:
+          DOCKER_CONTENT_TRUST: 1
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+        run: docker push bitwarden/self-host:$_RELEASE_VERSION
+
+      - name: Log out of Docker and disable Docker Notary
+        run: |
+          docker logout
+          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
+
+      ########## ACR PROD ##########
+      - name: Login to Azure - PROD Subscription
+        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: az acr login -n bitwardenprod
+
+      - name: Pull latest project image
+        env:
+          REGISTRY: bitwardenprod.azurecr.io
+        run: |
+          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+            docker pull $REGISTRY/self-host:dev
+          else
+            docker pull $REGISTRY/self-host:$_BRANCH_NAME
+          fi
+
+      - name: Tag version and latest
+        env:
+          REGISTRY: bitwardenprod.azurecr.io
+        run: |
+          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+            docker tag $REGISTRY/self-host:dev $REGISTRY/self-host:dryrun
+          else
+            docker tag $REGISTRY/self-host:$_BRANCH_NAME $REGISTRY/self-host:$_RELEASE_VERSION
+            docker tag $REGISTRY/self-host:$_BRANCH_NAME $REGISTRY/self-host:latest
+          fi
+
+      - name: Push version and latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          REGISTRY: bitwardenprod.azurecr.io
+        run: |
+          docker push $REGISTRY/self-host:$_RELEASE_VERSION
+          docker push $REGISTRY/self-host:latest
+
+      - name: Log out of Docker
+        run: docker logout
