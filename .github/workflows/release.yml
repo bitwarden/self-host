@@ -7,6 +7,15 @@ on:
       release_version:
         description: "Release Version"
         required: true
+      release_type:
+        description: "Release Options"
+        required: true
+        default: "Initial Release"
+        type: choice
+        options:
+          - Initial Release
+          - Redeploy
+          - Dry Run
 
 jobs:
   setup:
