@@ -27,6 +27,7 @@ jobs:
       _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
     steps:
       - name: Branch check
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         run: |
           if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
             echo "==================================="
@@ -74,20 +75,21 @@ jobs:
         with:
           ref: master
 
-      # - name: Create release
-      #   uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e # v1.12.0
-      #   with:
-      #     artifacts: 'bitwarden.sh,
-      #                 run.sh,
-      #                 bitwarden.ps1,
-      #                 run.ps1,
-      #                 version.json'
-      #     commit: ${{ github.sha }}
-      #     tag: "v${{ github.event.inputs.release_version }}"
-      #     name: "Version ${{ github.event.inputs.release_version }}"
-      #     body: "<insert release notes here>"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     draft: true
+      - name: Create release
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e # v1.12.0
+        with:
+          artifacts: 'bitwarden.sh,
+                      run.sh,
+                      bitwarden.ps1,
+                      run.ps1,
+                      version.json'
+          commit: ${{ github.sha }}
+          tag: "v${{ github.event.inputs.release_version }}"
+          name: "Version ${{ github.event.inputs.release_version }}"
+          body: "<insert release notes here>"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
 
   release-version:
     name: Upload version.json
@@ -118,28 +120,30 @@ jobs:
             r2-bitwarden-selfhost-version-bucket-name,
             cf-prod-account"
 
-      # - name: Upload version.json to S3 bucket
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
-      #     AWS_DEFAULT_REGION: 'us-west-2'
-      #     AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
-      #   run: |
-      #     aws s3 cp version.json $AWS_S3_BUCKET_NAME \
-      #     --acl "public-read" \
-      #     --quiet
+      - name: Upload version.json to S3 bucket
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
+          AWS_DEFAULT_REGION: 'us-west-2'
+          AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
+        run: |
+          aws s3 cp version.json $AWS_S3_BUCKET_NAME \
+          --acl "public-read" \
+          --quiet
 
-      # - name: Upload version.json to R2 bucket
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.r2-electron-access-id }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.r2-electron-access-key }}
-      #     AWS_DEFAULT_REGION: 'us-east-1'
-      #     AWS_S3_BUCKET_NAME: ${{ steps.retrieve-secrets.outputs.r2-bitwarden-selfhost-version-bucket-name }}
-      #     CF_ACCOUNT: ${{ steps.retrieve-secrets.outputs.cf-prod-account }}
-      #   run: |
-      #     aws s3 cp version.json $AWS_S3_BUCKET_NAME \
-      #     --quiet \
-      #     --endpoint-url https://${CF_ACCOUNT}.r2.cloudflarestorage.com
+      - name: Upload version.json to R2 bucket
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.r2-electron-access-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.r2-electron-access-key }}
+          AWS_DEFAULT_REGION: 'us-east-1'
+          AWS_S3_BUCKET_NAME: ${{ steps.retrieve-secrets.outputs.r2-bitwarden-selfhost-version-bucket-name }}
+          CF_ACCOUNT: ${{ steps.retrieve-secrets.outputs.cf-prod-account }}
+        run: |
+          aws s3 cp version.json $AWS_S3_BUCKET_NAME \
+          --quiet \
+          --endpoint-url https://${CF_ACCOUNT}.r2.cloudflarestorage.com
 
   tag-docker-latest:
     name: Tag Docker images latest
@@ -217,16 +221,17 @@ jobs:
           RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG bitwarden/$PROJECT_NAME:latest
 
-      # - name: Push latest image
-      #   env:
-      #     DOCKER_CONTENT_TRUST: 1
-      #     DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-      #     PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-      #   run: |
-      #     if [ "$PROJECT_NAME" == "scim" ]; then
-      #       export DOCKER_CONTENT_TRUST=0
-      #     fi
-      #     docker push bitwarden/$PROJECT_NAME:latest
+      - name: Push latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          DOCKER_CONTENT_TRUST: 1
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+        run: |
+          if [ "$PROJECT_NAME" == "scim" ]; then
+            export DOCKER_CONTENT_TRUST=0
+          fi
+          docker push bitwarden/$PROJECT_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
         run: |
@@ -249,11 +254,12 @@ jobs:
           RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
         run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
-      # - name: Push latest image
-      #   env:
-      #     PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-      #     REGISTRY: bitwardenqa.azurecr.io
-      #   run: docker push $REGISTRY/$PROJECT_NAME:latest
+      - name: Push latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+          REGISTRY: bitwardenqa.azurecr.io
+        run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
@@ -315,11 +321,12 @@ jobs:
           REGISTRY: bitwardenprod.azurecr.io
         run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
 
-      # - name: Push latest image
-      #   env:
-      #     PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-      #     REGISTRY: bitwardenprod.azurecr.io
-      #   run: docker push $REGISTRY/$PROJECT_NAME:latest
+      - name: Push latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
+          REGISTRY: bitwardenprod.azurecr.io
+        run: docker push $REGISTRY/$PROJECT_NAME:latest
 
       - name: Log out of Docker
         run: docker logout
@@ -359,12 +366,12 @@ jobs:
             docker tag bitwarden/self-host:$_BRANCH_NAME bitwarden/self-host:$_RELEASE_VERSION
           fi
 
-      # - name: Push version and latest image
-      #   if: ${{ github.event.inputs.release_type != 'Dry Run' && matrix.origin_docker_repo == 'bitwarden' }}
-      #   env:
-      #     DOCKER_CONTENT_TRUST: 1
-      #     DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-      #   run: docker push bitwarden/self-host:$_RELEASE_VERSION
+      - name: Push version and latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' && matrix.origin_docker_repo == 'bitwarden' }}
+        env:
+          DOCKER_CONTENT_TRUST: 1
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+        run: docker push bitwarden/self-host:$_RELEASE_VERSION
 
       - name: Log out of Docker and disable Docker Notary
         run: |
@@ -401,13 +408,13 @@ jobs:
             docker tag $REGISTRY/self-host:$_BRANCH_NAME $REGISTRY/self-host:latest
           fi
 
-      # - name: Push version and latest image
-      #   if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-      #   env:
-      #     REGISTRY: bitwardenprod.azurecr.io
-      #   run: |
-      #     docker push $REGISTRY/self-host:$_RELEASE_VERSION
-      #     docker push $REGISTRY/self-host:latest
+      - name: Push version and latest image
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        env:
+          REGISTRY: bitwardenprod.azurecr.io
+        run: |
+          docker push $REGISTRY/self-host:$_RELEASE_VERSION
+          docker push $REGISTRY/self-host:latest
 
       - name: Log out of Docker
         run: docker logout
