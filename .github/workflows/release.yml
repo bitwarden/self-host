@@ -158,7 +158,7 @@ jobs:
       - release
     env:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
-      _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
+      _BRANCH_NAME: master
     strategy:
       fail-fast: false
       matrix:
@@ -343,8 +343,8 @@ jobs:
       - setup
       - release
     env:
-      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}-beta
-      _BRANCH_NAME: master
+      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}-beta # TODO: remove `-beta` after GA
+      _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
     steps:
 
       ########## DockerHub ##########
