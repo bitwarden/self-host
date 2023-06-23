@@ -353,7 +353,7 @@ jobs:
       - name: Pull latest self-host image
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull bitwarden/self-host:latest
+            docker pull bitwarden/self-host:dev
           else
             docker pull bitwarden/self-host:$_BRANCH_NAME
           fi
@@ -361,7 +361,7 @@ jobs:
       - name: Tag version and latest
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag bitwarden/self-host:latest bitwarden/self-host:dryrun
+            docker tag bitwarden/self-host:dev bitwarden/self-host:dryrun
           else
             docker tag bitwarden/self-host:$_BRANCH_NAME bitwarden/self-host:$_RELEASE_VERSION
           fi
