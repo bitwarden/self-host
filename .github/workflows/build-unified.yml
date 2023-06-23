@@ -100,12 +100,12 @@ jobs:
       ########## Generate image tag and build Docker image ##########
       - name: Generate Docker image tag
         id: tag
+        env:
+          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         run: |
-          IMAGE_TAG=$(echo "${GITHUB_REF:11}" | sed "s#/#-#g")  # slash safe branch name
+          IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
           if [[ "$IMAGE_TAG" == "master" ]]; then
             IMAGE_TAG=dev
-          elif [[ "$IMAGE_TAG" == "rc" ]] || [[ "$IMAGE_TAG" == "hotfix-rc" ]]; then
-            IMAGE_TAG=beta
           fi
 
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
