@@ -32,6 +32,7 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           SERVER_BRANCH: ${{ github.event.inputs.server_branch }}
         run: |
+          SERVER_BRANCH=${SERVER_BRANCH:11}
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "server_branch=$SERVER_BRANCH" >> $GITHUB_OUTPUT
             echo "Branch: $SERVER_BRANCH"
