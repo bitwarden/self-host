@@ -105,8 +105,6 @@ jobs:
           IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
           if [[ "$IMAGE_TAG" == "master" ]]; then
             IMAGE_TAG=dev
-          elif [[ "$IMAGE_TAG" == "rc" ]] || [[ "$IMAGE_TAG" == "hotfix-rc" ]]; then
-            IMAGE_TAG=beta
           fi
 
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
