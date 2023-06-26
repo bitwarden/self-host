@@ -6,6 +6,13 @@ on:
     paths:
       - "docker-unified/**"
       - ".github/workflows/build-self-host.yml"
+  workflow_call:
+    inputs:
+      server_branch:
+        description: "Server branch name to deploy (examples: 'master', 'rc', 'feature/sm')"
+        required: true
+        type: string
+        default: master
   workflow_dispatch:
     inputs:
       server_branch:
@@ -29,17 +36,8 @@ jobs:
       - name: Get server branch to checkout
         id: server-branch-name
         env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
           SERVER_BRANCH: ${{ github.event.inputs.server_branch }}
-        run: |
-          SERVER_BRANCH=${SERVER_BRANCH:11}
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "server_branch=$SERVER_BRANCH" >> $GITHUB_OUTPUT
-            echo "Branch: $SERVER_BRANCH"
-          else
-            echo "server_branch=master" >> $GITHUB_OUTPUT
-            echo "Branch: master"
-          fi
+        run: echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
 
       - name: Check Branch to Publish
         env:
@@ -49,7 +47,7 @@ jobs:
         run: |
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ " ${publish_branches[*]} " =~ " ${GITHUB_REF:11} " && " ${publish_branches[*]} " =~ " ${SERVER_BRANCH} " ]]; then
+          if [[ " ${publish_branches[*]} " =~ " ${SERVER_BRANCH} " ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
