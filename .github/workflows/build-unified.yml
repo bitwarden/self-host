@@ -13,6 +13,9 @@ on:
         required: true
         type: string
         default: master
+      is_workflow_call:
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       server_branch:
@@ -31,7 +34,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout Repository - workflow_call
-        if: ${{ github.event_name == 'workflow_call' }}
+        if: ${{ inputs.is_workflow_call == true }}
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           repository: bitwarden/self-host
@@ -53,9 +56,15 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
+          if [[ " ${{ inputs.is_workflow_call }} " = " true " ]]; then
+            REF=master
+          else
+            REF=${GITHUB_REF#/refs/heads/}
+          fi
+
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ " ${publish_branches[*]} " =~ " ${SERVER_BRANCH} " ]]; then
+          if [[ " ${publish_branches[*]} " =~ " ${REF} " && " ${publish_branches[*]} " =~ " ${SERVER_BRANCH} " ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
