@@ -13,6 +13,9 @@ on:
         required: true
         type: string
         default: master
+      is_workflow_call:
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       server_branch:
@@ -31,7 +34,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout Repository - workflow_call
-        if: ${{ github.event_name == 'workflow_call' }}
+        if: ${{ inputs.is_workflow_call == true }}
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           repository: bitwarden/self-host
@@ -53,9 +56,15 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
+          if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
+            REF=master
+          else
+            REF=${GITHUB_REF#/refs/heads/}
+          fi
+
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ " ${publish_branches[*]} " =~ " ${SERVER_BRANCH} " ]]; then
+          if [[ "${publish_branches[*]}" =~ "${REF}" && "${publish_branches[*]}" =~ "${SERVER_BRANCH}" ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
@@ -111,18 +120,19 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         run: |
           IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
-          if [[ "$IMAGE_TAG" == "master" ]]; then
+          if [[ "${IMAGE_TAG}" == "master" ]]; then
             IMAGE_TAG=dev
           fi
 
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Generate tag list
         id: tag-list
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
-          if [ "$IMAGE_TAG" = "dev" ] || [ "$IMAGE_TAG" = "beta" ]; then
+          if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
             echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           else
             echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
