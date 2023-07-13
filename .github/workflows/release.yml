@@ -345,7 +345,6 @@ jobs:
     env:
       _RELEASE_VERSION: ${{ github.event.inputs.release_version }}-beta # TODO: remove `-beta` after GA
     steps:
-
       - name: Get tag
         id: get-tag
         env:
@@ -367,6 +366,8 @@ jobs:
           azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull self-host image
+        env:
+          _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker pull bitwarden/self-host:dev
@@ -376,7 +377,7 @@ jobs:
 
       - name: Tag version and latest
         env:
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
+          _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker tag bitwarden/self-host:dev bitwarden/self-host:dryrun
@@ -386,7 +387,7 @@ jobs:
           fi
 
       - name: Push version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' && matrix.origin_docker_repo == 'bitwarden' }}
+        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
@@ -411,7 +412,7 @@ jobs:
       - name: Pull latest project image
         env:
           REGISTRY: bitwardenprod.azurecr.io
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
+          _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker pull $REGISTRY/self-host:dev
@@ -422,7 +423,7 @@ jobs:
       - name: Tag version and latest
         env:
           REGISTRY: bitwardenprod.azurecr.io
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
+          _BRANCH_NAME: ${{ needs.setup.outputs.branch-name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker tag $REGISTRY/self-host:dev $REGISTRY/self-host:dryrun
