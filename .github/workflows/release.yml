@@ -338,18 +338,6 @@ jobs:
     env:
       _RELEASE_VERSION: ${{ github.event.inputs.release_version }}-beta # TODO: remove `-beta` after GA
     steps:
-      - name: Setup
-        id: setup
-        env:
-          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
-        run: |
-          last_number=$(echo $RELEASE_VERSION | cut -d '.' -f 3)
-          if [ $last_number -eq 0 ]; then
-            echo "branch_name=rc" >> $GITHUB_OUTPUT
-          else
-            echo "branch_name=hotfix-rc" >> $GITHUB_OUTPUT
-          fi
-
       ########## DockerHub ##########
       - name: Setup DCT
         id: setup-dct
@@ -359,24 +347,20 @@ jobs:
           azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull self-host image
-        env:
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker pull bitwarden/self-host:dev
           else
-            docker pull bitwarden/self-host:$_BRANCH_NAME
+            docker pull bitwarden/self-host:beta
           fi
 
       - name: Tag version and latest
-        env:
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker tag bitwarden/self-host:dev bitwarden/self-host:dryrun
           else
-            docker tag bitwarden/self-host:$_BRANCH_NAME bitwarden/self-host:$_RELEASE_VERSION
-            # docker tag bitwarden/self-host:$_BRANCH_NAME bitwarden/self-host:latest # TODO: uncomment this line after GA
+            docker tag bitwarden/self-host:beta bitwarden/self-host:$_RELEASE_VERSION
+            # docker tag bitwarden/self-host:beta bitwarden/self-host:latest # TODO: uncomment this line after GA
           fi
 
       - name: Push version and latest image
@@ -405,24 +389,22 @@ jobs:
       - name: Pull latest project image
         env:
           REGISTRY: bitwardenprod.azurecr.io
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker pull $REGISTRY/self-host:dev
           else
-            docker pull $REGISTRY/self-host:$_BRANCH_NAME
+            docker pull $REGISTRY/self-host:beta
           fi
 
       - name: Tag version and latest
         env:
           REGISTRY: bitwardenprod.azurecr.io
-          _BRANCH_NAME: ${{ steps.setup.outputs.branch_name }}
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
             docker tag $REGISTRY/self-host:dev $REGISTRY/self-host:dryrun
           else
-            docker tag $REGISTRY/self-host:$_BRANCH_NAME $REGISTRY/self-host:$_RELEASE_VERSION
-            docker tag $REGISTRY/self-host:$_BRANCH_NAME $REGISTRY/self-host:latest
+            docker tag $REGISTRY/self-host:beta $REGISTRY/self-host:$_RELEASE_VERSION
+            docker tag $REGISTRY/self-host:beta $REGISTRY/self-host:latest
           fi
 
       - name: Push version and latest image
