@@ -60,7 +60,7 @@ fi
 
 function install() {
     LETS_ENCRYPT="n"
-    echo -e -n "${CYAN}(!)${NC} Enter the domain name for your Bitwarden instance (ex. bitwarden.example.com): "
+    echo -e -n "${CYAN}(!)${NC} Enter the domain name for your Bitwarden instance (ex. bitwarden.example.com) [localhost]: "
     read DOMAIN
     echo ""
     
@@ -71,11 +71,11 @@ function install() {
     
     if [ "$DOMAIN" != "localhost" ]
     then
-        echo -e -n "${CYAN}(!)${NC} Do you want to use Let's Encrypt to generate a free SSL certificate? (y/n): "
+        echo -e -n "${CYAN}(!)${NC} Do you want to use Let's Encrypt to generate a free SSL certificate? (y/N): "
         read LETS_ENCRYPT
         echo ""
     
-        if [ "$LETS_ENCRYPT" == "y" ]
+        if [[ "$LETS_ENCRYPT" == "y" || "$LETS_ENCRYPT" == "Y" ]]
         then
             echo -e -n "${CYAN}(!)${NC} Enter your email address (Let's Encrypt will send you certificate expiration reminders): "
             read EMAIL
@@ -89,7 +89,7 @@ function install() {
         fi
     fi
 
-    echo -e -n "${CYAN}(!)${NC} Enter the database name for your Bitwarden instance (ex. vault): "
+    echo -e -n "${CYAN}(!)${NC} Enter the database name for your Bitwarden instance [vault]: "
     read DATABASE
     echo ""
 
@@ -236,22 +236,22 @@ function update() {
 }
 
 function uninstall() {
-    echo -e -n "${RED}(WARNING: UNINSTALL STARTED) Would you like to save the database files? (y/n): ${NC}"
+    echo -e -n "${RED}(WARNING: UNINSTALL STARTED) Would you like to save the database files? (y/N): ${NC}"
     read KEEP_DATABASE
 
-    if [ "$KEEP_DATABASE" == "y" ]
+    if [[ "$KEEP_DATABASE" == "y" || "$KEEP_DATABASE" == "Y" ]]
     then
         echo "Saving database files."
         tar -cvzf "./bitwarden_database.tar.gz" "$OUTPUT_DIR/mssql"
-        echo -e -n "${RED}(SAVED DATABASE FILES: YES): WARNING: ALL DATA WILL BE REMOVED, INCLUDING THE FOLDER $OUTPUT_DIR): Are you sure you want to uninstall Bitwarden? (y/n): ${NC}"
+        echo -e -n "${RED}(SAVED DATABASE FILES: YES): WARNING: ALL DATA WILL BE REMOVED, INCLUDING THE FOLDER $OUTPUT_DIR): Are you sure you want to uninstall Bitwarden? (y/N): ${NC}"
         read UNINSTALL_ACTION
     else
-        echo -e -n "${RED}WARNING: ALL DATA WILL BE REMOVED, INCLUDING THE FOLDER $OUTPUT_DIR): Are you sure you want to uninstall Bitwarden? (y/n): ${NC}"
+        echo -e -n "${RED}WARNING: ALL DATA WILL BE REMOVED, INCLUDING THE FOLDER $OUTPUT_DIR): Are you sure you want to uninstall Bitwarden? (y/N): ${NC}"
         read UNINSTALL_ACTION
     fi
 
     
-    if [ "$UNINSTALL_ACTION" == "y" ]
+    if [[ "$UNINSTALL_ACTION" == "y" || "$UNINSTALL_ACTION" == "Y" ]]
     then
         echo "Uninstalling Bitwarden..."
         dockerComposeDown
@@ -265,9 +265,9 @@ function uninstall() {
         exit 1
     fi
 
-    echo -e -n "${RED}(!) Would you like to purge all local Bitwarden container images? (y/n): ${NC}"
+    echo -e -n "${RED}(!) Would you like to purge all local Bitwarden container images? (y/N): ${NC}"
     read PURGE_ACTION
-    if [ "$PURGE_ACTION" == "y" ]
+    if [[ "$PURGE_ACTION" == "y" || "$PURGE_ACTION" == "Y" ]]
     then
         dockerPrune
         echo -e -n "${CYAN}Bitwarden uninstall complete! ${NC}"

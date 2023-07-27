@@ -40,7 +40,7 @@ if ("${env:BITWARDEN_CERTBOT_HTTPS_PORT}" -ne "") {
 function Install() {
     [string]$letsEncrypt = "n"
     Write-Host "(!) " -f cyan -nonewline
-    [string]$domain = $( Read-Host "Enter the domain name for your Bitwarden instance (ex. bitwarden.example.com)" )
+    [string]$domain = $( Read-Host "Enter the domain name for your Bitwarden instance (ex. bitwarden.example.com) [localhost]" )
     echo ""
     
     if ($domain -eq "") {
@@ -49,10 +49,10 @@ function Install() {
     
     if ($domain -ne "localhost") {
         Write-Host "(!) " -f cyan -nonewline
-        $letsEncrypt = $( Read-Host "Do you want to use Let's Encrypt to generate a free SSL certificate? (y/n)" )
+        $letsEncrypt = $( Read-Host "Do you want to use Let's Encrypt to generate a free SSL certificate? (y/N)" )
         echo ""
     
-        if ($letsEncrypt -eq "y") {
+        if ($letsEncrypt.ToLower() -eq "y") {
             Write-Host "(!) " -f cyan -nonewline
             [string]$email = $( Read-Host ("Enter your email address (Let's Encrypt will send you certificate " +
                     "expiration reminders)") )
@@ -72,7 +72,7 @@ function Install() {
     }
 
     Write-Host "(!) " -f cyan -nonewline
-    [string]$database = $( Read-Host "Enter the database name for your Bitwarden instance (ex. vault): ")
+    [string]$database = $( Read-Host "Enter the database name for your Bitwarden instance [vault]: ")
     echo ""
 
     if ($database -eq "") {
@@ -185,35 +185,37 @@ function Update([switch] $withpull) {
 }
 
 function Uninstall() {
-    $keepDatabase = $(Write-Host "(WARNING: UNINSTALL STARTED) Would you like to save the database files? (y/n)" -f red -nonewline) + $(Read-host)
-    if ($keepDatabase -eq "y") {
+    $keepDatabase = $(Write-Host "(WARNING: UNINSTALL STARTED) Would you like to save the database files? (y/N)" -f red -nonewline) + $(Read-host)
+    if ($keepDatabase.ToLower() -eq "y") {
         Write-Host "Saving database."
         Compress-Archive -Path "${outputDir}\mssql" -DestinationPath ".\bitwarden_database.zip"
         Write-Host "(SAVED DATABASE FILES: YES) `n(WARNING: ALL DATA WILL BE REMOVED, INCLUDING THE FOLDER $outputDir) " -f red -nonewline
-        $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/n)" )
-    } else {
+        $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/N)" )
+    }
+    else {
         Write-Host "(WARNING: ALL DATA WILL BE REMOVED, INCLUDING THE FOLDER $outputDir) " -f red -nonewline
-        $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/n)" )
+        $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/N)" )
     }
 
     
-    if ($uninstallAction -eq "y") {
+    if ($uninstallAction.ToLower() -eq "y") {
         Write-Host "uninstalling Bitwarden..."
         Docker-Compose-Down
         Write-Host "Removing $outputDir"
         Remove-Item -Path $outputDir -Force -Recurse
         Write-Host "Bitwarden uninstall complete!"
-    } else {
+    }
+    else {
         Write-Host "Bitwarden uninstall canceled."
         Exit
     }
 
     Write-Host "(!) " -f red -nonewline
-        $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/n)" )
+    $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/N)" )
     
-        if ($purgeAction -eq "y") {
-            Docker-Prune
-        }
+    if ($purgeAction.ToLower() -eq "y") {
+        Docker-Prune
+    }
 }
 
 function Print-Environment {
