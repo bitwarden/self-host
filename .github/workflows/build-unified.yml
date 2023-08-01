@@ -46,10 +46,10 @@ jobs:
         env:
           SERVER_BRANCH: ${{ inputs.server_branch }}
         run: |
-          if [[ -z "${SERVER_BRANCH}"]]; then
+          if [[ -z "${SERVER_BRANCH}" ]]; then
             SERVER_BRANCH=master
           fi
-          
+
           echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
 
       - name: Check Branch to Publish
