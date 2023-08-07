@@ -111,7 +111,7 @@ server {
   }
 {{/if}}
 
-{{#if Boolean.And ((String.Equal env.BW_ENABLE_ICONS "true") Boolean.Not (String.Equal env.BW_ICONS_PROXY_TO_CLOUD "true"))}}
+{{#if Boolean.And ((String.Equal env.BW_ENABLE_ICONS "true") (Boolean.Not (String.Equal env.BW_ICONS_PROXY_TO_CLOUD "true")))}}
   location /icons/ {
     proxy_pass http://localhost:5004/;
   }
