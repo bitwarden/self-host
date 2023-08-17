@@ -17,6 +17,9 @@ on:
           - Release
           - Dry Run
 
+env:
+  _AZ_REGISTRY: bitwardenprod.azurecr.io
+
 jobs:
   setup:
     name: Setup
@@ -144,7 +147,7 @@ jobs:
           --endpoint-url https://${CF_ACCOUNT}.r2.cloudflarestorage.com
 
   tag-docker-latest:
-    name: Tag Docker images latest
+    name: Tag DockerHub images latest
     runs-on: ubuntu-22.04
     needs:
       - setup
@@ -170,7 +173,7 @@ jobs:
           - project_name: Sso
           - project_name: Web
             release_tag: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
-          - project_name: Scim
+          - project_name: Web-sh
     steps:
       - name: Print environment
         run: |
@@ -184,19 +187,27 @@ jobs:
         with:
           ref: master
 
+      - name: Login to Azure - Prod Subscription
+        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: az acr login -n bitwardenprod
+
       - name: Setup project name and release tag
         id: setup
         run: |
           PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.project_name }}"
           echo "PROJECT_NAME: $PROJECT_NAME"
-          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "_PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV
 
           if [ -z "${{ matrix.release_tag }}" ]; then
             # Use core release tag by default.
-            echo "release_tag=$_CORE_RELEASE_TAG" >> $GITHUB_OUTPUT
+            echo "_RELEASE_TAG=$_CORE_RELEASE_TAG" >> $GITHUB_ENV
           else
-            echo "release_tag=${{ matrix.release_tag }}" >> $GITHUB_OUTPUT
+            echo "_RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_ENV
           fi
 
       ########## DockerHub ##########
@@ -208,126 +219,23 @@ jobs:
           azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull versioned image
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
-        run: docker pull bitwarden/$PROJECT_NAME:$RELEASE_TAG
+        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$RELEASE_TAG
 
       - name: Tag latest
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
-        run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG bitwarden/$PROJECT_NAME:latest
+        run: docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
 
       - name: Push latest image
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
         run: |
-          if [ "$PROJECT_NAME" == "scim" ]; then
-            export DOCKER_CONTENT_TRUST=0
-          fi
-          docker push bitwarden/$PROJECT_NAME:latest
+          docker push bitwarden/$_PROJECT_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
         run: |
           docker logout
           echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
-
-      ########## ACR ##########
-      - name: Login to Azure - QA Subscription
-        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
-        with:
-          creds: ${{ secrets.AZURE_QA_KV_CREDENTIALS }}
-
-      - name: Login to Azure ACR
-        run: az acr login -n bitwardenqa
-
-      - name: Tag latest
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenqa.azurecr.io
-          RELEASE_TAG: ${{ steps.setup.outputs.release_tag }}
-        run: docker tag bitwarden/$PROJECT_NAME:$RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
-
-      - name: Push latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenqa.azurecr.io
-        run: docker push $REGISTRY/$PROJECT_NAME:latest
-
-      - name: Log out of Docker
-        run: docker logout
-
-  tag-docker-web-latest:
-    name: Tag Web Docker images from bitwardenqa latest
-    runs-on: ubuntu-22.04
-    needs:
-      - setup
-      - release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - project_name: web-sh
-          # - project_name: web-ee # Needs to be fixed in Web client release workflow.
-    env:
-      _RELEASE_TAG: ${{ needs.setup.outputs._WEB_RELEASE_TAG}}
-      _BRANCH_NAME: master
-    steps:
-      - name: Print environment
-        run: |
-          whoami
-          docker --version
-          echo "GitHub ref: $GITHUB_REF"
-          echo "GitHub event: $GITHUB_EVENT"
-
-      - name: Checkout repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-        with:
-          ref: master
-
-      - name: Setup project name
-        id: setup
-        run: |
-          PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
-          echo "Matrix name: ${{ matrix.project_name }}"
-          echo "PROJECT_NAME: $PROJECT_NAME"
-          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
-
-      ########## ACR ##########
-      - name: Login to Azure - Prod Subscription
-        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
-        with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
-
-      - name: Login to Azure ACR
-        run: az acr login -n bitwardenprod
-
-      - name: Pull versioned image
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenprod.azurecr.io
-        run: docker pull $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG
-
-      - name: Tag latest
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenprod.azurecr.io
-        run: docker tag $REGISTRY/$PROJECT_NAME:$_RELEASE_TAG $REGISTRY/$PROJECT_NAME:latest
-
-      - name: Push latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        env:
-          PROJECT_NAME: ${{ steps.setup.outputs.project_name }}
-          REGISTRY: bitwardenprod.azurecr.io
-        run: docker push $REGISTRY/$PROJECT_NAME:latest
-
-      - name: Log out of Docker
-        run: docker logout
 
   release-unified:
     name: Release Self-host unified
@@ -349,18 +257,18 @@ jobs:
       - name: Pull self-host image
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull bitwarden/self-host:dev
+            docker pull $_AZ_REGISTRY/self-host:dev
           else
-            docker pull bitwarden/self-host:beta
+            docker pull $_AZ_REGISTRY/self-host:beta
           fi
 
       - name: Tag version and latest
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag bitwarden/self-host:dev bitwarden/self-host:dryrun
+            docker tag $_AZ_REGISTRY/self-host:dev bitwarden/self-host:dryrun
           else
-            docker tag bitwarden/self-host:beta bitwarden/self-host:$_RELEASE_VERSION
-            # docker tag bitwarden/self-host:beta bitwarden/self-host:latest # TODO: uncomment this line after GA
+            docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:$_RELEASE_VERSION
+            # docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:latest # TODO: uncomment this line after GA
           fi
 
       - name: Push version and latest image
@@ -387,33 +295,27 @@ jobs:
         run: az acr login -n bitwardenprod
 
       - name: Pull latest project image
-        env:
-          REGISTRY: bitwardenprod.azurecr.io
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull $REGISTRY/self-host:dev
+            docker pull $_AZ_REGISTRY/self-host:dev
           else
-            docker pull $REGISTRY/self-host:beta
+            docker pull $_AZ_REGISTRY/self-host:beta
           fi
 
       - name: Tag version and latest
-        env:
-          REGISTRY: bitwardenprod.azurecr.io
         run: |
           if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag $REGISTRY/self-host:dev $REGISTRY/self-host:dryrun
+            docker tag $_AZ_REGISTRY/self-host:dev $_AZ_REGISTRY/self-host:dryrun
           else
-            docker tag $REGISTRY/self-host:beta $REGISTRY/self-host:$_RELEASE_VERSION
-            docker tag $REGISTRY/self-host:beta $REGISTRY/self-host:latest
+            docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
+            docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:latest
           fi
 
       - name: Push version and latest image
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        env:
-          REGISTRY: bitwardenprod.azurecr.io
         run: |
-          docker push $REGISTRY/self-host:$_RELEASE_VERSION
-          docker push $REGISTRY/self-host:latest
+          docker push $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
+          docker push $_AZ_REGISTRY/self-host:latest
 
       - name: Log out of Docker
         run: docker logout
