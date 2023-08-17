@@ -168,12 +168,12 @@ jobs:
           - project_name: MsSql
           - project_name: Nginx
           - project_name: Notifications
+          - project_name: Scim
           - project_name: Server
           - project_name: Setup
           - project_name: Sso
           - project_name: Web
             release_tag: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
-          - project_name: Web-sh
     steps:
       - name: Print environment
         run: |
@@ -219,18 +219,17 @@ jobs:
           azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull versioned image
-        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$RELEASE_TAG
+        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
 
       - name: Tag latest
-        run: docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
+        run: docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
 
       - name: Push latest image
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-        run: |
-          docker push bitwarden/$_PROJECT_NAME:latest
+        run: docker push bitwarden/$_PROJECT_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
         run: |
@@ -253,6 +252,14 @@ jobs:
         with:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
+
+      - name: Login to Azure - PROD Subscription
+        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: az acr login -n bitwardenprod
 
       - name: Pull self-host image
         run: |
@@ -286,13 +293,6 @@ jobs:
           echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
 
       ########## ACR PROD ##########
-      - name: Login to Azure - PROD Subscription
-        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
-        with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
-
-      - name: Login to Azure ACR
-        run: az acr login -n bitwardenprod
 
       - name: Pull latest project image
         run: |
