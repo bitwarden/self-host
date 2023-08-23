@@ -114,6 +114,7 @@ function dockerComposeUp() {
 function dockerComposeDown() {
     dockerComposeFiles
     if [ $($dccmd ps | wc -l) -gt 2 ]; then
+        $dccmd rm --stop --force
         $dccmd down
     fi
 }
