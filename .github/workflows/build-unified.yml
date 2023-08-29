@@ -105,7 +105,7 @@ jobs:
 
       - name: Setup Docker Trust
         if: ${{ env.is_publish_branch == 'true' }}
-        uses: bitwarden/gh-actions/setup-docker-trust@f955298c7a982b3fb5dbb73afd582c584fd5beec
+        uses: bitwarden/gh-actions/setup-docker-trust@082f5e05ed97c3601c6f3179250b1a761c4d647f
         with:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
