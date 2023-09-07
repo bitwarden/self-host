@@ -22,7 +22,7 @@ on:
         default: master
   pull_request:
     paths:
-      - ".github/workflows/build-self-host.yml"
+      - ".github/workflows/build-unified.yml"
       - "docker-unified/**"
 
 env:
@@ -35,20 +35,25 @@ jobs:
     steps:
       - name: Checkout Repository - workflow_call
         if: ${{ inputs.is_workflow_call == true }}
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           repository: bitwarden/self-host
           ref: master
 
       - name: Checkout Repository - workflow_dispatch
         if: ${{ inputs.is_workflow_call != true }}
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
       - name: Get server branch to checkout
         id: server-branch-name
         env:
           SERVER_BRANCH: ${{ inputs.server_branch }}
-        run: echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ -z "${SERVER_BRANCH}" ]]; then
+            echo "server_branch=master" >> $GITHUB_OUTPUT
+          else
+            echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Branch to Publish
         env:
@@ -133,7 +138,7 @@ jobs:
           fi
 
       - name: Checkout server repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
