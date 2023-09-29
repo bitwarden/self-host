@@ -1,0 +1,66 @@
+---
+name: Test DCT
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_repo:
+        description: "The docker repo to test"
+        required: true
+      image_tag:
+        description: "The version to test"
+        required: true
+
+env:
+  _AZ_REGISTRY: bitwardenprod.azurecr.io
+
+jobs:
+  test-dct:
+    name: Pull and push images to DH to test DCT
+    runs-on: ubuntu-22.04
+    env:
+      _REPO: ${{ inputs.docker_repo }}
+      _IMAGE_TAG: ${{ inputs.image_tag }}
+    steps:
+
+      - name: Login to Azure - Prod Subscription
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
+
+      - name: Setup project name and
+        id: setup
+        run: |
+          PROJECT_NAME=$(echo "${{ env._REPO }}" | awk '{print tolower($0)}')
+          echo "PROJECT_NAME: $PROJECT_NAME"
+          echo "_PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV
+
+      ########## DockerHub ##########
+      - name: Setup DCT
+        id: setup-dct
+        uses: bitwarden/gh-actions/setup-docker-trust@082f5e05ed97c3601c6f3179250b1a761c4d647f
+        with:
+          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          azure-keyvault-name: "bitwarden-ci"
+
+      - name: Pull image from ACR
+        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG
+
+      - name: Tag DH image
+        run: |
+          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
+
+      - name: Push image to Docker Hub
+        env:
+          DOCKER_CONTENT_TRUST: 1
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+        run: |
+          docker push bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
+
+      - name: Log out of Docker and disable Docker Notary
+        run: |
+          docker logout
+          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
