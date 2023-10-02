@@ -31,7 +31,7 @@ jobs:
       - name: Login to Azure ACR
         run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
 
-      - name: Setup project name and
+      - name: Setup project name
         id: setup
         run: |
           PROJECT_NAME=$(echo "${{ env._REPO }}" | awk '{print tolower($0)}')
