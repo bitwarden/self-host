@@ -46,19 +46,16 @@ jobs:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
 
-      - name: Pull image from ACR
-        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG
-
-      - name: Tag DH image
+      - name: Pull and tag image from ACR
         run: |
+          docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG
           docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
 
       - name: Push image to Docker Hub
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-        run: |
-          docker push bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
+        run: docker push bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
 
       - name: Log out of Docker and disable Docker Notary
         run: |
