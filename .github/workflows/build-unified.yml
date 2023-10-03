@@ -22,8 +22,11 @@ on:
         default: master
   pull_request:
     paths:
-      - ".github/workflows/build-self-host.yml"
+      - ".github/workflows/build-unified.yml"
       - "docker-unified/**"
+
+env:
+  _AZ_REGISTRY: bitwardenprod.azurecr.io
 
 jobs:
   build-docker:
@@ -32,20 +35,25 @@ jobs:
     steps:
       - name: Checkout Repository - workflow_call
         if: ${{ inputs.is_workflow_call == true }}
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           repository: bitwarden/self-host
           ref: master
 
       - name: Checkout Repository - workflow_dispatch
         if: ${{ inputs.is_workflow_call != true }}
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
       - name: Get server branch to checkout
         id: server-branch-name
         env:
           SERVER_BRANCH: ${{ inputs.server_branch }}
-        run: echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ -z "${SERVER_BRANCH}" ]]; then
+            echo "server_branch=master" >> $GITHUB_OUTPUT
+          else
+            echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Branch to Publish
         env:
@@ -75,16 +83,8 @@ jobs:
         uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
 
       ########## Login to Docker registries ##########
-      - name: Login to Azure - QA Subscription
-        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
-        with:
-          creds: ${{ secrets.AZURE_QA_KV_CREDENTIALS }}
-
-      - name: Login to Azure ACR
-        run: az acr login -n bitwardenqa
-
       - name: Login to Azure - Prod Subscription
-        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
         with:
           creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
@@ -92,7 +92,7 @@ jobs:
         run: az acr login -n bitwardenprod
 
       - name: Login to Azure - CI Subscription
-        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
 
@@ -105,7 +105,7 @@ jobs:
 
       - name: Setup Docker Trust
         if: ${{ env.is_publish_branch == 'true' }}
-        uses: bitwarden/gh-actions/setup-docker-trust@f955298c7a982b3fb5dbb73afd582c584fd5beec
+        uses: bitwarden/gh-actions/setup-docker-trust@082f5e05ed97c3601c6f3179250b1a761c4d647f
         with:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
@@ -132,13 +132,13 @@ jobs:
           IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
           if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           else
-            echo "tags=bitwardenqa.azurecr.io/self-host:${IMAGE_TAG},bitwardenprod.azurecr.io/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout server repo
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
@@ -184,7 +184,7 @@ jobs:
           fi
 
       - name: Login to Azure - CI subscription
-        uses: Azure/login@1f63701bf3e6892515f1b7ce2d2bf1708b46beaf # v1.4.3
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
         if: failure()
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
