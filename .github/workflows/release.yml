@@ -263,7 +263,7 @@ jobs:
           creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
       - name: Login to Azure ACR
-        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
+        # run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
 
       - name: Pull self-host image
         run: |
