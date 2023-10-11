@@ -273,22 +273,15 @@ jobs:
             docker pull $_AZ_REGISTRY/self-host:beta
           fi
 
-      - name: Tag version and latest
-        run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag $_AZ_REGISTRY/self-host:dev bitwarden/self-host:dryrun
-          else
-            docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:$_RELEASE_VERSION
-            # docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:latest # TODO: uncomment this line after GA
-          fi
-
       - name: Push version and latest image
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
-          docker push bitwarden/self-host:$_RELEASE_VERSION
+          skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name bitwardenprod | jq -r .accessToken)
+          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest
+          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:_RELEASE_VERSION
           # docker push bitwarden/self-host:latest # TODO: uncomment this line after GA
 
       - name: Log out of Docker and disable Docker Notary
