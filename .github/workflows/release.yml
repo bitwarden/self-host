@@ -279,7 +279,7 @@ jobs:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
-          skopeop --version
+          skopeo --version
           sudo apt update && sudo apt install -y skopeo
           skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name bitwardenprod | jq -r .accessToken)
           skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest
