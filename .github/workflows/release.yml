@@ -265,13 +265,13 @@ jobs:
       # - name: Login to Azure ACR
       #   run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
 
-      - name: Pull self-host image
-        run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull $_AZ_REGISTRY/self-host:dev
-          else
-            docker pull $_AZ_REGISTRY/self-host:beta
-          fi
+      # - name: Pull self-host image
+      #   run: |
+      #     if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+      #       docker pull $_AZ_REGISTRY/self-host:dev
+      #     else
+      #       docker pull $_AZ_REGISTRY/self-host:beta
+      #     fi
 
       - name: Push version and latest image
         # if: ${{ github.event.inputs.release_type != 'Dry Run' }}
