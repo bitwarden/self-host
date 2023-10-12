@@ -2,14 +2,7 @@
 name: Test DCT
 
 on:
-  workflow_dispatch:
-    inputs:
-      docker_repo:
-        description: "The docker repo to test"
-        required: true
-      image_tag:
-        description: "The version to test"
-        required: true
+  workflow_dispatch: {}
 
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
@@ -19,8 +12,8 @@ jobs:
     name: Pull and push images to DH to test DCT
     runs-on: ubuntu-22.04
     env:
-      _REPO: ${{ inputs.docker_repo }}
-      _IMAGE_TAG: ${{ inputs.image_tag }}
+      _REPO: mssqlmigratorutility
+      _IMAGE_TAG: latest
     steps:
 
       - name: Login to Azure - Prod Subscription
