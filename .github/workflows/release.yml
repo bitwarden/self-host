@@ -279,7 +279,7 @@ jobs:
             docker tag $_AZ_REGISTRY/self-host:dev bitwarden/self-host:dryrun
           else
             docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:$_RELEASE_VERSION
-            # docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:latest # TODO: uncomment this line after GA
+            docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:beta # TODO: change beta for latest after GA
           fi
 
       - name: Push version and latest image
@@ -289,7 +289,7 @@ jobs:
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
           docker push bitwarden/self-host:$_RELEASE_VERSION
-          # docker push bitwarden/self-host:latest # TODO: uncomment this line after GA
+          docker push bitwarden/self-host:beta # TODO: change beta for latest after GA
 
       - name: Log out of Docker and disable Docker Notary
         run: |
