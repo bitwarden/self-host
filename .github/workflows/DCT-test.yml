@@ -24,13 +24,6 @@ jobs:
       - name: Login to Azure ACR
         run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
 
-      - name: Setup project name
-        id: setup
-        run: |
-          PROJECT_NAME=$(echo "${{ env._REPO }}" | awk '{print tolower($0)}')
-          echo "PROJECT_NAME: $PROJECT_NAME"
-          echo "_PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV
-
       ########## DockerHub ##########
       - name: Setup DCT
         id: setup-dct
@@ -41,14 +34,14 @@ jobs:
 
       - name: Pull and tag image from ACR
         run: |
-          docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_IMAGE_TAG bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
+          docker pull $_AZ_REGISTRY/$_REPO:$_IMAGE_TAG
+          docker tag $_AZ_REGISTRY/$_REPO:$_IMAGE_TAG bitwarden/$_REPO:$_IMAGE_TAG
 
       - name: Push image to Docker Hub
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-        run: docker push bitwarden/$_PROJECT_NAME:$_IMAGE_TAG
+        run: docker push bitwarden/$_REPO:$_IMAGE_TAG
 
       - name: Log out of Docker and disable Docker Notary
         run: |
