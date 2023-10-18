@@ -274,7 +274,7 @@ jobs:
           ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
           # ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
 
-      - name: Log out of Docker, and disable Docker Notary
+      - name: Log out of Docker, skopeo and disable Docker Notary
         run: |
           docker logout
           ./skopeo logout --all
