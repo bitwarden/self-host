@@ -116,6 +116,7 @@ jobs:
           keyvault: "bitwarden-ci"
           secrets: "aws-selfhost-version-access-id,
             aws-selfhost-version-access-key,
+            aws-selfhost-version-bucket-name,
             r2-electron-access-id,
             r2-electron-access-key,
             r2-bitwarden-selfhost-version-bucket-name,
