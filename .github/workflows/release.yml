@@ -116,6 +116,7 @@ jobs:
           keyvault: "bitwarden-ci"
           secrets: "aws-selfhost-version-access-id,
             aws-selfhost-version-access-key,
+            aws-selfhost-version-bucket-name,
             r2-electron-access-id,
             r2-electron-access-key,
             r2-bitwarden-selfhost-version-bucket-name,
@@ -126,8 +127,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
-          AWS_DEFAULT_REGION: 'us-west-2'
-          AWS_S3_BUCKET_NAME: 's3://public-s3-bitwarden-selfhost-version-artifact'
+          AWS_DEFAULT_REGION: 'us-east-1'
+          AWS_S3_BUCKET_NAME: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-bucket-name }}
         run: |
           aws s3 cp version.json $AWS_S3_BUCKET_NAME \
           --acl "public-read" \
