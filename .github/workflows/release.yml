@@ -166,6 +166,7 @@ jobs:
           - project_name: Icons
           - project_name: Identity
           - project_name: MsSql
+          - project_name: MsSqlMigratorUtility
           - project_name: Nginx
           - project_name: Notifications
           - project_name: Scim
