@@ -258,30 +258,11 @@ jobs:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
 
-      - name: Login to Azure - PROD Subscription
-        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
-        with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
-
-      - name: Login to Azure ACR
-        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
-
-      - name: Pull self-host image
+      - name: Install Skopeo
         run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull $_AZ_REGISTRY/self-host:dev
-          else
-            docker pull $_AZ_REGISTRY/self-host:beta
-          fi
-
-      - name: Tag version and latest
-        run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag $_AZ_REGISTRY/self-host:dev bitwarden/self-host:dryrun
-          else
-            docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:$_RELEASE_VERSION
-            docker tag $_AZ_REGISTRY/self-host:beta bitwarden/self-host:beta # TODO: change beta for latest after GA
-          fi
+          wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64
+          mv skopeo-linux-amd64 skopeo
+          chmod +x skopeo
 
       - name: Push version and latest image
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
@@ -289,15 +270,26 @@ jobs:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
-          docker push bitwarden/self-host:$_RELEASE_VERSION
-          docker push bitwarden/self-host:beta # TODO: change beta for latest after GA
+          ./skopeo --version
+          ./skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
+          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
+          # ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
 
-      - name: Log out of Docker and disable Docker Notary
+      - name: Log out of Docker, skopeo and disable Docker Notary
         run: |
           docker logout
+          ./skopeo logout --all
           echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
 
       ########## ACR PROD ##########
+
+      - name: Login to Azure - PROD Subscription
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
+        with:
+          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+
+      - name: Login to Azure ACR
+        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
 
       - name: Pull latest project image
         run: |
