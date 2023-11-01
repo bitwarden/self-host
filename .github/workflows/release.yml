@@ -131,8 +131,7 @@ jobs:
           AWS_S3_BUCKET_NAME: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-bucket-name }}
         run: |
           aws s3 cp version.json $AWS_S3_BUCKET_NAME \
-          --acl "public-read" \
-          --quiet
+          --acl "public-read"
 
       - name: Upload version.json to R2 bucket
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
@@ -144,7 +143,6 @@ jobs:
           CF_ACCOUNT: ${{ steps.retrieve-secrets.outputs.cf-prod-account }}
         run: |
           aws s3 cp version.json $AWS_S3_BUCKET_NAME \
-          --quiet \
           --endpoint-url https://${CF_ACCOUNT}.r2.cloudflarestorage.com
 
   tag-docker-latest:
@@ -155,7 +153,6 @@ jobs:
       - release
     env:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
-      _BRANCH_NAME: master
     strategy:
       fail-fast: false
       matrix:
