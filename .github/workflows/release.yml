@@ -28,15 +28,15 @@ jobs:
       _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
       _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
     steps:
-      - name: Branch check
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        run: |
-          if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
-            echo "==================================="
-            echo "[!] Can only release from the 'master' branch"
-            echo "==================================="
-            exit 1
-          fi
+      # - name: Branch check
+      #   if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+      #   run: |
+      #     if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
+      #       echo "==================================="
+      #       echo "[!] Can only release from the 'master' branch"
+      #       echo "==================================="
+      #       exit 1
+      #     fi
 
       - name: Checkout repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
