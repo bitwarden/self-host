@@ -1,6 +1,6 @@
 ---
 name: Release
-run-name: Release ${{ github.event.inputs.release_type }} v${{ github.event.inputs.release_version }}
+run-name: Release - ${{ inputs.release_type }} v${{ inputs.release_version }}
 
 on:
   workflow_dispatch:
@@ -8,38 +8,29 @@ on:
       release_version:
         description: "Release Version"
         required: true
+        type: string
       release_type:
         description: "Release Options"
         required: true
-        default: "Release"
+        default: "Standard Release"
         type: choice
         options:
-          - Release
+          - Standard Release
           - Dry Run
 
 env:
-  _AZ_REGISTRY: bitwardenprod.azurecr.io
+  _REGISTRY: bitwardenprod.azurecr.io
+  _RELEASE_BRANCH: master
 
 jobs:
-  setup:
-    name: Setup
+  check-release-version:
+    name: Check Self-Host Release Version
     runs-on: ubuntu-22.04
-    outputs:
-      _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
-      _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
     steps:
-      - name: Branch check
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        run: |
-          if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
-            echo "==================================="
-            echo "[!] Can only release from the 'master' branch"
-            echo "==================================="
-            exit 1
-          fi
-
-      - name: Checkout repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Checkout Branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ env._RELEASE_BRANCH }}
 
       - name: Get Latest Self-Host Version
         id: get-self-host
@@ -47,37 +38,192 @@ jobs:
         with:
           repository: bitwarden/self-host
 
-      - name: Check Release Version
+      - name: Check Released Version
         env:
-          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
           PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
         run: |
           if [ "$RELEASE_VERSION" == "$PREVIOUS_RELEASE_VERSION" ]; then
-            echo "[!] Already released v$RELEASE_VERSION. Please bump version to continue"
+            echo "[!] Already released v$RELEASE_VERSION. Please bump version to continue."
             exit 1
           fi
 
-      - name: Set Release Tags
-        id: set-tags
+  get-latest-versions:
+    name: Get Latest Versions
+    runs-on: ubuntu-22.04
+    needs: check-release-version
+    outputs:
+      core_version: ${{ steps.get-core.outputs.version }}
+      core_version_update: ${{ steps.core-update.outputs.update }}
+      web_version: ${{ steps.get-web.outputs.version }}
+      web_version_update: ${{ steps.web-update.outputs.update }}
+      key_connector_version: ${{ steps.get-key-connector.outputs.version }}
+      key_connector_version_update: ${{ steps.key-connector-update.outputs.update }}
+    steps:
+      - name: Checkout Branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ env._RELEASE_BRANCH }}
+
+      - name: Get Latest Core version
+        id: get-core
+        uses: bitwarden/gh-actions/get-release-version@master
+        with:
+          repository: bitwarden/server
+          trim: true
+
+      - name: Check if Core version needs updating
+        id: core-update
+        env:
+          LATEST_CORE_VERSION: ${{ steps.get-core.outputs.version }}
         run: |
-          WEB=$(jq -r '.versions.webVersion' < version.json)
-          CORE=$(jq -r '.versions.coreVersion' < version.json)
+          CORE_VERSION=$(sed -r -n "s/COREVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
+          echo "Core Version: $CORE_VERSION"
+          echo "Latest Core Version: $LATEST_CORE_VERSION"
+          if [ "$CORE_VERSION" != "$LATEST_CORE_VERSION" ]; then
+            echo "Needs Core update!"
+            echo "update=1" >> $GITHUB_OUTPUT
+          else
+            echo "update=0" >> $GITHUB_OUTPUT
+          fi
 
-          echo "WEB_RELEASE_TAG=$WEB" >> $GITHUB_OUTPUT
-          echo "CORE_RELEASE_TAG=$CORE" >> $GITHUB_OUTPUT
+      - name: Get Latest Web version
+        id: get-web
+        uses: bitwarden/gh-actions/get-release-version@master
+        with:
+          repository: bitwarden/clients
+          monorepo: true
+          monorepo-project: web
+          trim: true
 
-  release:
+      - name: Check if Web version needs updating
+        id: web-update
+        env:
+          LATEST_WEB_VERSION: ${{ steps.get-web.outputs.version }}
+        run: |
+          WEB_VERSION=$(sed -r -n "s/WEBVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
+          echo "Web Version: $WEB_VERSION"
+          echo "Latest Web Version: $LATEST_WEB_VERSION"
+          if [ "$WEB_VERSION" != "$LATEST_WEB_VERSION" ]; then
+            echo "Needs Web update!"
+            echo "update=1" >> $GITHUB_OUTPUT
+          else
+            echo "update=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get Latest Key Connector version
+        id: get-key-connector
+        uses: bitwarden/gh-actions/get-release-version@master
+        with:
+          repository: bitwarden/key-connector
+          trim: true
+
+      - name: Check if Key Connector version needs updating
+        id: key-connector-update
+        env:
+          LATEST_KEY_CONNECTOR_VERSION: ${{ steps.get-key-connector.outputs.version }}
+        run: |
+          KEY_CONNECTOR_VERSION=$(sed -r -n "s/KEYCONNECTORVERSION=\"([0-9]+\.[0-9]+\.[0-9]+)\"/\1/p" bitwarden.sh)
+          echo "Key Connector Version: $KEY_CONNECTOR_VERSION"
+          echo "Latest Key Connector Version: $LATEST_KEY_CONNECTOR_VERSION"
+          if [ "$KEY_CONNECTOR_VERSION" != "$LATEST_KEY_CONNECTOR_VERSION" ]; then
+            echo "Needs Key Connector update!"
+            echo "update=1" >> $GITHUB_OUTPUT
+          else
+            echo "update=0" >> $GITHUB_OUTPUT
+          fi
+
+  update-versions:
+    name: Update Versions
+    if: |
+      needs.get-latest-versions.outputs.core_version_update == 1 ||
+      needs.get-latest-versions.outputs.web_version_update == 1 ||
+      needs.get-latest-versions.outputs.key_connector_version_update == 1
+    runs-on: ubuntu-22.04
+    needs: get-latest-versions
+    steps:
+      - name: Checkout Branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ env._RELEASE_BRANCH }}
+
+      - name: Update Core version
+        env:
+          VERSION: ${{ needs.get-latest-versions.outputs.core_version }}
+        run: |
+          sed -i -e "/^\s*COREVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$coreVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"'$VERSION'"/' version.json
+
+      - name: Update Web version
+        env:
+          VERSION: ${{ needs.get-latest-versions.outputs.web_version }}
+        run: |
+          sed -i -e "/^\s*WEBVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$webVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"webVersion":/ s/"webVersion":[^,]*/"webVersion":"'$VERSION'"/' version.json
+
+      - name: Update Key Connector version
+        env:
+          VERSION: ${{ needs.get-latest-versions.outputs.key_connector_version }}
+        run: |
+          sed -i -e "/^\s*KEYCONNECTORVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$keyConnectorVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
+          sed -i -e '/"keyConnectorVersion":/ s/"keyConnectorVersion":[^,]*/"keyConnectorVersion":"'$VERSION'"/' version.json
+
+      - name: Commit and push any updated files
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git update-index --refresh 
+          RET_VAL=$(git diff-index --quiet HEAD --)
+          if [ $RET_VAL == 0 ]; then
+            git commit -m "Updated core, web, and key-connector versions" -a
+            git push
+          fi
+
+  release-github:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs: setup
+    needs:
+      - get-latest-versions
+      - update-versions
+    env:
+      _CORE_RELEASE_TAG: ${{ needs.get-latest-versions.outputs.core_version }}
+      _WEB_RELEASE_TAG: ${{ needs.get-latest-versions.outputs.web_version }}
+      _KEY_CONNECTOR_RELEASE_TAG: ${{ needs.get-latest-versions.outputs.key_connector_version }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Checkout Branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: master
+          ref: ${{ env._RELEASE_BRANCH }}
 
-      - name: Create release
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+      - name: Create release notes
+        id: release-notes
+        env:
+          CORE_UPDATE: ${{ needs.get-latest-versions.outputs.core_version_update }}
+          WEB_UPDATE: ${{ needs.get-latest-versions.outputs.web_version_update }}
+          KEY_CONNECTOR_UPDATE: ${{ needs.get-latest-versions.outputs.key_connector_version_update }}
+        run: |
+          NOTES="## Versions"
+          if [ $CORE_UPDATE = 1 ]; then
+            NOTES="$NOTES\n- Update Core version to [$_CORE_RELEASE_TAG](https://github.com/bitwarden/server/releases/tag/v$_CORE_RELEASE_TAG)."
+          fi
+
+          if [ $WEB_UPDATE = 1 ]; then
+            NOTES="$NOTES\n- Update Web version to [$_WEB_RELEASE_TAG](https://github.com/bitwarden/clients/releases/tag/web-v$_WEB_RELEASE_TAG)."
+          fi
+
+          if [ $KEY_CONNECTOR_UPDATE = 1 ]; then
+            NOTES="$NOTES\n- Update Key Connector version to [$_KEY_CONNECTOR_RELEASE_TAG](https://github.com/bitwarden/key-connector/releases/tag/v$_KEY_CONNECTOR_RELEASE_TAG).
+          fi
+
+          echo "Release Notes:\n\n"
+          echo $NOTES
+          echo "notes=$NOTES" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release
+        if: ${{ inputs.release_type != 'Dry Run' }}
         uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e # v1.12.0
         with:
           artifacts: 'bitwarden.sh,
@@ -86,23 +232,21 @@ jobs:
                       run.ps1,
                       version.json'
           commit: ${{ github.sha }}
-          tag: "v${{ github.event.inputs.release_version }}"
-          name: "Version ${{ github.event.inputs.release_version }}"
-          body: "<insert release notes here>"
+          tag: "v${{ inputs.release_version }}"
+          name: "Version ${{ inputs.release_version }}"
+          body: ${{ steps.release-notes.outputs.notes }}
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
 
   release-version:
     name: Upload version.json
     runs-on: ubuntu-22.04
-    needs:
-      - setup
-      - release
+    needs: release-github
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Checkout Branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: master
+          ref: ${{ env._RELEASE_BRANCH }}
 
       - name: Login to Azure - CI Subscription
         uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
@@ -151,11 +295,10 @@ jobs:
     name: Tag Docker Hub images with release version and latest
     runs-on: ubuntu-22.04
     needs:
-      - setup
-      - release
+      - get-latest-versions
+      - release-github
     env:
-      _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
-      _BRANCH_NAME: master
+      _CORE_RELEASE_TAG: ${{ needs.get-latest-versions.outputs.core_version }}
     strategy:
       fail-fast: false
       matrix:
@@ -175,29 +318,22 @@ jobs:
           - project_name: Setup
           - project_name: Sso
           - project_name: Web
-            release_tag: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
+            release_tag: ${{ needs.get-latest-versions.outputs.web_version }}
     steps:
-      - name: Print environment
-        run: |
-          whoami
-          docker --version
-          echo "GitHub ref: $GITHUB_REF"
-          echo "GitHub event: $GITHUB_EVENT"
-
-      - name: Checkout repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Checkout Branch
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: master
+          ref: ${{ env._RELEASE_BRANCH }}
 
       - name: Login to Azure - Prod Subscription
-        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
         with:
           creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
       - name: Login to Azure ACR
-        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
+        run: az acr login -n ${_REGISTRY%.azurecr.io}
 
-      - name: Setup project name and release tag
+      - name: Set up project name and release tag
         id: setup
         run: |
           PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
@@ -221,15 +357,15 @@ jobs:
           azure-keyvault-name: "bitwarden-ci"
 
       - name: Pull versioned image
-        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
+        run: docker pull $_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
 
       - name: Tag release version and latest image
         run: |
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
+          docker tag $_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          docker tag $_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
 
       - name: Push release version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         env:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
@@ -245,11 +381,9 @@ jobs:
   release-unified:
     name: Release Self-host unified
     runs-on: ubuntu-22.04
-    needs:
-      - setup
-      - release
+    needs: release-github
     env:
-      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}-beta # TODO: remove `-beta` after GA
+      _RELEASE_VERSION: ${{ inputs.release_version }}-beta # TODO: remove `-beta` after GA
     steps:
       ########## DockerHub ##########
       - name: Setup DCT
@@ -277,9 +411,9 @@ jobs:
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
           ./skopeo --version
-          ./skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
-          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
-          # ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
+          ./skopeo login $_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_REGISTRY%.azurecr.io} | jq -r .accessToken)
+          ./skopeo copy --all docker://$_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
+          # ./skopeo copy --all docker://$_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
 
       - name: Log out of Docker, skopeo and disable Docker Notary
         run: |
@@ -289,30 +423,89 @@ jobs:
 
       ########## ACR PROD ##########
       - name: Login to Azure ACR
-        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
+        run: az acr login -n ${_REGISTRY%.azurecr.io}
 
       - name: Pull latest project image
         run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull $_AZ_REGISTRY/self-host:dev
+          if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
+            docker pull $_REGISTRY/self-host:dev
           else
-            docker pull $_AZ_REGISTRY/self-host:beta
+            docker pull $_REGISTRY/self-host:beta
           fi
 
       - name: Tag version and latest
         run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag $_AZ_REGISTRY/self-host:dev $_AZ_REGISTRY/self-host:dryrun
+          if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
+            docker tag $_REGISTRY/self-host:dev $_REGISTRY/self-host:dryrun
           else
-            docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
-            docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:latest
+            docker tag $_REGISTRY/self-host:beta $_REGISTRY/self-host:$_RELEASE_VERSION
+            docker tag $_REGISTRY/self-host:beta $_REGISTRY/self-host:latest
           fi
 
       - name: Push version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker push $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
-          docker push $_AZ_REGISTRY/self-host:latest
+          docker push $_REGISTRY/self-host:$_RELEASE_VERSION
+          docker push $_REGISTRY/self-host:latest
 
       - name: Log out of Docker
         run: docker logout
+
+  update-links:
+    name: Update Links
+    runs-on: ubuntu-22.04
+    needs:
+      - release-github
+      - tag-docker-latest
+    env:
+      RELEASE_TAG: v${{ inputs.release_version }}
+    steps:
+      - name: Login to Azure - CI Subscription
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
+        with:
+          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+
+      - name: Retrieve secrets
+        id: retrieve-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@master
+        with:
+          keyvault: "bitwarden-ci"
+          secrets: "rebrandly-apikey"
+
+      - name: Update Bitwarden Script PowerShell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-ps"
+          destination: "https://github.com/bitwarden/self-host/releases/download/${{ env.RELEASE_TAG }}/bitwarden.ps1"
+
+      - name: Update Run Script PowerShell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-ps-run"
+          destination: "https://github.com/bitwarden/self-host/releases/download/${{ env.RELEASE_TAG }}/run.ps1"
+
+      - name: Update Bitwarden Script Shell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-sh"
+          destination: "https://github.com/bitwarden/self-host/releases/download/${{ env.RELEASE_TAG }}/bitwarden.sh"
+
+      - name: Update Run Script Shell Link
+        uses: bitwarden/gh-actions/update-rebrandly-link@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
+        with:
+          apikey: ${{ steps.retrieve-secrets.outputs.rebrandly-apikey }}
+          domain: "go.btwrdn.co"
+          slashtag: "bw-sh-run"
+          destination: "https://github.com/bitwarden/self-host/releases/download/${{ env.RELEASE_TAG }}/run.sh"
+
+  release-digital-ocean:
+      name: Release Digital Ocean
+      needs: update-links
+      uses: ./.github/workflows/release-digital-ocean.yml
+      secrets: inherit
