@@ -62,7 +62,7 @@ jobs:
           if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
             REF=master
           else
-            REF=${GITHUB_REF#/refs/heads/}
+            REF=${GITHUB_REF#refs/heads/}
           fi
 
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
