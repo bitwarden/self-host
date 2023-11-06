@@ -46,8 +46,10 @@ jobs:
 
       - name: Get server branch to checkout
         id: server-branch-name
+        env:
+          SERVER_BRANCH: ${{ inputs.server_branch }}
         run: |
-          if [[ -z "${{ inputs.server_branch }}" ]]; then
+          if [[ -z "${SERVER_BRANCH}" ]]; then
             echo "server_branch=master" >> $GITHUB_OUTPUT
           else
             echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
