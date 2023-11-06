@@ -46,10 +46,8 @@ jobs:
 
       - name: Get server branch to checkout
         id: server-branch-name
-        env:
-          SERVER_BRANCH: ${{ inputs.server_branch }}
         run: |
-          if [[ -z "${SERVER_BRANCH}" ]]; then
+          if [[ -z "${{ inputs.server_branch }}" ]]; then
             echo "server_branch=master" >> $GITHUB_OUTPUT
           else
             echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
@@ -61,7 +59,7 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
-          if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
+          if [[ ${{ inputs.is_workflow_call }} == true ]]; then
             REF=master
           else
             REF=${GITHUB_REF#/refs/heads/}

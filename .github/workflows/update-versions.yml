@@ -3,13 +3,14 @@ name: Update Versions
 
 on:
   workflow_dispatch:
-    inputs: {}
+
+env:
+  _BRANCH_NAME: master
 
 jobs:
   setup:
     name: Setup
-    if: github.ref_name == 'master'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       core_version: ${{ steps.get-core.outputs.version }}
       core_version_update: ${{ steps.core-update.outputs.update }}
@@ -17,14 +18,15 @@ jobs:
       web_version_update: ${{ steps.web-update.outputs.update }}
       key_connector_version: ${{ steps.get-key-connector.outputs.version }}
       key_connector_version_update: ${{ steps.key-connector-update.outputs.update }}
-
     steps:
       - name: Checkout Branch
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ env._BRANCH_NAME }}
 
       - name: Get Latest Core Version
         id: get-core
-        uses: bitwarden/gh-actions/get-release-version@c86ced0dc8c9daeecf057a6333e6f318db9c5a2b
+        uses: bitwarden/gh-actions/get-release-version@master
         with:
           repository: bitwarden/server
           trim: true
