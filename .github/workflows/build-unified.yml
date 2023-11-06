@@ -59,7 +59,7 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
-          if [[ "${{ inputs.is_workflow_call" }} == "true" ]]; then
+          if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
             REF=master
           else
             REF=${GITHUB_REF#/refs/heads/}
