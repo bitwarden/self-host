@@ -69,10 +69,6 @@ jobs:
 
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          echo "GITHUB_REF=${GITHUB_REF}"
-          echo "REF=${REF}"
-          echo "SERVER_BRANCH=${SERVER_BRANCH}"
-
           if [[ "${publish_branches[*]}" =~ "${REF}" && "${publish_branches[*]}" =~ "${SERVER_BRANCH}" ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
