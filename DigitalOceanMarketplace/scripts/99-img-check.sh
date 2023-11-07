@@ -521,7 +521,10 @@ elif [[ "$OS" =~ Debian.* ]]; then
             ;;
         11)
             osv=1
-            ;;            
+            ;;
+        12)
+            osv=1
+            ;;
         *)
             osv=2
             ;;
@@ -549,7 +552,7 @@ elif [[ $OS == "CentOS Stream" ]]; then
     fi
 elif [[ $OS == "Rocky Linux" ]]; then
         ost=1
-    if [[ $VER =~ 8\. ]]; then
+    if [[ $VER =~ 8\. ]] || [[ $VER =~ 9\. ]]; then
         osv=1
     else
         osv=2
