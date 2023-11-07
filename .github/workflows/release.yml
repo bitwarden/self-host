@@ -78,7 +78,7 @@ jobs:
 
       - name: Create release
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e # v1.12.0
+        uses: ncipollo/release-action@6c75be85e571768fa31b40abf38de58ba0397db5 # v1.13.0
         with:
           artifacts: 'bitwarden.sh,
                       run.sh,
@@ -105,7 +105,7 @@ jobs:
           ref: master
 
       - name: Login to Azure - CI Subscription
-        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
+        uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
         with:
           creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
 

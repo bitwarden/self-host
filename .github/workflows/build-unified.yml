@@ -35,14 +35,14 @@ jobs:
     steps:
       - name: Checkout Repository - workflow_call
         if: ${{ inputs.is_workflow_call == true }}
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: bitwarden/self-host
           ref: master
 
       - name: Checkout Repository - workflow_dispatch
         if: ${{ inputs.is_workflow_call != true }}
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Get server branch to checkout
         id: server-branch-name
@@ -138,7 +138,7 @@ jobs:
           fi
 
       - name: Checkout server repo
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: bitwarden/server
           token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
