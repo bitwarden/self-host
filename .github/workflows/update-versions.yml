@@ -9,7 +9,7 @@ jobs:
   setup:
     name: Setup
     if: github.ref_name == 'master'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       core_version: ${{ steps.get-core.outputs.version }}
       core_version_update: ${{ steps.core-update.outputs.update }}
@@ -97,7 +97,7 @@ jobs:
       needs.setup.outputs.core_version_update == 1 ||
       needs.setup.outputs.web_version_update == 1 ||
       needs.setup.outputs.key_connector_version_update == 1
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: setup
     steps:
       - name: Checkout Branch
