@@ -27,7 +27,7 @@ jobs:
       ########## DockerHub ##########
       - name: Setup DCT
         id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@master
+        uses: bitwarden/gh-actions/setup-docker-trust@main
         with:
           azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
           azure-keyvault-name: "bitwarden-ci"
