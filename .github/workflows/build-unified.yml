@@ -5,7 +5,7 @@ on:
   push:
     paths:
       - "docker-unified/**"
-      - ".github/workflows/build-self-host.yml"
+      - ".github/workflows/build-unified.yml"
   workflow_call:
     inputs:
       server_branch:

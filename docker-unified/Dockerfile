@@ -9,20 +9,21 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     unzip \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
 
-# Download tags from 'clients' repository
-RUN --mount=type=secret,id=GH_PAT,target=/etc/secrets/GH_PAT if [ -e "/etc/secrets/GH_PAT" ]; then \
-curl --header "Authorization: token $(cat /etc/secrets/GH_PAT)" \
-  https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; else \
-  curl https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; fi
+# # Download tags from 'clients' repository
+# RUN --mount=type=secret,id=GH_PAT,target=/etc/secrets/GH_PAT if [ -e "/etc/secrets/GH_PAT" ]; then \
+# curl --header "Authorization: token $(cat /etc/secrets/GH_PAT)" \
+#   https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; else \
+#   curl https://api.github.com/repos/bitwarden/clients/git/refs/tags --output tags.json ; fi
 
-RUN cat tags.json
+# RUN cat tags.json
 
 # Grab last tag/release of the 'web' client
-RUN cat tags.json | jq -r 'last(.[] | select(.ref|test("refs/tags/web-v[0-9]{4}.[0-9]{1,2}.[0-9]+"))) | .ref | split("/")[2]' > tag.txt
+RUN git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt
 
 # Extract the version of the 'web' client
 RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
