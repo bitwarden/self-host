@@ -25,6 +25,8 @@ WORKDIR /tmp
 # Grab last tag/release of the 'web' client
 RUN git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt
 
+RUN cat tag.txt
+
 # Extract the version of the 'web' client
 RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
 
