@@ -31,9 +31,9 @@ jobs:
       - name: Branch check
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "==================================="
-            echo "[!] Can only release from the 'master' branch"
+            echo "[!] Can only release from the 'main' branch"
             echo "==================================="
             exit 1
           fi
@@ -74,7 +74,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: master
+          ref: main
 
       - name: Create release
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
@@ -102,7 +102,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: master
+          ref: main
 
       - name: Login to Azure - CI Subscription
         uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
@@ -155,7 +155,7 @@ jobs:
       - release
     env:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
-      _BRANCH_NAME: master
+      _BRANCH_NAME: main
     strategy:
       fail-fast: false
       matrix:
@@ -187,7 +187,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: master
+          ref: main
 
       - name: Login to Azure - Prod Subscription
         uses: Azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7

@@ -10,16 +10,16 @@ on:
     inputs:
       server_branch:
         type: string
-        default: master
+        default: main
       is_workflow_call:
         type: boolean
         default: true
   workflow_dispatch:
     inputs:
       server_branch:
-        description: "Server branch name to deploy (examples: 'master', 'rc', 'feature/sm')"
+        description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
-        default: master
+        default: main
   pull_request:
     paths:
       - ".github/workflows/build-unified.yml"
@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: bitwarden/self-host
-          ref: master
+          ref: main
 
       - name: Checkout Repository - workflow_dispatch
         if: ${{ inputs.is_workflow_call != true }}
@@ -50,19 +50,19 @@ jobs:
           SERVER_BRANCH: ${{ inputs.server_branch }}
         run: |
           if [[ -z "${SERVER_BRANCH}" ]]; then
-            echo "server_branch=master" >> $GITHUB_OUTPUT
+            echo "server_branch=main" >> $GITHUB_OUTPUT
           else
             echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
           fi
 
       - name: Check Branch to Publish
         env:
-          PUBLISH_BRANCHES: "master,rc,hotfix-rc"
+          PUBLISH_BRANCHES: "main,rc,hotfix-rc"
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
           if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
-            REF=master
+            REF=main
           else
             REF=${GITHUB_REF#refs/heads/}
           fi
@@ -117,7 +117,7 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         run: |
           IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
-          if [[ "${IMAGE_TAG}" == "master" ]]; then
+          if [[ "${IMAGE_TAG}" == "main" ]]; then
             IMAGE_TAG=dev
           elif [[ ("${IMAGE_TAG}" == "rc") || ("${IMAGE_TAG}" == "hotfix-rc") ]]; then
             IMAGE_TAG=beta
@@ -173,7 +173,7 @@ jobs:
     steps:
       - name: Check if any job failed
         if: |
-          github.ref == 'refs/heads/master'
+          github.ref == 'refs/heads/main'
           || github.ref == 'refs/heads/rc'
           || github.ref == 'refs/heads/hotfix-rc'
         env:
