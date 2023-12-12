@@ -8,7 +8,7 @@ on:
 jobs:
   setup:
     name: Setup
-    if: github.ref_name == 'master'
+    if: github.ref_name == 'main'
     runs-on: ubuntu-22.04
     outputs:
       core_version: ${{ steps.get-core.outputs.version }}
