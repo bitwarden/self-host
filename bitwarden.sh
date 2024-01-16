@@ -19,6 +19,27 @@ https://bitwarden.com, https://github.com/bitwarden
 
 EOF
 
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+if [ "$EUID" -eq 0 ]; then
+    echo -e "${RED}WARNING: Running this script as root is not recommended!"
+    echo -e "${RED}Please refer to the installation guide for best practice: https://bitwarden.com/help/install-on-premise-linux/#install-bitwarden.${NC}"
+    read -p "Do you still want to continue? (y/n): " choice
+
+    # Check the user's choice
+    case "$choice" in
+        [Yy]|[Yy][Ee][Ss])
+            echo "Continuing...."
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+fi
+
+
+
 # Setup
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
