@@ -23,8 +23,8 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 if [ "$EUID" -eq 0 ]; then
-    echo -e "${RED}WARNING: Running this script as root is not recommended!"
-    echo -e "${RED}Please refer to the installation guide for best practice: https://bitwarden.com/help/install-on-premise-linux/#install-bitwarden.${NC}"
+    echo -e "${RED}WARNING: This script is running as the root user!"
+    echo -e "${RED}If you are running a standard deployment this script should be running as the dedicated Bitwarden User."
     read -p "Do you still want to continue? (y/n): " choice
 
     # Check the user's choice
