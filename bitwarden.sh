@@ -33,8 +33,7 @@ if [ "$EUID" -eq 0 ]; then
             echo -e "Continuing...."
             ;;
         *)
-            exit 1
-            
+            exit 1         
             ;;
     esac
 fi
