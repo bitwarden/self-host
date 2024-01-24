@@ -19,6 +19,27 @@ https://bitwarden.com, https://github.com/bitwarden
 
 EOF
 
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+if [ "$EUID" -eq 0 ]; then
+    echo -e "${RED}WARNING: This script is running as the root user!"
+    echo -e "If you are running a standard deployment this script should be running as a dedicated Bitwarden User as per the documentation.${NC}"
+    read -p "Do you still want to continue? (y/n): " choice
+
+    # Check the user's choice
+    case "$choice" in
+        [Yy]|[Yy][Ee][Ss])
+            echo -e "Continuing...."
+            ;;
+        *)
+            exit 1         
+            ;;
+    esac
+fi
+
+
+
 # Setup
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
