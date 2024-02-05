@@ -34,7 +34,7 @@ RUN VERSION=$(cat version.txt) \
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:6.0 AS dotnet-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-build
 
 # Docker buildx supplies the value for this arg
 ARG TARGETPLATFORM
