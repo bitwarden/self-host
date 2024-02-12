@@ -40,7 +40,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Hashicorp Packer
-        uses: hashicorp/setup-packer@ecc5516821087666a672c0d280a0084ea6d9aafd # v2.0.1
+        uses: hashicorp/setup-packer@d38faf1295e2cddabf3ce395dc78405b7877be2d # v3.0.0
 
       - name: Build Digital Ocean Image
         env:
