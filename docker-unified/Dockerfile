@@ -265,7 +265,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm/v7" ] ; then curl -L --output hbs.zip ht
 RUN if [ "$TARGETPLATFORM" = "linux/arm64" ] ; then curl -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/v2024.2.0/hbs_linux-arm64_dotnet.zip; fi
 
 # Extract hbs
-RUN unzip hbs.zip -d /usr/local/bin && rm hbs.zip
+RUN unzip hbs.zip -d /usr/local/bin && mv /usr/local/bin/hbs* /usr/local/bin/hbs && rm hbs.zip
 RUN chmod +x /usr/local/bin/hbs
 
 # Copy entrypoint script and make it executable
