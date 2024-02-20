@@ -155,8 +155,7 @@ jobs:
             linux/arm/v7,
             linux/arm64/v8
           push: true
-          #tags: ${{ steps.tag-list.outputs.tags }}
-          tags: bitwardenprod.azurecr.io/self-host:fix-unified-hbs
+          tags: ${{ steps.tag-list.outputs.tags }}
           secrets: |
             "GH_PAT=${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}"
 
