@@ -211,6 +211,7 @@ ENV globalSettings__logRollBySizeLimit="1073741824"
 # Add packages
 RUN apt-get update && apt-get install -y \
     curl \
+    jq \
     nginx \
     openssl \
     supervisor \
