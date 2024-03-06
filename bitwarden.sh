@@ -123,27 +123,25 @@ function checkOutputDirNotExists() {
     fi
 }
 
-validateDateFormat() {
-    if ! [[ $1 =~ ^[0-9]{4}[0-9]{2}[0-9]{2}$ ]]; then
+function compressLogs() {
+    LOG_DIR=${1#$(pwd)/}/logs
+    START_DATE=$2
+    END_DATE=$3
+    tempfile=$(mktemp)
+
+    function validateDateFormat() {
+    if ! [[ $1 =~ ^[0-9]{8}$ ]]; then
         echo "Error: $2 date format is invalid. Please use YYYYMMDD."
         exit 1
     fi
-}
+    }
 
-validateDateOrder() {
-    if [[ $(date -d "$1") > $(date -d "$2") ]]; then
-        echo "Error: start date ($1) must be earlier than end date ($2)."
-        exit 1
-    fi
-}
-
-function compressLogs() {
-    OUTPUT=$1
-    START_DATE=$2
-    END_DATE=$3
-    LOG_DIR=$OUTPUT/logs
-    RELATIVE_PATH=${LOG_DIR#$(pwd)/}
-    tempfile=$(mktemp)
+    function validateDateOrder() {
+        if [[ $(date -d "$1" +%s) > $(date -d "$2" +%s) ]]; then
+            echo "Error: start date ($1) must be earlier than end date ($2)."
+            exit 1
+        fi
+    }
 
     # Validate start date format
     if [ -n "$START_DATE" ]; then
@@ -170,13 +168,13 @@ function compressLogs() {
 
         for d in $(seq $(date -d "$START_DATE" "+%Y%m%d") $(date -d "$END_DATE" "+%Y%m%d")); do
             # Find and list files matching the date in the filename and modification time, append to tempfile
-            find $RELATIVE_PATH \( -type f -name "*$d*.txt" -o -name "*.log" -newermt "$START_DATE" ! -newermt "$END_DATE" \) -exec bash -c 'echo "${1#./}" >> "$2"' _ {} "$tempfile" \;
+            find $LOG_DIR \( -type f -name "*$d*.txt" -o -name "*.log" -newermt "$START_DATE" ! -newermt "$END_DATE" \) -exec bash -c 'echo "${1#./}" >> "$2"' _ {} "$tempfile" \;
         done
 
         echo "Compressing logs from $START_DATE to $END_DATE ..."
     else
         OUTPUT_FILE="bitwarden-logs-all.tar.gz"
-        find $RELATIVE_PATH -type f -exec bash -c 'echo "${1#./}" >> "$2"' bash {} "$tempfile" \;
+        find $LOG_DIR -type f -exec bash -c 'echo "${1#./}" >> "$2"' bash {} "$tempfile" \;
         echo "Compressing all logs..."
     fi
 
