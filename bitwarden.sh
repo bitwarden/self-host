@@ -139,6 +139,7 @@ updateconf
 uninstall
 renewcert
 rebuild
+shareconfig
 help
 
 See more at https://bitwarden.com/help/article/install-on-premise/#script-commands-reference
@@ -194,6 +195,9 @@ case $1 in
     "uninstall")
         checkOutputDirExists
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
+        ;;
+    "shareconfig")
+        checkOutputDirExists
         ;;
     "help")
         listCommands
