@@ -1,4 +1,2 @@
 # Secrets file for act (gh actions local run tool)
 .secrets
-bwdata
-bwdata.zip
