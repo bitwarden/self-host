@@ -173,15 +173,11 @@ jobs:
     steps:
       - name: Check if any job failed
         if: |
-          github.ref == 'refs/heads/main'
+          (github.ref == 'refs/heads/main'
           || github.ref == 'refs/heads/rc'
-          || github.ref == 'refs/heads/hotfix-rc'
-        env:
-          BUILD_DOCKER_STATUS: ${{ needs.build-docker.result }}
-        run: |
-          if [ "$BUILD_DOCKER_STATUS" = "failure" ]; then
-              exit 1
-          fi
+          || github.ref == 'refs/heads/hotfix-rc')
+          && contains(needs.*.outcome, 'failure')
+        run: exit 1
 
       - name: Login to Azure - CI subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
