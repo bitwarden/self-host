@@ -123,6 +123,68 @@ function checkOutputDirNotExists() {
     fi
 }
 
+validateDateFormat() {
+    if ! [[ $1 =~ ^[0-9]{4}[0-9]{2}[0-9]{2}$ ]]; then
+        echo "Error: $2 date format is invalid. Please use YYYYMMDD."
+        exit 1
+    fi
+}
+
+validateDateOrder() {
+    if [[ $(date -d "$1") > $(date -d "$2") ]]; then
+        echo "Error: start date ($1) must be earlier than end date ($2)."
+        exit 1
+    fi
+}
+
+function compressLogs() {
+    OUTPUT=$1
+    START_DATE=$2
+    END_DATE=$3
+    LOG_DIR=$OUTPUT/logs
+    RELATIVE_PATH=${LOG_DIR#$(pwd)/}
+    tempfile=$(mktemp)
+
+    # Validate start date format
+    if [ -n "$START_DATE" ]; then
+        validateDateFormat "$START_DATE" "start"
+        if [ -z "$END_DATE" ]; then
+            echo "Error: an end date is required when an start date is provided."
+            exit 1
+        fi
+    fi
+    
+    # Validate end date format and order
+    if [ -n "$END_DATE" ]; then
+        validateDateFormat "$END_DATE" "end"
+        validateDateOrder "$START_DATE" "$END_DATE"
+    fi
+
+    if [ -n "$START_DATE" ] && [ -n "$END_DATE" ]; then
+
+        OUTPUT_FILE="bitwarden-logs-${START_DATE}-to-${END_DATE}.tar.gz"
+
+        if [[ "$START_DATE" == "$END_DATE" ]]; then
+            OUTPUT_FILE="bitwarden-logs-${START_DATE}.tar.gz"
+        fi
+
+        for d in $(seq $(date -d "$START_DATE" "+%Y%m%d") $(date -d "$END_DATE" "+%Y%m%d")); do
+            # Find and list files matching the date in the filename and modification time, append to tempfile
+            find $RELATIVE_PATH \( -type f -name "*$d*.txt" -o -name "*.log" -newermt "$START_DATE" ! -newermt "$END_DATE" \) -exec bash -c 'echo "${1#./}" >> "$2"' _ {} "$tempfile" \;
+        done
+
+        echo "Compressing logs from $START_DATE to $END_DATE ..."
+    else
+        OUTPUT_FILE="bitwarden-logs-all.tar.gz"
+        find $RELATIVE_PATH -type f -exec bash -c 'echo "${1#./}" >> "$2"' bash {} "$tempfile" \;
+        echo "Compressing all logs..."
+    fi
+
+    tar -czvf "$OUTPUT_FILE" -T "$tempfile"
+    echo "Logs compressed into $(pwd $OUTPUT_FILE)/$OUTPUT_FILE"
+    rm $tempfile
+}
+
 function listCommands() {
 cat << EOT
 Available commands:
@@ -139,6 +201,7 @@ updateconf
 uninstall
 renewcert
 rebuild
+compresslogs
 help
 
 See more at https://bitwarden.com/help/article/install-on-premise/#script-commands-reference
@@ -194,6 +257,10 @@ case $1 in
     "uninstall")
         checkOutputDirExists
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
+        ;;
+    "compresslogs")
+        # checkOutputDirExists        
+        compressLogs $OUTPUT $2 $3
         ;;
     "help")
         listCommands
