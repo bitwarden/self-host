@@ -259,7 +259,7 @@ case $1 in
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
         ;;
     "compresslogs")
-        # checkOutputDirExists        
+        checkOutputDirExists        
         compressLogs $OUTPUT $2 $3
         ;;
     "help")
