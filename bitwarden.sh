@@ -130,10 +130,10 @@ function compressLogs() {
     tempfile=$(mktemp)
 
     function validateDateFormat() {
-    if ! [[ $1 =~ ^[0-9]{8}$ ]]; then
-        echo "Error: $2 date format is invalid. Please use YYYYMMDD."
-        exit 1
-    fi
+        if ! [[ $1 =~ ^[0-9]{8}$ ]]; then
+            echo "Error: $2 date format is invalid. Please use YYYYMMDD."
+            exit 1
+        fi
     }
 
     function validateDateOrder() {
