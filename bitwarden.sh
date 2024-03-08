@@ -148,7 +148,9 @@ function shareConfig() {
     tar -czf "$OUTPUT_FILE" -C "$TEMP_DIR" .
     rm -rf "$TEMP_DIR"
 
-    echo "The redacted configuration files have been successfully compressed and saved as '$OUTPUT_FILE'."
+    echo "The redacted configuration files have been compressed and saved as '$OUTPUT_FILE'."
+    echo "We have attempted to automatically mask sensitive values from your configuration files, however please ensure you check this before sharing."
+    echo "You may wish to remove these configuration files from the provided."
 }
 
 
