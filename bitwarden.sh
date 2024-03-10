@@ -243,6 +243,7 @@ case $1 in
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
         ;;
     "checksmtp")
+        checkOutputDirExists
         checkSmtp $OUTPUT
         ;;
     "help")
