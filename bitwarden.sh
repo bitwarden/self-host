@@ -62,8 +62,8 @@ BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=
 RUN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="2024.2.2"
-WEBVERSION="2024.2.2"
+COREVERSION="2024.2.3"
+WEBVERSION="2024.2.5"
 KEYCONNECTORVERSION="2023.12.0"
 
 echo "bitwarden.sh version $COREVERSION"
@@ -123,6 +123,66 @@ function checkOutputDirNotExists() {
     fi
 }
 
+function compressLogs() {
+    LOG_DIR=${1#$(pwd)/}/logs
+    START_DATE=$2
+    END_DATE=$3
+    tempfile=$(mktemp)
+
+    function validateDateFormat() {
+        if ! [[ $1 =~ ^[0-9]{8}$ ]]; then
+            echo "Error: $2 date format is invalid. Please use YYYYMMDD."
+            exit 1
+        fi
+    }
+
+    function validateDateOrder() {
+        if [[ $(date -d "$1" +%s) > $(date -d "$2" +%s) ]]; then
+            echo "Error: start date ($1) must be earlier than end date ($2)."
+            exit 1
+        fi
+    }
+
+    # Validate start date format
+    if [ -n "$START_DATE" ]; then
+        validateDateFormat "$START_DATE" "start"
+        if [ -z "$END_DATE" ]; then
+            echo "Error: an end date is required when an start date is provided."
+            exit 1
+        fi
+    fi
+    
+    # Validate end date format and order
+    if [ -n "$END_DATE" ]; then
+        validateDateFormat "$END_DATE" "end"
+        validateDateOrder "$START_DATE" "$END_DATE"
+    fi
+
+    if [ -n "$START_DATE" ] && [ -n "$END_DATE" ]; then
+
+        OUTPUT_FILE="bitwarden-logs-${START_DATE}-to-${END_DATE}.tar.gz"
+
+        if [[ "$START_DATE" == "$END_DATE" ]]; then
+            OUTPUT_FILE="bitwarden-logs-${START_DATE}.tar.gz"
+        fi
+
+        for d in $(seq $(date -d "$START_DATE" "+%Y%m%d") $(date -d "$END_DATE" "+%Y%m%d")); do
+            # Find and list files matching the date in the filename and modification time, append to tempfile
+            find $LOG_DIR \( -type f -name "*$d*.txt" -o -name "*.log" -newermt "$START_DATE" ! -newermt "$END_DATE" \) -exec bash -c 'echo "${1#./}" >> "$2"' _ {} "$tempfile" \;
+        done
+
+        echo "Compressing logs from $START_DATE to $END_DATE ..."
+    else
+        OUTPUT_FILE="bitwarden-logs-all.tar.gz"
+        find $LOG_DIR -type f -exec bash -c 'echo "${1#./}" >> "$2"' bash {} "$tempfile" \;
+        echo "Compressing all logs..."
+    fi
+
+    tar -czvf "$OUTPUT_FILE" -T "$tempfile"
+    echo "Logs compressed into $(pwd $OUTPUT_FILE)/$OUTPUT_FILE"
+    rm $tempfile
+}
+
 function shareConfig() {
     TEMP_DIR=$(mktemp -d)
     BASE_DIR=$(realpath "$OUTPUT")
@@ -170,6 +230,7 @@ updateconf
 uninstall
 renewcert
 rebuild
+compresslogs
 shareconfig
 help
 
@@ -226,6 +287,10 @@ case $1 in
     "uninstall")
         checkOutputDirExists
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
+        ;;
+    "compresslogs")
+        checkOutputDirExists        
+        compressLogs $OUTPUT $2 $3
         ;;
     "shareconfig")
         checkOutputDirExists
