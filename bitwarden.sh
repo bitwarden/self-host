@@ -191,6 +191,11 @@ function checkSmtp() {
         exit 1
     fi
 
+    if ! command -v openssl &> /dev/null; then
+        echo "OpenSSL is not available but is required for this check."
+        exit 1
+    fi
+
     host=$(grep 'globalSettings__mail__smtp__host=' "$CONFIG_FILE" | cut -d '=' -f2)
     port=$(grep 'globalSettings__mail__smtp__port=' "$CONFIG_FILE" | cut -d '=' -f2)
     ssl=$(grep 'globalSettings__mail__smtp__ssl=' "$CONFIG_FILE" | cut -d '=' -f2)
@@ -303,7 +308,7 @@ case $1 in
         compressLogs $OUTPUT $2 $3
         ;;
     "checksmtp")
-        checkOutputDirExists
+        # checkOutputDirExists
         checkSmtp $OUTPUT
         ;;
     "help")
