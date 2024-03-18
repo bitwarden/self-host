@@ -216,14 +216,17 @@ function checkSmtp() {
                 sleep 2
                 echo "EHLO localhost"
             fi
-            echo "AUTH LOGIN"
-            echo "$(echo -ne "$username" | base64)"
-            echo "$(echo -ne "$password" | base64)"
+            # Check if username and password are set before proceeding
+            if [[ -n "$username" && -n "$password" ]]; then
+                echo "AUTH LOGIN"
+                echo "$(echo -ne "$username" | base64)"
+                echo "$(echo -ne "$password" | base64)"
+            fi
             echo "QUIT"
         } | openssl s_client -connect $host:$port $ssl_command -ign_eof 2>/dev/null
     )
 
-    if echo "$SMTP_RESPONSE" |  grep -q "^2[0-9][0-9] "; then
+    if echo "$SMTP_RESPONSE" | grep -q "^2[0-9][0-9] "; then
         echo -e "SMTP settings are correct."
     else
         echo "SMTP authentication failed or connection error occurred."
