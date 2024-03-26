@@ -91,7 +91,7 @@ jobs:
 
 
   update-versions:
-    name: "Create update_versions branch"
+    name: "Update versions"
     if: |
       needs.setup.outputs.core_version_update == 1 ||
       needs.setup.outputs.web_version_update == 1 ||
@@ -180,7 +180,7 @@ jobs:
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
         env:
           PR_BRANCH: ${{ steps.create-branch.outputs.name }}
-        run: git push -u origin update-versions
+        run: git push -u origin $PR_BRANCH
 
       - name: Create versions PR
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
