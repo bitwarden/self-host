@@ -115,6 +115,8 @@ jobs:
       
       - name: Checkout Branch
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: main
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@82a020f1f7f605c65dd2449b392a52c3fcfef7ef # v6.0.0
@@ -130,14 +132,7 @@ jobs:
           git config --local user.name "bitwarden-devops-bot"
 
       - name: Create Update Versions Branch
-        run: |
-          git switch -c update-versions
-          git push -u origin update-versions
-
-      - name: Checkout Update Versions Branch
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          ref: update-versions
+        run: git switch -c update-versions
 
       - name: Update Core Version
         env:
@@ -172,12 +167,11 @@ jobs:
       - name: Create Update Versions PR
         env:
           PR_BRANCH: "update-versions"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BASE_BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
           TITLE: "Update core, web, and key-connector versions"
         run: |
           gh pr create --title "$TITLE" \
-            --base "$BASE_BRANCH" \
+            --base "main" \
             --head "$PR_BRANCH" \
             --label "automated pr" \
             --body "
