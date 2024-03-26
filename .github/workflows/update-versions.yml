@@ -131,8 +131,12 @@ jobs:
           git config --local user.email "106330231+bitwarden-devops-bot@users.noreply.github.com"
           git config --local user.name "bitwarden-devops-bot"
 
-      - name: Create Update Versions Branch
-        run: git switch -c update-versions
+      - name: Create version branch
+        id: create-branch
+        run: |
+          NAME=version_bump_${{ github.ref_name }}_$(date +"%Y-%m-%d")
+          git switch -c $NAME
+          echo "name=$NAME" >> $GITHUB_OUTPUT
 
       - name: Update Core Version
         env:
@@ -158,19 +162,34 @@ jobs:
           sed -i -e "/^\s*\$keyConnectorVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$VERSION/" bitwarden.ps1
           sed -i -e '/"keyConnectorVersion":/ s/"keyConnectorVersion":[^,]*/"keyConnectorVersion":"'$VERSION'"/' version.json
 
-      - name: Commit updated files
+      - name: Check if version changed
+        id: version-changed
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes_to_commit=TRUE" >> $GITHUB_OUTPUT
+          else
+            echo "changes_to_commit=FALSE" >> $GITHUB_OUTPUT
+            echo "No changes to commit!";
+          fi
+
+      - name: Commit files
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
         run: git commit -m "Updated core, web, and key-connector versions" -a
 
       - name: Push changes
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
+        env:
+          PR_BRANCH: ${{ steps.create-branch.outputs.name }}
         run: git push -u origin update-versions
 
-      - name: Create Update Versions PR
+      - name: Create versions PR
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
         env:
-          PR_BRANCH: "update-versions"
           GH_TOKEN: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          PR_BRANCH: ${{ steps.create-branch.outputs.name }}
           TITLE: "Update core, web, and key-connector versions"
         run: |
-          gh pr create --title "$TITLE" \
+          PR_URL=$(gh pr create --title "$TITLE" \
             --base "main" \
             --head "$PR_BRANCH" \
             --label "automated pr" \
@@ -183,4 +202,19 @@ jobs:
               - [X] Other
 
               ## Objective
-              Automated version updates to core, web, and key-connector versions in version.json, bitwarden.sh and bitwarden.ps1."
+              Automated version updates to core, web, and key-connector versions in version.json, bitwarden.sh and bitwarden.ps1.")
+          echo "pr_number=${PR_URL##*/}" >> $GITHUB_OUTPUT
+
+      - name: Approve PR
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
+        run: gh pr review $PR_NUMBER --approve
+
+      - name: Merge PR
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
+        env:
+          GH_TOKEN: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
+        run: gh pr merge $PR_NUMBER --squash --auto --delete-branch
