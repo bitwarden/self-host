@@ -30,7 +30,7 @@ $runScriptUrl = "https://func.bitwarden.com/api/dl/?app=self-host&platform=windo
 # Please do not create pull requests modifying the version numbers.
 $coreVersion = "2024.3.0"
 $webVersion = "2024.3.0"
-$keyConnectorVersion = "2023.12.0"
+$keyConnectorVersion = "2024.3.1"
 
 # Functions
 
