@@ -274,6 +274,36 @@ RUN chmod +x /usr/local/bin/hbs
 COPY docker-unified/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+#Set up user and group
+RUN addgroup --gid 1000 bitwarden
+RUN adduser --no-create-home --shell /bin/bash --disabled-password --uid $PUID --gid $PGID --gecos "" bitwarden
+
+#Create symlincs for the identity files:
+RUN  ln -s /app/Identity/identity.pfx /etc/bitwarden/identity.pfx
+RUN  ln -s /app/Sso/identity.pfx /etc/bitwarden/identity.pfx
+
+# Enable/Disable services:
+RUN sed -i "s/autostart=true/autostart=${BW_ENABLE_ADMIN}/" /etc/supervisor.d/admin.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_API}/" /etc/supervisor.d/api.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_EVENTS}/" /etc/supervisor.d/events.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_ICONS}/" /etc/supervisor.d/icons.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_IDENTITY}/" /etc/supervisor.d/identity.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_NOTIFICATIONS}/" /etc/supervisor.d/notifications.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_SCIM}/" /etc/supervisor.d/scim.ini && \
+  sed -i "s/autostart=true/autostart=${BW_ENABLE_SSO}/" /etc/supervisor.d/sso.ini
+
+# Set desired ownership:
+RUN chown -R 1000:1000 \
+  /app \
+  /etc/bitwarden \
+  /etc/nginx/http.d \
+  /etc/supervisor \
+  /etc/supervisor.d \
+  /var/lib/nginx \
+  /var/log \
+  /var/run/nginx \
+  /run
+
 VOLUME ["/etc/bitwarden"]
 
 WORKDIR /app
