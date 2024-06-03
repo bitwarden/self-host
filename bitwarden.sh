@@ -50,12 +50,6 @@ if [ $# -eq 2 ]
 then
     OUTPUT=$2
 fi
-if command -v docker-compose &> /dev/null
-then
-    dccmd='docker-compose'
-else
-    dccmd='docker compose'
-fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
 BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux"
@@ -68,12 +62,7 @@ KEYCONNECTORVERSION="2024.4.0"
 
 echo "bitwarden.sh version $COREVERSION"
 docker --version
-if [[ "$dccmd" == "docker compose" ]]; then
-    $dccmd version
-else
-    $dccmd --version
-fi
-
+docker compose version
 echo ""
 
 # Functions
