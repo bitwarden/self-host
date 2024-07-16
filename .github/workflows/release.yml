@@ -45,6 +45,8 @@ jobs:
         with:
           repository: bitwarden/self-host
 
+      - run: echo "${{ steps.get-self-host.outputs.version }}"
+
       - name: Get Next Release Version
         id: get-next-version
         uses: bitwarden/gh-actions/version-next@main
