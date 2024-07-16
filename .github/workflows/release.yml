@@ -48,13 +48,15 @@ jobs:
       - name: Strip version
         env:
           _VERSION: ${{ steps.get-self-host.outputs.version }}
-        run: echo "VERSION=${_VERSION:1}" >> $GITHUB_ENV
+        run: |
+          VERSION_STRIPPED=$(echo $_VERSION | sed 's/^v//')
+          echo "VERSION=$VERSION_STRIPPED" >> $GITHUB_ENV
 
       - name: Get Next Release Version
         id: get-next-version
         uses: bitwarden/gh-actions/version-next@main
         with:
-          version: $VERSION
+          version: ${{ env.VERSION }}
 
       - name: Set Release Tags
         id: set-tags
