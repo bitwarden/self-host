@@ -1,6 +1,6 @@
 ---
 name: Release
-run-name: Release ${{ github.event.inputs.release_type }} v${{ needs.setup.outputs._VERSION }}
+run-name: Release ${{ github.event.inputs.release_type }}
 
 on:
   workflow_dispatch:
