@@ -45,13 +45,16 @@ jobs:
         with:
           repository: bitwarden/self-host
 
-      - run: echo "${{ steps.get-self-host.outputs.version }}"
+      - name: Strip version
+        env:
+          VERSION: ${{ steps.get-self-host.outputs.version }}
+        run: echo "VERSION=${VERSION:1}" >> $GITHUB_ENV
 
       - name: Get Next Release Version
         id: get-next-version
         uses: bitwarden/gh-actions/version-next@main
         with:
-            version: ${{ steps.get-self-host.outputs.version }}
+            version: $VERSION
 
       - name: Set Release Tags
         id: set-tags
