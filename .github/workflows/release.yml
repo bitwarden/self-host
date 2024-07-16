@@ -47,9 +47,9 @@ jobs:
 
       - name: Strip version
         env:
-          _VERSION: ${{ steps.get-self-host.outputs.version }}
+          CURRENT_VERSION: ${{ steps.get-self-host.outputs.version }}
         run: |
-          VERSION_STRIPPED=$(echo $_VERSION | sed 's/^v//')
+          VERSION_STRIPPED=$(echo $CURRENT_VERSION | sed 's/^v//')
           echo "VERSION=$VERSION_STRIPPED" >> $GITHUB_ENV
 
       - name: Get Next Release Version
