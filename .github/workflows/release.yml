@@ -54,7 +54,7 @@ jobs:
         id: get-next-version
         uses: bitwarden/gh-actions/version-next@main
         with:
-            version: $VERSION
+          version: $VERSION
 
       - name: Set Release Tags
         id: set-tags
