@@ -58,9 +58,6 @@ jobs:
         with:
           version: ${{ env.VERSION }}
 
-      - name: Echo next version
-        run: echo "Next version ${{ steps.get-next-version.outputs.version }}"
-
       - name: Set Release Tags
         id: set-tags
         run: |
