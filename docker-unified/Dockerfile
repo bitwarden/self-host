@@ -55,8 +55,6 @@ RUN apt-get update && apt-get install -y \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g gulp
-
 # Copy csproj files as distinct layers
 WORKDIR /source
 COPY server/src/Admin/*.csproj ./src/Admin/
@@ -137,7 +135,7 @@ COPY server/.git/. ./.git/
 # Build Admin app
 WORKDIR /source/src/Admin
 RUN npm install
-RUN gulp --gulpfile "gulpfile.js" build
+RUN npm run build
 RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Admin --no-restore --no-self-contained -r $RID
 
 # Build Api app
@@ -163,7 +161,7 @@ RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Notifications --no-resto
 # Build Sso app
 WORKDIR /source/bitwarden_license/src/Sso
 RUN npm install
-RUN gulp --gulpfile "gulpfile.js" build
+RUN npm run build
 RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Sso --no-restore --no-self-contained -r $RID
 
 # Build Scim app
