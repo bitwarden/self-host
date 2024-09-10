@@ -110,8 +110,7 @@ jobs:
         with:
           keyvault: "bitwarden-ci"
           secrets: "github-gpg-private-key,
-            github-gpg-private-key-passphrase,
-            github-pat-bitwarden-devops-bot-repo-scope"
+            github-gpg-private-key-passphrase"
       
       - name: Checkout Branch
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -182,10 +181,18 @@ jobs:
           PR_BRANCH: ${{ steps.create-branch.outputs.name }}
         run: git push -u origin $PR_BRANCH
 
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@3378cda945da322a8db4b193e19d46352ebe2de5 # v1.10.4
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Create versions PR
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
         env:
-          GH_TOKEN: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_BRANCH: ${{ steps.create-branch.outputs.name }}
           TITLE: "Update core, web, and key-connector versions"
         run: |
@@ -215,6 +222,6 @@ jobs:
       - name: Merge PR
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
         env:
-          GH_TOKEN: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
         run: gh pr merge $PR_NUMBER --squash --auto --delete-branch
