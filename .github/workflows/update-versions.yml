@@ -219,9 +219,9 @@ jobs:
           PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
         run: gh pr review $PR_NUMBER --approve
 
-      # - name: Merge PR
-      #   if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
-      #   env:
-      #     GH_TOKEN: ${{ steps.app-token.outputs.token }}
-      #     PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
-      #   run: gh pr merge $PR_NUMBER --squash --auto --delete-branch
+      - name: Merge PR
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
+        run: gh pr merge $PR_NUMBER --squash --auto --delete-branch
