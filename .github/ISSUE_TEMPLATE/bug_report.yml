@@ -1,0 +1,71 @@
+name: Bug Report
+description: Submit a bug report to help us improve
+title: 'bug report: '
+labels:
+  - kind/bug/report
+  - meta/needs triage
+
+body:
+  - type: checkboxes
+    id: preliminary-checks
+    attributes:
+      label: Preliminary Checks
+      description: |
+        By submitting this issue, you agree to our code of conduct.
+      options:
+        - label: I tried searching for an existing issue and followed the [debugging docs](https://docker-mailserver.github.io/docker-mailserver/latest/config/debugging/) advice, but still need assistance.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 👀 What Happened?
+      description: How did this differ from your expectations?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Reproduction Steps
+      description: |
+        How did you trigger this bug? Please walk us through it step by step.
+        Please use [fenced code blocks](https://docs.github.com/en/github/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks#fenced-code-blocks) when pasting lots of text!
+      placeholder: The easier it is for us to reproduce your issue, the sooner we can help resolve it 😉
+
+  - type: input
+    id: bitwarden-version
+    attributes:
+      label: Bitwarden Version
+      description: On which version (image tag) did you encounter this bug?
+      placeholder: 2024.8.1-beta (do not put "latest")
+    validations:
+      required: true
+
+  - type: input
+    id: system
+    attributes:
+      label: System Information
+      description: |
+        Which OS are you hosting Bitwarden on? Which container orchestration tool are you using?
+      placeholder: Debian 11 (Bullseye) x86_64, Fedora 38 ARM64, Docker
+    validations:
+      required: true
+
+  - type: textarea
+    id: relevant-log-output
+    attributes:
+      label: Relevant log output
+      description: |
+        Show us relevant log output here.
+        - This field expects only plain text (_rendered as a fenced code block_).
+        - You can enable debug output by setting the environment variable `LOG_LEVEL` to `debug` or `trace`.
+      render: Text
+
+  - type: input
+    id: form-improvements
+    attributes:
+      label: Improvements to this form?
+      description: If you have criticism or general feedback about this issue form, feel free to tell us so we can enhance the experience for everyone.
+    validations:
+      required: false

@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Website | Help Center
+    url: https://bitwarden.com/help/
+    about: Visit this first before opening issues!
+  - name: Documentation | Contributing
+    url: https://contributing.bitwarden.com/
+    about: How to contribute to Bitwarden
