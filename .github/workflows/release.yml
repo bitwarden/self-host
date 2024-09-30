@@ -23,7 +23,7 @@ env:
 jobs:
   setup:
     name: Setup
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
       _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
@@ -68,7 +68,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: setup
     steps:
       - name: Checkout repo
@@ -94,7 +94,7 @@ jobs:
 
   release-version:
     name: Upload version.json
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
@@ -132,7 +132,7 @@ jobs:
 
   tag-docker-latest:
     name: Tag Docker Hub images with release version and latest
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
@@ -227,7 +227,7 @@ jobs:
 
   release-unified:
     name: Release Self-host unified
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release

@@ -31,7 +31,7 @@ env:
 jobs:
   build-docker:
     name: Build Docker image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository - workflow_call
         if: ${{ inputs.is_workflow_call == true }}
@@ -168,7 +168,7 @@ jobs:
   check-failures:
     name: Check for failures
     if: always()
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build-docker
     steps:
       - name: Check if any job failed
