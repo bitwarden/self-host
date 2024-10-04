@@ -5,3 +5,5 @@ For any issues regarding a specific client application, please visit [bitwarden/
 
 ---
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://marketplace.digitalocean.com/apps/bitwarden?action=deploy)
+
+[Deploy to Kubernetes with Helm](https://github.com/bitwarden/helm-charts/blob/main/charts/self-host/README.md)
