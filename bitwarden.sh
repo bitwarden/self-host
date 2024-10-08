@@ -93,16 +93,18 @@ function downloadRunFile() {
     then
         mkdir $SCRIPTS_DIR
     fi
-    run_file_status_code=$(curl -s -L -w "%{http_code}" -o $SCRIPTS_DIR/run.sh $RUN_SCRIPT_URL)
+    run_file_status_code=$(curl -s -L -w "%{http_code}" -o $SCRIPTS_DIR/run.sh.new $RUN_SCRIPT_URL)
     if echo "$run_file_status_code" | grep -q "^20[0-9]"
     then
+        rm $SCRIPTS_DIR/run.sh
+        mv $SCRIPTS_DIR/run.sh.new $SCRIPTS_DIR/run.sh
         chmod u+x $SCRIPTS_DIR/run.sh
         rm -f $SCRIPTS_DIR/install.sh
     else
         echo "Unable to download run script from $RUN_SCRIPT_URL. Received status code: $run_file_status_code"
         echo "http response:"
-        cat $SCRIPTS_DIR/run.sh
-        rm -f $SCRIPTS_DIR/run.sh
+        cat $SCRIPTS_DIR/run.sh.new
+        rm -f $SCRIPTS_DIR/run.sh.new
         exit 1
     fi
 }
