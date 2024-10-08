@@ -8,7 +8,7 @@ on:
 jobs:
   get-version:
     name: Get Web version
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
         _RELEASE_VERSION: ${{ steps.get-version.outputs.version }}
     steps:
@@ -23,7 +23,7 @@ jobs:
 
   tag-web-latest:
     name: Tag Web version as latest
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
         - get-version
     env:

@@ -10,7 +10,7 @@ env:
 jobs:
   test-dct:
     name: Pull and push images to DH to test DCT
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       _REPO: mssqlmigratorutility
       _IMAGE_TAG: latest
