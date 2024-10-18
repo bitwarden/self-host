@@ -1,4 +1,3 @@
----
 name: Release
 run-name: Release ${{ github.event.inputs.release_type }} v${{ github.event.inputs.release_version }}
 

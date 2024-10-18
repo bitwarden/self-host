@@ -1,5 +1,4 @@
 # Manual workflow to tag a web version with :latest
----
 name: Update Web Latest Tag
 
 on:
