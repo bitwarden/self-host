@@ -1,13 +1,5 @@
 #!/bin/bash
 
-# Set up user group
-PGID="${PGID:-1000}"
-addgroup --gid $PGID bitwarden
-
-# Set up user
-PUID="${PUID:-1000}"
-adduser --no-create-home --shell /bin/bash --disabled-password --uid $PUID --gid $PGID --gecos "" bitwarden
-
 # Translate environment variables for application settings
 VAULT_SERVICE_URI=https://$BW_DOMAIN
 MYSQL_CONNECTION_STRING="server=$BW_DB_SERVER;port=${BW_DB_PORT:-3306};database=$BW_DB_DATABASE;user=$BW_DB_USERNAME;password=$BW_DB_PASSWORD"
@@ -60,9 +52,6 @@ if [ ! -f /etc/bitwarden/identity.pfx ]; then
   rm /etc/bitwarden/identity.key
 fi
 
-cp /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
-cp /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
-
 # Generate SSL certificates
 if [ "$BW_ENABLE_SSL" = "true" -a ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
   openssl req \
@@ -84,25 +73,4 @@ fi
 
 /usr/local/bin/hbs
 
-# Enable/Disable services
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ADMIN}/" /etc/supervisor.d/admin.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_API}/" /etc/supervisor.d/api.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_EVENTS}/" /etc/supervisor.d/events.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ICONS}/" /etc/supervisor.d/icons.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_IDENTITY}/" /etc/supervisor.d/identity.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_NOTIFICATIONS}/" /etc/supervisor.d/notifications.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SCIM}/" /etc/supervisor.d/scim.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SSO}/" /etc/supervisor.d/sso.ini
-
-chown -R $PUID:$PGID \
-    /app \
-    /etc/bitwarden \
-    /etc/nginx/http.d \
-    /etc/supervisor \
-    /etc/supervisor.d \
-    /var/lib/nginx \
-    /var/log \
-    /var/run/nginx \
-    /run
-
-exec setpriv --reuid=$PUID --regid=$PGID --init-groups /usr/bin/supervisord
+exec setpriv --reuid=1000--regid=1000 --init-groups /usr/bin/supervisord
