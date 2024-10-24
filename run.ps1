@@ -172,7 +172,7 @@ function Update-Database {
 
     # only use container network driver if using the included mssql image
     $dockerNetworkArgs = ""
-    if (Select-String -Path ${envDir}\global.override.env -Pattern 'Data Source=tcp:mssql,1') {
+    if (Select-String -Path ${envDir}\global.override.env -Pattern 'Data Source=tcp:mssql,1433') {
         $dockerNetworkArgs = "--network container:$mssqlId"
     }
 
