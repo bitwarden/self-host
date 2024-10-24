@@ -190,7 +190,7 @@ function updateDatabase() {
     MSSQL_ID=$($dccmd ps -q mssql)
 
     # only use container network driver if using the included mssql image
-    if grep -q 'Data Source=tcp:mssql,1433;' "$ENV_DIR/global.override.env"
+    if grep -q 'Data Source=tcp:mssql,1433' "$ENV_DIR/global.override.env"
     then
         local docker_network_args="--network container:$MSSQL_ID"
     fi
