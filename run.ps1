@@ -168,11 +168,11 @@ function Force-Update-Lets-Encrypt {
 function Update-Database {
     Pull-Setup
     Docker-Compose-Files
-    $mssqlId = docker-compose ps -q mssql
 
     # only use container network driver if using the included mssql image
     $dockerNetworkArgs = ""
     if (Select-String -Path ${envDir}\global.override.env -Pattern 'Data Source=tcp:mssql,1433') {
+        $mssqlId = docker-compose ps -q mssql
         $dockerNetworkArgs = "--network container:$mssqlId"
     }
 
