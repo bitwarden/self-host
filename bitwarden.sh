@@ -2,9 +2,9 @@
 set -e
 
 cat << "EOF"
- _     _ _                         _            
-| |__ (_) |___      ____ _ _ __ __| | ___ _ __  
-| '_ \| | __\ \ /\ / / _` | '__/ _` |/ _ \ '_ \ 
+ _     _ _                         _
+| |__ (_) |___      ____ _ _ __ __| | ___ _ __
+| '_ \| | __\ \ /\ / / _` | '__/ _` |/ _ \ '_ \
 | |_) | | |_ \ V  V / (_| | | | (_| |  __/ | | |
 |_.__/|_|\__| \_/\_/ \__,_|_|  \__,_|\___|_| |_|
 
@@ -33,7 +33,7 @@ if [ "$EUID" -eq 0 ]; then
             echo -e "Continuing...."
             ;;
         *)
-            exit 1         
+            exit 1
             ;;
     esac
 fi
@@ -68,11 +68,7 @@ KEYCONNECTORVERSION="2024.8.0"
 
 echo "bitwarden.sh version $COREVERSION"
 docker --version
-if [[ "$dccmd" == "docker compose" ]]; then
-    $dccmd version
-else
-    $dccmd --version
-fi
+docker compose version
 
 echo ""
 
@@ -151,7 +147,7 @@ function compressLogs() {
             exit 1
         fi
     fi
-    
+
     # Validate end date format and order
     if [ -n "$END_DATE" ]; then
         validateDateFormat "$END_DATE" "end"
@@ -257,7 +253,7 @@ case $1 in
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
         ;;
     "compresslogs")
-        checkOutputDirExists        
+        checkOutputDirExists
         compressLogs $OUTPUT $2 $3
         ;;
     "help")
