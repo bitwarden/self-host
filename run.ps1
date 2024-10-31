@@ -1,5 +1,5 @@
 param (
-    [string]$outputDir = "../.",
+    [string]$outputDir = "..\.",
     [string]$coreVersion = "latest",
     [string]$webVersion = "latest",
     [string]$keyConnectorVersion = "latest",
@@ -18,6 +18,7 @@ param (
 # Setup
 
 $dockerDir = "${outputDir}\docker"
+$envDir = "${outputDir}\env"
 $setupQuiet = 0
 $qFlag = ""
 $quietPullFlag = ""
@@ -42,22 +43,22 @@ function Install() {
     Write-Host "(!) " -f cyan -nonewline
     [string]$domain = $( Read-Host "Enter the domain name for your Bitwarden instance (ex. bitwarden.example.com)" )
     echo ""
-    
+
     if ($domain -eq "") {
         $domain = "localhost"
     }
-    
+
     if ($domain -ne "localhost") {
         Write-Host "(!) " -f cyan -nonewline
         $letsEncrypt = $( Read-Host "Do you want to use Let's Encrypt to generate a free SSL certificate? (y/n)" )
         echo ""
-    
+
         if ($letsEncrypt -eq "y") {
             Write-Host "(!) " -f cyan -nonewline
             [string]$email = $( Read-Host ("Enter your email address (Let's Encrypt will send you certificate " +
                     "expiration reminders)") )
             echo ""
-    
+
             $letsEncryptPath = "${outputDir}/letsencrypt"
             if (!(Test-Path -Path $letsEncryptPath )) {
                 New-Item -ItemType directory -Path $letsEncryptPath | Out-Null
@@ -78,7 +79,7 @@ function Install() {
     if ($database -eq "") {
         $database = "vault"
     }
-    
+
     Pull-Setup
     docker run -it --rm --name setup -v ${outputDir}:/bitwarden bitwarden/setup:$coreVersion `
         dotnet Setup.dll -install 1 -domain ${domain} -letsencrypt ${letsEncrypt} `
@@ -167,8 +168,15 @@ function Force-Update-Lets-Encrypt {
 function Update-Database {
     Pull-Setup
     Docker-Compose-Files
-    $mssqlId = docker-compose ps -q mssql
-    docker run -it --rm --name setup --network container:$mssqlId `
+
+    # only use container network driver if using the included mssql image
+    $dockerNetworkArgs = ""
+    if (Select-String -Path ${envDir}\global.override.env -Pattern 'Data Source=tcp:mssql,1433') {
+        $mssqlId = docker-compose ps -q mssql
+        $dockerNetworkArgs = "--network container:$mssqlId"
+    }
+
+    docker run -it --rm --name setup $dockerNetworkArgs `
         -v ${outputDir}:/bitwarden bitwarden/setup:$coreVersion `
         dotnet Setup.dll -update 1 -db 1 -os win -corev $coreVersion -webv $webVersion `
         -keyconnectorv $keyConnectorVersion -q $setupQuiet
@@ -196,7 +204,7 @@ function Uninstall() {
         $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/n)" )
     }
 
-    
+
     if ($uninstallAction -eq "y") {
         Write-Host "uninstalling Bitwarden..."
         Docker-Compose-Down
@@ -210,7 +218,7 @@ function Uninstall() {
 
     Write-Host "(!) " -f red -nonewline
         $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/n)" )
-    
+
         if ($purgeAction -eq "y") {
             Docker-Prune
         }
