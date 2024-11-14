@@ -1,7 +1,7 @@
 {
   "versions": {
-    "coreVersion":"2024.10.2",
-    "webVersion":"2024.10.5",
+    "coreVersion":"2024.11.0",
+    "webVersion":"2024.11.0",
     "keyConnectorVersion":"2024.8.0"
   }
 }
