@@ -50,11 +50,11 @@ if [ $# -eq 2 ]
 then
     OUTPUT=$2
 fi
-if command -v docker-compose &> /dev/null
+if command -v docker compose &> /dev/null
 then
-    dccmd='docker-compose'
-else
     dccmd='docker compose'
+else
+    dccmd='docker-compose'
 fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
