@@ -2,11 +2,14 @@
 set -e
 
 # Setup
-if command -v docker compose &> /dev/null
-then
+if docker compose &> /dev/null; then
     dccmd='docker compose'
-else
+elif command -v docker-compose &> /dev/null; then
     dccmd='docker-compose'
+    echo "docker compose not found, falling back to docker-compose."
+else
+    echo "Error: Neither 'docker compose' nor 'docker-compose' commands were found. Please install Docker Compose." >&2
+    exit 1
 fi
 
 CYAN='\033[0;36m'
