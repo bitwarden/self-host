@@ -2,12 +2,15 @@
 set -e
 
 # Setup
-if ! docker compose version &> /dev/null
-then
-    echo "Error: 'docker compose' is not installed. Please install Docker Compose."
+if docker compose &> /dev/null; then
+    dccmd='docker compose'
+elif command -v docker-compose &> /dev/null; then
+    dccmd='docker-compose'
+    echo "docker compose not found, falling back to docker-compose."
+else
+    echo "Error: Neither 'docker compose' nor 'docker-compose' commands were found. Please install Docker Compose." >&2
     exit 1
 fi
-
 
 CYAN='\033[0;36m'
 RED='\033[1;31m'
@@ -108,19 +111,19 @@ function install() {
 function dockerComposeUp() {
     dockerComposeFiles
     dockerComposeVolumes
-    docker compose up -d
+    $dccmd up -d
 }
 
 function dockerComposeDown() {
     dockerComposeFiles
-    if [ $(docker compose ps | wc -l) -gt 2 ]; then
-        docker compose down
+    if [ $($dccmd ps | wc -l) -gt 2 ]; then
+        $dccmd down
     fi
 }
 
 function dockerComposePull() {
     dockerComposeFiles
-    docker compose pull
+    $dccmd pull
 }
 
 function dockerComposeFiles() {
@@ -191,7 +194,7 @@ function updateDatabase() {
     # only use container network driver if using the included mssql image
     if grep -q 'Data Source=tcp:mssql,1433' "$ENV_DIR/global.override.env"
     then
-        MSSQL_ID=$(docker compose ps -q mssql)
+        MSSQL_ID=$($dccmd ps -q mssql)
         local docker_network_args="--network container:$MSSQL_ID"
     fi
 
@@ -203,11 +206,11 @@ function updateDatabase() {
 
 function updatebw() {
     KEY_CONNECTOR_ENABLED=$(grep 'enable_key_connector:' $OUTPUT_DIR/config.yml | awk '{ print $2}')
-    CORE_ID=$(docker compose ps -q admin)
-    WEB_ID=$(docker compose ps -q web)
+    CORE_ID=$($dccmd ps -q admin)
+    WEB_ID=$($dccmd ps -q web)
     if [ "$KEY_CONNECTOR_ENABLED" = true ];
     then
-        KEYCONNECTOR_ID=$(docker compose ps -q key-connector)
+        KEYCONNECTOR_ID=$($dccmd ps -q key-connector)
     fi
 
     if [ $KEYCONNECTOR_ID ] &&

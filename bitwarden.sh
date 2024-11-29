@@ -50,11 +50,14 @@ if [ $# -eq 2 ]
 then
     OUTPUT=$2
 fi
-if command -v docker-compose &> /dev/null
-then
-    dccmd='docker-compose'
-else
+if docker compose &> /dev/null; then
     dccmd='docker compose'
+elif command -v docker-compose &> /dev/null; then
+    dccmd='docker-compose'
+    echo "docker compose not found, falling back to docker-compose."
+else
+    echo "Error: Neither 'docker compose' nor 'docker-compose' commands were found. Please install Docker Compose." >&2
+    exit 1
 fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
@@ -68,7 +71,11 @@ KEYCONNECTORVERSION="2024.8.0"
 
 echo "bitwarden.sh version $COREVERSION"
 docker --version
-docker compose version
+if [[ "$dccmd" == "docker compose" ]]; then
+    $dccmd version
+else
+    $dccmd --version
+fi
 
 echo ""
 
