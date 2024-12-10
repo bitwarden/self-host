@@ -87,9 +87,11 @@ jobs:
           commit: ${{ github.sha }}
           tag: "v${{ github.event.inputs.release_version }}"
           name: "Version ${{ github.event.inputs.release_version }}"
-          body: "<insert release notes here>"
+          body: |
+            Update Core version to [v${{ needs.setup.outputs._CORE_RELEASE_TAG }}](https://github.com/bitwarden/server/releases/tag/v${{ needs.setup.outputs._CORE_RELEASE_TAG }})
+            Update Web version to [v${{ needs.setup.outputs._WEB_RELEASE_TAG }}](https://github.com/bitwarden/clients/releases/tag/web-v${{ needs.setup.outputs._WEB_RELEASE_TAG }})
           token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
+          draft: false
 
   release-version:
     name: Upload version.json
