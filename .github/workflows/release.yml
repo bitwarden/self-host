@@ -84,7 +84,7 @@ jobs:
         env:
           _LATEST_SELF_HOST_VERSION: ${{ needs.setup.outputs._LATEST_SELF_HOST_VERSION }}
         run: |
-          git diff --unified=0 v$_LATEST_SELF_HOST_VERSION main -- version.json >> diff.txt
+          git diff --unified=0 $_LATEST_SELF_HOST_VERSION main -- version.json >> diff.txt
 
           if grep -q "webVersion" diff.txt; then
             echo "WEB_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
