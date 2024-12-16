@@ -2,11 +2,14 @@
 set -e
 
 # Setup
-if command -v docker-compose &> /dev/null
-then
-    dccmd='docker-compose'
-else
+if docker compose &> /dev/null; then
     dccmd='docker compose'
+elif command -v docker-compose &> /dev/null; then
+    dccmd='docker-compose'
+    echo "docker compose not found, falling back to docker-compose."
+else
+    echo "Error: Neither 'docker compose' nor 'docker-compose' commands were found. Please install Docker Compose." >&2
+    exit 1
 fi
 
 CYAN='\033[0;36m'
@@ -63,24 +66,24 @@ function install() {
     echo -e -n "${CYAN}(!)${NC} Enter the domain name for your Bitwarden instance (ex. bitwarden.example.com): "
     read DOMAIN
     echo ""
-    
+
     if [ "$DOMAIN" == "" ]
     then
         DOMAIN="localhost"
     fi
-    
+
     if [ "$DOMAIN" != "localhost" ]
     then
         echo -e -n "${CYAN}(!)${NC} Do you want to use Let's Encrypt to generate a free SSL certificate? (y/n): "
         read LETS_ENCRYPT
         echo ""
-    
+
         if [ "$LETS_ENCRYPT" == "y" ]
         then
             echo -e -n "${CYAN}(!)${NC} Enter your email address (Let's Encrypt will send you certificate expiration reminders): "
             read EMAIL
             echo ""
-    
+
             mkdir -p $OUTPUT_DIR/letsencrypt
             docker pull certbot/certbot
             docker run -it --rm --name certbot -p 80:80 -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
@@ -97,7 +100,7 @@ function install() {
     then
         DATABASE="vault"
     fi
-    
+
     pullSetup
     docker run -it --rm --name setup -v $OUTPUT_DIR:/bitwarden \
         --env-file $ENV_DIR/uid.env bitwarden/setup:$COREVERSION \
@@ -187,8 +190,15 @@ function forceUpdateLetsEncrypt() {
 function updateDatabase() {
     pullSetup
     dockerComposeFiles
-    MSSQL_ID=$($dccmd ps -q mssql)
-    docker run -i --rm --name setup --network container:$MSSQL_ID \
+
+    # only use container network driver if using the included mssql image
+    if grep -q 'Data Source=tcp:mssql,1433' "$ENV_DIR/global.override.env"
+    then
+        MSSQL_ID=$($dccmd ps -q mssql)
+        local docker_network_args="--network container:$MSSQL_ID"
+    fi
+
+    docker run -i --rm --name setup $docker_network_args \
         -v $OUTPUT_DIR:/bitwarden --env-file $ENV_DIR/uid.env bitwarden/setup:$COREVERSION \
         dotnet Setup.dll -update 1 -db 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
     echo "Database update complete"
@@ -250,7 +260,6 @@ function uninstall() {
         read UNINSTALL_ACTION
     fi
 
-    
     if [ "$UNINSTALL_ACTION" == "y" ]
     then
         echo "Uninstalling Bitwarden..."
@@ -272,7 +281,6 @@ function uninstall() {
         dockerPrune
         echo -e -n "${CYAN}Bitwarden uninstall complete! ${NC}"
     fi
-    
 }
 
 function printEnvironment() {

@@ -2,9 +2,9 @@
 set -e
 
 cat << "EOF"
- _     _ _                         _            
-| |__ (_) |___      ____ _ _ __ __| | ___ _ __  
-| '_ \| | __\ \ /\ / / _` | '__/ _` |/ _ \ '_ \ 
+ _     _ _                         _
+| |__ (_) |___      ____ _ _ __ __| | ___ _ __
+| '_ \| | __\ \ /\ / / _` | '__/ _` |/ _ \ '_ \
 | |_) | | |_ \ V  V / (_| | | | (_| |  __/ | | |
 |_.__/|_|\__| \_/\_/ \__,_|_|  \__,_|\___|_| |_|
 
@@ -33,7 +33,7 @@ if [ "$EUID" -eq 0 ]; then
             echo -e "Continuing...."
             ;;
         *)
-            exit 1         
+            exit 1
             ;;
     esac
 fi
@@ -50,11 +50,14 @@ if [ $# -eq 2 ]
 then
     OUTPUT=$2
 fi
-if command -v docker-compose &> /dev/null
-then
-    dccmd='docker-compose'
-else
+if docker compose &> /dev/null; then
     dccmd='docker compose'
+elif command -v docker-compose &> /dev/null; then
+    dccmd='docker-compose'
+    echo "docker compose not found, falling back to docker-compose."
+else
+    echo "Error: Neither 'docker compose' nor 'docker-compose' commands were found. Please install Docker Compose." >&2
+    exit 1
 fi
 
 SCRIPTS_DIR="$OUTPUT/scripts"
@@ -62,8 +65,8 @@ BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=
 RUN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="2024.9.2"
-WEBVERSION="2024.10.0"
+COREVERSION="2024.12.1"
+WEBVERSION="2024.12.0"
 KEYCONNECTORVERSION="2024.8.0"
 
 echo "bitwarden.sh version $COREVERSION"
@@ -93,16 +96,20 @@ function downloadRunFile() {
     then
         mkdir $SCRIPTS_DIR
     fi
-    run_file_status_code=$(curl -s -L -w "%{http_code}" -o $SCRIPTS_DIR/run.sh $RUN_SCRIPT_URL)
+
+    local tmp_script=$(mktemp)
+
+    run_file_status_code=$(curl -s -L -w "%{http_code}" -o $tmp_script $RUN_SCRIPT_URL)
     if echo "$run_file_status_code" | grep -q "^20[0-9]"
     then
+        mv $tmp_script $SCRIPTS_DIR/run.sh
         chmod u+x $SCRIPTS_DIR/run.sh
         rm -f $SCRIPTS_DIR/install.sh
     else
         echo "Unable to download run script from $RUN_SCRIPT_URL. Received status code: $run_file_status_code"
         echo "http response:"
-        cat $SCRIPTS_DIR/run.sh
-        rm -f $SCRIPTS_DIR/run.sh
+        cat $tmp_script
+        rm -f $tmp_script
         exit 1
     fi
 }
@@ -151,7 +158,7 @@ function compressLogs() {
             exit 1
         fi
     fi
-    
+
     # Validate end date format and order
     if [ -n "$END_DATE" ]; then
         validateDateFormat "$END_DATE" "end"
@@ -307,7 +314,7 @@ case $1 in
         $SCRIPTS_DIR/run.sh uninstall $OUTPUT
         ;;
     "compresslogs")
-        checkOutputDirExists        
+        checkOutputDirExists
         compressLogs $OUTPUT $2 $3
         ;;
     "checksmtp")
