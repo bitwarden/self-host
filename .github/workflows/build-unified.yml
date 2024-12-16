@@ -19,6 +19,9 @@ on:
         description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
+      is_workflow_call:
+        type: boolean
+        default: false
   pull_request:
     paths:
       - ".github/workflows/build-unified.yml"
