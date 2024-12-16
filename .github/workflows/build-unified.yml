@@ -166,11 +166,11 @@ jobs:
             "GH_PAT=${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}"
 
       - name: Install Cosign
-        if: github.event_name == 'workflow_call' && github.ref == 'refs/heads/main'
+        if: env.is_publish_branch == 'true'
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
       - name: Sign image with Cosign
-        if: github.event_name == 'workflow_call' && github.ref == 'refs/heads/main'
+        if: env.is_publish_branch == 'true'
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
           TAGS: ${{ steps.tag-list.outputs.tags }}
