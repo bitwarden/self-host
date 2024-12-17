@@ -10,18 +10,12 @@ on:
       server_branch:
         type: string
         default: main
-      is_workflow_call:
-        type: boolean
-        default: true
   workflow_dispatch:
     inputs:
       server_branch:
         description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
-      is_workflow_call:
-        type: boolean
-        default: false
   pull_request:
     paths:
       - ".github/workflows/build-unified.yml"
@@ -39,14 +33,14 @@ jobs:
       id-token: write
     steps:
       - name: Checkout Repository - workflow_call
-        if: ${{ inputs.is_workflow_call == true }}
+        if: ${{ github.event_name == 'workflow_call' }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: bitwarden/self-host
           ref: main
 
       - name: Checkout Repository - workflow_dispatch
-        if: ${{ inputs.is_workflow_call != true }}
+        if: ${{ github.event_name != 'workflow_call' }}
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Get server branch to checkout
@@ -66,7 +60,7 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
-          if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_call" ]]; then
             REF=main
           else
             REF=${GITHUB_REF#refs/heads/}
