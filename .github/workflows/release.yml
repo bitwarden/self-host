@@ -109,14 +109,14 @@ jobs:
 
           if [ -n "${{ steps.changed-projects.outputs.WEB_VERSION_CHANGED }}" ]; then
             if [ -n "$RELEASE_NOTES" ]; then
-              RELEASE_NOTES+="\n"
+              RELEASE_NOTES+=$'\n'
             fi
             RELEASE_NOTES+="Update Web version to [v${{ needs.setup.outputs._WEB_RELEASE_TAG }}](https://github.com/bitwarden/clients/releases/tag/web-v${{ needs.setup.outputs._WEB_RELEASE_TAG }})"
           fi
 
           if [ -n "${{ steps.changed-projects.outputs.KEY_CONNECTOR_VERSION_CHANGED }}" ]; then
             if [ -n "$RELEASE_NOTES" ]; then
-              RELEASE_NOTES+="\n"
+              RELEASE_NOTES+=$'\n'
             fi
             RELEASE_NOTES+="Update Key Connector version to [v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }}](https://github.com/bitwarden/key-connector/releases/tag/v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }})"
           fi
