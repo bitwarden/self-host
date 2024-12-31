@@ -367,21 +367,6 @@ jobs:
           keyvault: "bitwarden-ci"
           secrets: "github-pat-bitwarden-devops-bot-repo-scope"
 
-      - name: Trigger update-links workflow
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          github-token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'bitwarden',
-              repo: 'self-host',
-              workflow_id: 'update-links.yml',
-              ref: 'main',
-              inputs: {
-                release_tag: v${{ github.event.inputs.release_version }}
-              }
-            });
-
       - name: Trigger release-digital-ocean workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
