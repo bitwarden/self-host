@@ -121,7 +121,11 @@ jobs:
             RELEASE_NOTES+="Update Key Connector version to [v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }}](https://github.com/bitwarden/key-connector/releases/tag/v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }})"
           fi
 
-          echo "RELEASE_NOTES=$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          (
+            echo 'RELEASE_NOTES<<EOF'
+            echo "$RELEASE_NOTES"
+            echo EOF
+          ) >> $GITHUB_OUTPUT
 
       - name: Create release
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
