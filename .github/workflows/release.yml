@@ -67,6 +67,8 @@ jobs:
     env:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
       _BRANCH_NAME: main
+    permissions:
+      packages: write
     strategy:
       fail-fast: false
       matrix:
