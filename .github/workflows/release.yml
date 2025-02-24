@@ -22,7 +22,7 @@ env:
 jobs:
   setup:
     name: Setup
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
       _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
@@ -71,7 +71,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: setup
     steps:
       - name: Checkout repo
@@ -145,7 +145,7 @@ jobs:
 
   release-version:
     name: Upload version.json
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
@@ -183,7 +183,7 @@ jobs:
 
   tag-docker-latest:
     name: Tag Docker Hub images with release version and latest
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
@@ -259,8 +259,8 @@ jobs:
 
       - name: Tag release version and latest image
         run: |
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
+          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Push release version and latest image
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
@@ -268,8 +268,8 @@ jobs:
           DOCKER_CONTENT_TRUST: 1
           DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
-          docker push bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker push bitwarden/$_PROJECT_NAME:latest
+          docker push ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          docker push ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Log out of Docker and disable Docker Notary
         run: |
@@ -278,7 +278,7 @@ jobs:
 
   release-unified:
     name: Release Self-host unified
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
@@ -312,9 +312,9 @@ jobs:
         run: |
           ./skopeo --version
           ./skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
-          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
-          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:beta # TODO: Delete after GA
-          # ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
+          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
+          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:beta # TODO: Delete after GA
+          # ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:latest # TODO: uncomment after GA
 
       - name: Log out of Docker, skopeo and disable Docker Notary
         run: |
@@ -354,7 +354,7 @@ jobs:
 
   trigger-workflows:
     name: Trigger workflows
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
