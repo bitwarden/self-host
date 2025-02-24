@@ -32,7 +32,7 @@ jobs:
       - name: Branch check
         if: ${{ github.event.inputs.release_type != 'Dry Run' }}
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+          if [[ "$GITHUB_REF" != "refs/heads/vgrassia/test" ]]; then
             echo "==================================="
             echo "[!] Can only release from the 'main' branch"
             echo "==================================="
