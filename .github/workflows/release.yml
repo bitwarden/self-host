@@ -68,6 +68,8 @@ jobs:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
       _BRANCH_NAME: main
     permissions:
+      contents: read
+      id-token: write
       packages: write
     strategy:
       fail-fast: false
@@ -95,6 +97,9 @@ jobs:
         with:
           ref: main
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
       - name: Login to Azure - Prod Subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
         with:
@@ -118,14 +123,6 @@ jobs:
             echo "_RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_ENV
           fi
 
-      ########## DockerHub ##########
-      - name: Setup DCT
-        id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@main
-        with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
-
       - name: Pull versioned image
         run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
 
@@ -133,6 +130,11 @@ jobs:
         run: |
           docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
           docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:latest
+
+      - name: Sign image with Cosign
+        run: |
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          cosing sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -142,15 +144,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push release version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        env:
-          DOCKER_CONTENT_TRUST: 1
-          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           docker push ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
           docker push ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
-      - name: Log out of Docker and disable Docker Notary
-        run: |
-          docker logout
-          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
+      - name: Log out of Docker
+        run: docker logout
