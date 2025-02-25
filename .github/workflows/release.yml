@@ -152,4 +152,6 @@ jobs:
           cosing sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
 
       - name: Log out of Docker
-        run: docker logout
+        run: |
+          docker logout ghcr.io
+          docker logout $_AZ_REGISTRY
