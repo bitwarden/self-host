@@ -131,11 +131,6 @@ jobs:
           docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
           docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
-      - name: Sign image with Cosign
-        run: |
-          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          cosing sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:latest
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
@@ -148,6 +143,13 @@ jobs:
         run: |
           docker push ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
           docker push ghcr.io/bitwarden/$_PROJECT_NAME:latest
+
+      - name: Sign image with Cosign
+        run: |
+          HASH_RELEASE=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
+          HASH_LATEST=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:latest --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
+          cosing sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
 
       - name: Log out of Docker
         run: docker logout
