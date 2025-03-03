@@ -146,7 +146,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build-docker
-        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6.13.0
+        uses: docker/build-push-action@0adf9959216b96bec444f325f1e493d4aa344497 # v6.14.0
         with:
           context: .
           file: docker-unified/Dockerfile
@@ -161,7 +161,7 @@ jobs:
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'
-        uses: sigstore/cosign-installer@c56c2d3e59e4281cc41dea2217323ba5694b171e # v3.8.0
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: Sign image with Cosign
         if: env.is_publish_branch == 'true'
@@ -185,7 +185,7 @@ jobs:
           output-format: sarif
 
       - name: Upload Grype results to GitHub
-        uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3.28.9
+        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
         with:
           sarif_file: ${{ steps.container-scan.outputs.sarif }}
 
