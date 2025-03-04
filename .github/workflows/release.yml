@@ -149,22 +149,15 @@ jobs:
           docker push ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
           docker push ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
-      - name: Get image hashes
-        run: |
-          HASH_RELEASE=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
-          HASH_LATEST=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:latest --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
-          echo "HASH_RELEASE=$HASH_RELEASE" >> $GITHUB_ENV
-          echo "HASH_LATEST=$HASH_LATEST" >> $GITHUB_ENV
-
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
-          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:latest
       
       - name: Verify the signed image with Cosign
         run: |
-          cosign verify --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
-          cosign verify --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
+          cosign verify --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          cosign verify --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Log out of Docker
         run: |
