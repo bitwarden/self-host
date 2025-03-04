@@ -19,6 +19,11 @@ on:
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
 
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
 jobs:
   setup:
     name: Setup
@@ -153,8 +158,8 @@ jobs:
       
       - name: Verify the signed image with Cosign
         run: |
-          cosign verify --certificate-identity ${{ github.workflow }} ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
-          cosign verify --certificate-identity ${{ github.workflow }} ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
+          cosign verify --certificate-identity ${{ github.workflow }} --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
+          cosign verify --certificate-identity ${{ github.workflow }} --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
 
       - name: Log out of Docker
         run: |
