@@ -61,7 +61,7 @@ jobs:
 
 
   tag-docker-latest:
-    name: Tag GHCR images with release version and latest
+    name: Tag ${{ matrix.project_name }} images with release version and latest
     runs-on: ubuntu-24.04
     needs: setup
     env:
