@@ -150,6 +150,11 @@ jobs:
           HASH_LATEST=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:latest --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
           cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
           cosing sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
+      
+      - name: Verify the signed image with Cosign
+        run: |
+          cosign verify ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
+          cosign verify ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
 
       - name: Log out of Docker
         run: |
