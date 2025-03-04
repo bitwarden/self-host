@@ -149,7 +149,7 @@ jobs:
           HASH_RELEASE=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
           HASH_LATEST=$(docker image inspect ghcr.io/bitwarden/$_PROJECT_NAME:latest --format '{{index .RepoDigests 0}}' | cut -d '@' -f2)
           cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
-          cosing sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
       
       - name: Verify the signed image with Cosign
         run: |
