@@ -163,8 +163,8 @@ jobs:
       
       - name: Verify the signed image with Cosign
         run: |
-          cosign verify --certificate-identity "${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
-          cosign verify --certificate-identity "${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
+          cosign verify --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_RELEASE
+          cosign verify --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" --certificate-oidc-issuer "https://token.actions.githubusercontent.com" ghcr.io/bitwarden/$_PROJECT_NAME@$HASH_LATEST
 
       - name: Log out of Docker
         run: |
