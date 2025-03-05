@@ -35,7 +35,12 @@ jobs:
         id: server-branch-name
         env:
           SERVER_BRANCH: ${{ inputs.server_branch }}
-        run: echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ -z "${SERVER_BRANCH}" ]]; then
+            echo "server_branch=main" >> $GITHUB_OUTPUT
+          else
+            echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Branch to Publish
         env:
