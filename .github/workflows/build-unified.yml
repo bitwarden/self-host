@@ -165,7 +165,7 @@ jobs:
       - name: Verify the signed image(s) with Cosign
         if: env.is_publish_branch == 'true'
         run: |
-          cosign verify
+          cosign verify \
             --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             ${{ steps.sign.outputs.images }}
