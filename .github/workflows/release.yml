@@ -304,9 +304,9 @@ jobs:
             ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
 
           cosign verify \
-          --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
-          --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-          ghcr.io/bitwarden/$_PROJECT_NAME:latest
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Log out of Docker
         run: |
@@ -414,14 +414,14 @@ jobs:
       - name: Verify the signed image with Cosign
         run: |
           cosign verify \
-          --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
-          --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-          ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/self-host:$_RELEASE_TAG
 
           cosign verify \
-          --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
-          --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-          ghcr.io/bitwarden/self-host:latest
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/self-host:latest
 
       - name: Log out of Docker
         run: docker logout ghcr.io
