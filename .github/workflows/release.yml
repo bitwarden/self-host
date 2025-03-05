@@ -192,6 +192,9 @@ jobs:
     env:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
       _BRANCH_NAME: main
+    permissions:
+      id-token: write
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -313,6 +316,9 @@ jobs:
       - release
     env:
       _RELEASE_VERSION: ${{ inputs.release_version }}-beta # TODO: remove `-beta` after GA
+    permissions:
+      id-token: write
+      packages: write
     steps:
       ########## DockerHub ##########
       - name: Setup DCT
