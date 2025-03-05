@@ -5,11 +5,6 @@ on:
     paths:
       - "docker-unified/**"
       - ".github/workflows/build-unified.yml"
-  workflow_call:
-    inputs:
-      server_branch:
-        type: string
-        default: main
   workflow_dispatch:
     inputs:
       server_branch:
@@ -27,20 +22,13 @@ env:
 jobs:
   build-docker:
     name: Build Docker image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     permissions:
-      security-events: write
       id-token: write
+      packages: write
+      security-events: write
     steps:
-      - name: Checkout Repository - workflow_call
-        if: ${{ github.event_name == 'workflow_call' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: bitwarden/self-host
-          ref: main
-
-      - name: Checkout Repository - workflow_dispatch
-        if: ${{ github.event_name != 'workflow_call' }}
+      - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Get server branch to checkout
@@ -60,11 +48,7 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_call" ]]; then
-            REF=main
-          else
-            REF=${GITHUB_REF#refs/heads/}
-          fi
+          REF=${GITHUB_REF#refs/heads/}
 
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
@@ -90,17 +74,12 @@ jobs:
       - name: Login to Azure ACR
         run: az acr login -n bitwardenprod
 
-      - name: Login to Azure - CI Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-
-      - name: Retrieve github PAT secrets
-        id: retrieve-secret-pat
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        with:
-          keyvault: "bitwarden-ci"
-          secrets: "github-pat-bitwarden-devops-bot-repo-scope"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Docker Trust
         if: ${{ env.is_publish_branch == 'true' }}
@@ -131,16 +110,23 @@ jobs:
           IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
           if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           else
             echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@c1a285145b9d317df6ced56c09f525b5c2b6f755 # v1.11.1
+        id: app-token
+        with:
+          app-id: ${{ secrets.BW_GHAPP_ID }}
+          private-key: ${{ secrets.BW_GHAPP_KEY }}
 
       - name: Checkout server repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: bitwarden/server
-          token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          token: ${{ steps.app-token.outputs.token }}
           ref: ${{ steps.server-branch-name.outputs.server_branch }}
           path: "server"
 
@@ -156,8 +142,6 @@ jobs:
             linux/arm64/v8
           push: true
           tags: ${{ steps.tag-list.outputs.tags }}
-          secrets: |
-            "GH_PAT=${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}"
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'
@@ -165,6 +149,7 @@ jobs:
 
       - name: Sign image with Cosign
         if: env.is_publish_branch == 'true'
+        id: sign
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
           TAGS: ${{ steps.tag-list.outputs.tags }}
@@ -175,6 +160,15 @@ jobs:
             images+="${tag}@${DIGEST} "
           done
           cosign sign --yes ${images}
+          echo "images=${images}" >> $GITHUB_OUTPUT
+
+      - name: Verify the signed image(s) with Cosign
+        if: env.is_publish_branch == 'true'
+        run: |
+          cosign verify
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ${{ steps.sign.outputs.images }}
 
       - name: Scan Docker image
         id: container-scan
@@ -195,10 +189,11 @@ jobs:
           docker logout
           echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
 
+
   check-failures:
     name: Check for failures
     if: always()
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build-docker
     steps:
       - name: Check if any job failed
