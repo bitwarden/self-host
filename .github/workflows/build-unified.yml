@@ -163,7 +163,7 @@ jobs:
           cosign verify
             --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ${{ steps.sign.output.images }}
+            ${{ steps.sign.outputs.images }}
 
       - name: Scan Docker image
         id: container-scan
