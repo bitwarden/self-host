@@ -295,7 +295,7 @@ jobs:
         run: |
           cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
           cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:latest
-      
+
       - name: Verify the signed image with Cosign
         run: |
           cosign verify \
@@ -397,26 +397,26 @@ jobs:
 
       - name: Tag release version and latest image
         run: |
-          docker tag $_AZ_REGISTRY/self-host:$_RELEASE_TAG ghcr.io/bitwarden/self-host:$_RELEASE_TAG
-          docker tag $_AZ_REGISTRY/self-host:$_RELEASE_TAG ghcr.io/bitwarden/self-host:latest
+          docker tag $_AZ_REGISTRY/self-host:$_RELEASE_VERSION ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
+          docker tag $_AZ_REGISTRY/self-host:$_RELEASE_VERSION ghcr.io/bitwarden/self-host:latest
 
       - name: Push release version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker push ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+          docker push ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
           docker push ghcr.io/bitwarden/self-host:latest
 
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
           cosign sign --yes ghcr.io/bitwarden/self-host:latest
-      
+
       - name: Verify the signed image with Cosign
         run: |
           cosign verify \
             --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+            ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
 
           cosign verify \
             --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
