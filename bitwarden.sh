@@ -12,7 +12,7 @@ EOF
 
 cat << EOF
 Open source password management solutions
-Copyright 2015-$(date +'%Y'), 8bit Solutions LLC
+Copyright 2015-$(date +'%Y'), Bitwarden, Inc.
 https://bitwarden.com, https://github.com/bitwarden
 
 ===================================================

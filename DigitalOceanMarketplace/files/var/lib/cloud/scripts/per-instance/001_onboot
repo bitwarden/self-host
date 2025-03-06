@@ -9,7 +9,7 @@
 # ref: https://help.bitwarden.com/article/install-on-premise/
 #
 
-docker pull bitwarden/setup
+docker pull ghcr.io/bitwarden/setup
 
 curl -L -s -o /root/bitwarden.sh "https://func.bitwarden.com/api/dl/?app=self-host&platform=linux"
 

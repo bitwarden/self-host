@@ -81,13 +81,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Docker Trust
-        if: ${{ env.is_publish_branch == 'true' }}
-        uses: bitwarden/gh-actions/setup-docker-trust@main
-        with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
-
       ########## Generate image tag and build Docker image ##########
       - name: Generate Docker image tag
         id: tag
@@ -110,7 +103,7 @@ jobs:
           IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
           if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           else
             echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
@@ -183,11 +176,11 @@ jobs:
         with:
           sarif_file: ${{ steps.container-scan.outputs.sarif }}
 
-      - name: Log out of Docker and disable Docker Notary
+      - name: Log out of Docker
         if: ${{ env.is_publish_branch == 'true' }}
         run: |
-          docker logout
-          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
+          docker logout ghcr.io
+          docker logout $_AZ_REGISTRY
 
 
   check-failures:
