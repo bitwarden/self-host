@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Release Version"
+        description: "Release Version (example: '2025.2.1')"
         required: true
       release_type:
         description: "Release Options"
@@ -247,31 +247,6 @@ jobs:
             echo "_RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_ENV
           fi
 
-      ########## DockerHub ##########
-      - name: Setup DCT
-        id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@main
-        with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
-
-      - name: Pull versioned image
-        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
-
-      - name: Tag release version and latest image
-        run: |
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
-
-      - name: Push release version and latest image to DockerHub
-        if: ${{ inputs.release_type != 'Dry Run' }}
-        env:
-          DOCKER_CONTENT_TRUST: 1
-          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-        run: |
-          docker push bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker push bitwarden/$_PROJECT_NAME:latest
-
       ### ghcr.io section
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -279,6 +254,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Pull versioned image
+        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
 
       - name: Tag release version and latest image
         run: |
@@ -310,7 +288,6 @@ jobs:
 
       - name: Log out of Docker
         run: |
-          docker logout
           docker logout ghcr.io
           docker logout $_AZ_REGISTRY
 
@@ -327,38 +304,48 @@ jobs:
       id-token: write
       packages: write
     steps:
-      ########## DockerHub ##########
-      - name: Setup DCT
-        id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@main
-        with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
-
       - name: Login to Azure - PROD Subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
         with:
           creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
-        env:
-          DOCKER_CONTENT_TRUST: 1
-          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
         run: |
           skopeo --version
           skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
-          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
-          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:beta # TODO: Delete after GA
-          # skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
-
-      - name: Log out of Docker, skopeo and disable Docker Notary
+          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
+          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:beta # TODO: Delete after GA
+          # skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:latest # TODO: uncomment after GA
+      
+      - name: Sign image with Cosign
         run: |
-          docker logout
+          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+          cosign sign --yes ghcr.io/bitwarden/self-host:latest
+      
+      - name: Verify the signed image with Cosign
+        run: |
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/self-host:latest
+
+      - name: Log out of skopeo and ghcr.io
+        run: |
           skopeo logout --all
+          docker logout ghcr.io
 
       ########## ACR PROD ##########
       - name: Login to Azure ACR
@@ -389,45 +376,6 @@ jobs:
 
       - name: Log out of Docker
         run: docker logout $_AZ_REGISTRY
-
-      ########## ghcr.io ##########
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag release version and latest image
-        run: |
-          docker tag $_AZ_REGISTRY/self-host:$_RELEASE_VERSION ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
-          docker tag $_AZ_REGISTRY/self-host:$_RELEASE_VERSION ghcr.io/bitwarden/self-host:latest
-
-      - name: Push release version and latest image
-        if: ${{ inputs.release_type != 'Dry Run' }}
-        run: |
-          docker push ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
-          docker push ghcr.io/bitwarden/self-host:latest
-
-      - name: Sign image with Cosign
-        run: |
-          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
-          cosign sign --yes ghcr.io/bitwarden/self-host:latest
-
-      - name: Verify the signed image with Cosign
-        run: |
-          cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
-
-          cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/self-host:latest
-
-      - name: Log out of Docker
-        run: docker logout ghcr.io
 
 
   trigger-workflows:
