@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Release Version"
+        description: "Release Version (example: '2025.2.1')"
         required: true
       release_type:
         description: "Release Options"
