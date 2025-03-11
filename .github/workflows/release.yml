@@ -1,5 +1,5 @@
 name: Release
-run-name: Release Old Images
+run-name: Release Old Images - Release v${{ inputs.release_version }}
 
 on:
   workflow_dispatch:
