@@ -26,9 +26,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          ls -alh .
           gh release download v${RELEASE_VERSION} --repo bitwarden/self-host --pattern version.json
-          ls -alh .
           cat version.json
 
           WEB=$(jq -r '.versions.webVersion' < version.json)
@@ -38,7 +36,6 @@ jobs:
           echo "WEB_RELEASE_TAG=$WEB" >> $GITHUB_OUTPUT
           echo "CORE_RELEASE_TAG=$CORE" >> $GITHUB_OUTPUT
           echo "KEY_CONNECTOR_RELEASE_TAG=$KEY_CONNECTOR" >> $GITHUB_OUTPUT
-          exit 1
 
 
   tag-docker:
