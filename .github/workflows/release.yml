@@ -23,10 +23,13 @@ jobs:
       - name: Set Release Tags
         id: set-tags
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           ls -alh .
           gh release download v${RELEASE_VERSION} --repo bitwarden/self-host --pattern version.json
+          ls -alh .
+          cat version.json
 
           WEB=$(jq -r '.versions.webVersion' < version.json)
           CORE=$(jq -r '.versions.coreVersion' < version.json)
