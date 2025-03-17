@@ -60,10 +60,10 @@ jobs:
 
       ########## Set up Docker ##########
       - name: Set up QEMU emulators
-        uses: docker/setup-qemu-action@4574d27a4764455b42196d70a065bc6853246a25 # v3.4.0
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       ########## Login to Docker registries ##########
       - name: Login to Azure - Prod Subscription
@@ -109,7 +109,7 @@ jobs:
           fi
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@c1a285145b9d317df6ced56c09f525b5c2b6f755 # v1.11.1
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
         id: app-token
         with:
           app-id: ${{ secrets.BW_GHAPP_ID }}
@@ -125,7 +125,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build-docker
-        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6.13.0
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         with:
           context: .
           file: docker-unified/Dockerfile
@@ -138,7 +138,7 @@ jobs:
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'
-        uses: sigstore/cosign-installer@c56c2d3e59e4281cc41dea2217323ba5694b171e # v3.8.0
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: Sign image with Cosign
         if: env.is_publish_branch == 'true'
@@ -172,7 +172,7 @@ jobs:
           output-format: sarif
 
       - name: Upload Grype results to GitHub
-        uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3.28.9
+        uses: github/codeql-action/upload-sarif@6bb031afdd8eb862ea3fc1848194185e076637e5 # v3.28.11
         with:
           sarif_file: ${{ steps.container-scan.outputs.sarif }}
 
