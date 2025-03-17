@@ -15,13 +15,12 @@ jobs:
 
   sast:
     name: SAST scan
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: check-run
     permissions:
       contents: read
       pull-requests: write
       security-events: write
-
     steps:
       - name: Check out repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -29,7 +28,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Scan with Checkmarx
-        uses: checkmarx/ast-github-action@b74e8d514feae4ad5ad2b43e72590935bd2daf5f # 2.0.39
+        uses: checkmarx/ast-github-action@dda03dce250dead2404252f9970f35980201934c # 2.0.43
         env:
           INCREMENTAL: "${{ contains(github.event_name, 'pull_request') && '--sast-incremental' || '' }}"
         with:
@@ -44,7 +43,7 @@ jobs:
             --output-path . ${{ env.INCREMENTAL }}
 
       - name: Upload Checkmarx results to GitHub
-        uses: github/codeql-action/upload-sarif@aa578102511db1f4524ed59b8cc2bae4f6e88195 # v3.27.6
+        uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3.28.9
         with:
           sarif_file: cx_result.sarif
 
@@ -55,7 +54,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-
     steps:
       - name: Check out repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -64,11 +62,11 @@ jobs:
           ref: ${{  github.event.pull_request.head.sha }}
 
       - name: Scan with SonarCloud
-        uses: sonarsource/sonarcloud-github-action@383f7e52eae3ab0510c3cb0e7d9d150bbaeab838 # v3.1.0
+        uses: sonarsource/sonarqube-scan-action@bfd4e558cda28cda6b5defafb9232d191be8c203 # v4.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
             -Dsonar.organization=${{ github.repository_owner }}
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}

@@ -28,8 +28,8 @@ $bitwardenScriptUrl = "https://func.bitwarden.com/api/dl/?app=self-host&platform
 $runScriptUrl = "https://func.bitwarden.com/api/dl/?app=self-host&platform=windows&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
-$coreVersion = "2024.12.1"
-$webVersion = "2024.12.0"
+$coreVersion = "2025.2.3"
+$webVersion = "2025.2.2"
 $keyConnectorVersion = "2024.8.0"
 
 # Functions
@@ -99,7 +99,7 @@ Write-Line @'
 
 Write-Line "
 Open source password management solutions
-Copyright 2015-${year}, 8bit Solutions LLC
+Copyright 2015-${year}, Bitwarden, Inc.
 https://bitwarden.com, https://github.com/bitwarden
 
 ===================================================

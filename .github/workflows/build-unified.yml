@@ -5,23 +5,12 @@ on:
     paths:
       - "docker-unified/**"
       - ".github/workflows/build-unified.yml"
-  workflow_call:
-    inputs:
-      server_branch:
-        type: string
-        default: main
-      is_workflow_call:
-        type: boolean
-        default: true
   workflow_dispatch:
     inputs:
       server_branch:
         description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
-      is_workflow_call:
-        type: boolean
-        default: false
   pull_request:
     paths:
       - ".github/workflows/build-unified.yml"
@@ -33,17 +22,13 @@ env:
 jobs:
   build-docker:
     name: Build Docker image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      packages: write
+      security-events: write
     steps:
-      - name: Checkout Repository - workflow_call
-        if: ${{ inputs.is_workflow_call == true }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: bitwarden/self-host
-          ref: main
-
-      - name: Checkout Repository - workflow_dispatch
-        if: ${{ inputs.is_workflow_call != true }}
+      - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Get server branch to checkout
@@ -63,11 +48,7 @@ jobs:
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
         id: publish-branch-check
         run: |
-          if [[ "${{ inputs.is_workflow_call }}" == "true" ]]; then
-            REF=main
-          else
-            REF=${GITHUB_REF#refs/heads/}
-          fi
+          REF=${GITHUB_REF#refs/heads/}
 
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
@@ -79,10 +60,10 @@ jobs:
 
       ########## Set up Docker ##########
       - name: Set up QEMU emulators
-        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
+        uses: docker/setup-qemu-action@4574d27a4764455b42196d70a065bc6853246a25 # v3.4.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+        uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
 
       ########## Login to Docker registries ##########
       - name: Login to Azure - Prod Subscription
@@ -93,24 +74,12 @@ jobs:
       - name: Login to Azure ACR
         run: az acr login -n bitwardenprod
 
-      - name: Login to Azure - CI Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-
-      - name: Retrieve github PAT secrets
-        id: retrieve-secret-pat
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        with:
-          keyvault: "bitwarden-ci"
-          secrets: "github-pat-bitwarden-devops-bot-repo-scope"
-
-      - name: Setup Docker Trust
-        if: ${{ env.is_publish_branch == 'true' }}
-        uses: bitwarden/gh-actions/setup-docker-trust@main
-        with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       ########## Generate image tag and build Docker image ##########
       - name: Generate Docker image tag
@@ -134,21 +103,29 @@ jobs:
           IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
           if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           else
             echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@c1a285145b9d317df6ced56c09f525b5c2b6f755 # v1.11.1
+        id: app-token
+        with:
+          app-id: ${{ secrets.BW_GHAPP_ID }}
+          private-key: ${{ secrets.BW_GHAPP_KEY }}
 
       - name: Checkout server repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: bitwarden/server
-          token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          token: ${{ steps.app-token.outputs.token }}
           ref: ${{ steps.server-branch-name.outputs.server_branch }}
-          path: 'server'
+          path: "server"
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6.10.0
+        id: build-docker
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6.13.0
         with:
           context: .
           file: docker-unified/Dockerfile
@@ -158,19 +135,58 @@ jobs:
             linux/arm64/v8
           push: true
           tags: ${{ steps.tag-list.outputs.tags }}
-          secrets: |
-            "GH_PAT=${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}"
 
-      - name: Log out of Docker and disable Docker Notary
+      - name: Install Cosign
+        if: env.is_publish_branch == 'true'
+        uses: sigstore/cosign-installer@c56c2d3e59e4281cc41dea2217323ba5694b171e # v3.8.0
+
+      - name: Sign image with Cosign
+        if: env.is_publish_branch == 'true'
+        id: sign
+        env:
+          DIGEST: ${{ steps.build-docker.outputs.digest }}
+          TAGS: ${{ steps.tag-list.outputs.tags }}
+        run: |
+          IFS="," read -a tags <<< "${TAGS}"
+          images=""
+          for tag in "${tags[@]}"; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
+          echo "images=${images}" >> $GITHUB_OUTPUT
+
+      - name: Verify the signed image(s) with Cosign
+        if: env.is_publish_branch == 'true'
+        run: |
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ${{ steps.sign.outputs.images }}
+
+      - name: Scan Docker image
+        id: container-scan
+        uses: anchore/scan-action@869c549e657a088dc0441b08ce4fc0ecdac2bb65 # v5.3.0
+        with:
+          image: ${{ steps.tag-list.outputs.primary_tag }}
+          fail-build: false
+          output-format: sarif
+
+      - name: Upload Grype results to GitHub
+        uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3.28.9
+        with:
+          sarif_file: ${{ steps.container-scan.outputs.sarif }}
+
+      - name: Log out of Docker
         if: ${{ env.is_publish_branch == 'true' }}
         run: |
-          docker logout
-          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
+          docker logout ghcr.io
+          docker logout $_AZ_REGISTRY
+
 
   check-failures:
     name: Check for failures
     if: always()
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build-docker
     steps:
       - name: Check if any job failed

@@ -1,11 +1,11 @@
 name: Release
-run-name: Release ${{ github.event.inputs.release_type }} v${{ github.event.inputs.release_version }}
+run-name: Release ${{ inputs.release_type }} v${{ inputs.release_version }}
 
 on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Release Version"
+        description: "Release Version (example: '2025.2.1')"
         required: true
       release_type:
         description: "Release Options"
@@ -22,7 +22,7 @@ env:
 jobs:
   setup:
     name: Setup
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
       _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
@@ -30,7 +30,7 @@ jobs:
       _LATEST_SELF_HOST_VERSION: ${{ steps.get-self-host.outputs.version }}
     steps:
       - name: Branch check
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "==================================="
@@ -50,7 +50,7 @@ jobs:
 
       - name: Check Release Version
         env:
-          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
           PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
         run: |
           if [ "$RELEASE_VERSION" == "$PREVIOUS_RELEASE_VERSION" ]; then
@@ -71,7 +71,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: setup
     steps:
       - name: Checkout repo
@@ -109,23 +109,27 @@ jobs:
 
           if [ -n "${{ steps.changed-projects.outputs.WEB_VERSION_CHANGED }}" ]; then
             if [ -n "$RELEASE_NOTES" ]; then
-              RELEASE_NOTES+="\n"
+              RELEASE_NOTES+=$'\n'
             fi
             RELEASE_NOTES+="Update Web version to [v${{ needs.setup.outputs._WEB_RELEASE_TAG }}](https://github.com/bitwarden/clients/releases/tag/web-v${{ needs.setup.outputs._WEB_RELEASE_TAG }})"
           fi
 
           if [ -n "${{ steps.changed-projects.outputs.KEY_CONNECTOR_VERSION_CHANGED }}" ]; then
             if [ -n "$RELEASE_NOTES" ]; then
-              RELEASE_NOTES+="\n"
+              RELEASE_NOTES+=$'\n'
             fi
             RELEASE_NOTES+="Update Key Connector version to [v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }}](https://github.com/bitwarden/key-connector/releases/tag/v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }})"
           fi
 
-          echo "RELEASE_NOTES=$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          (
+            echo 'RELEASE_NOTES<<EOF'
+            echo "$RELEASE_NOTES"
+            echo EOF
+          ) >> $GITHUB_OUTPUT
 
       - name: Create release
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5 # v1.14.0
+        if: ${{ inputs.release_type != 'Dry Run' }}
+        uses: ncipollo/release-action@cdcc88a9acf3ca41c16c37bb7d21b9ad48560d87 # v1.15.0
         with:
           artifacts: 'bitwarden.sh,
                       run.sh,
@@ -133,15 +137,16 @@ jobs:
                       run.ps1,
                       version.json'
           commit: ${{ github.sha }}
-          tag: "v${{ github.event.inputs.release_version }}"
-          name: "Version ${{ github.event.inputs.release_version }}"
+          tag: "v${{ inputs.release_version }}"
+          name: "Version ${{ inputs.release_version }}"
           body: ${{ steps.prepare-release-notes.outputs.RELEASE_NOTES }}
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
 
+
   release-version:
     name: Upload version.json
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
@@ -166,7 +171,7 @@ jobs:
             aws-selfhost-version-bucket-name"
 
       - name: Upload version.json to S3 bucket
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
@@ -177,15 +182,19 @@ jobs:
           --acl "public-read" \
           --quiet
 
+
   tag-docker-latest:
-    name: Tag Docker Hub images with release version and latest
-    runs-on: ubuntu-22.04
+    name: Tag ${{ matrix.project_name }} image with release version and latest
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
     env:
       _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
       _BRANCH_NAME: main
+    permissions:
+      id-token: write
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -207,17 +216,13 @@ jobs:
           - project_name: Web
             release_tag: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
     steps:
-      - name: Print environment
-        run: |
-          whoami
-          docker --version
-          echo "GitHub ref: $GITHUB_REF"
-          echo "GitHub event: $GITHUB_EVENT"
-
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
       - name: Login to Azure - Prod Subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
@@ -242,81 +247,105 @@ jobs:
             echo "_RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_ENV
           fi
 
-      ########## DockerHub ##########
-      - name: Setup DCT
-        id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@main
+      ### ghcr.io section
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
-
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Pull versioned image
         run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
 
       - name: Tag release version and latest image
         run: |
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG bitwarden/$_PROJECT_NAME:latest
+          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Push release version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        env:
-          DOCKER_CONTENT_TRUST: 1
-          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker push bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker push bitwarden/$_PROJECT_NAME:latest
+          docker push ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          docker push ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
-      - name: Log out of Docker and disable Docker Notary
+      - name: Sign image with Cosign
         run: |
-          docker logout
-          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:latest
+
+      - name: Verify the signed image with Cosign
+        run: |
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/$_PROJECT_NAME:latest
+
+      - name: Log out of Docker
+        run: |
+          docker logout ghcr.io
+          docker logout $_AZ_REGISTRY
+
 
   release-unified:
     name: Release Self-host unified
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup
       - release
     env:
-      _RELEASE_VERSION: ${{ github.event.inputs.release_version }}-beta # TODO: remove `-beta` after GA
+      _RELEASE_VERSION: ${{ inputs.release_version }}-beta # TODO: remove `-beta` after GA
+    permissions:
+      id-token: write
+      packages: write
     steps:
-      ########## DockerHub ##########
-      - name: Setup DCT
-        id: setup-dct
-        uses: bitwarden/gh-actions/setup-docker-trust@main
-        with:
-          azure-creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-          azure-keyvault-name: "bitwarden-ci"
-
-      - name: Install Skopeo
-        run: |
-          wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64
-          mv skopeo-linux-amd64 skopeo
-          chmod +x skopeo
-
       - name: Login to Azure - PROD Subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
         with:
           creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
-      - name: Push version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
-        env:
-          DOCKER_CONTENT_TRUST: 1
-          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: ${{ steps.setup-dct.outputs.dct-delegate-repo-passphrase }}
-        run: |
-          ./skopeo --version
-          ./skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
-          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:$_RELEASE_VERSION
-          ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:beta # TODO: Delete after GA
-          # ./skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://docker.io/bitwarden/self-host:latest # TODO: uncomment after GA
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log out of Docker, skopeo and disable Docker Notary
+      - name: Push version and latest image
+        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker logout
-          ./skopeo logout --all
-          echo "DOCKER_CONTENT_TRUST=0" >> $GITHUB_ENV
+          skopeo --version
+          skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
+          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
+          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:beta # TODO: Delete after GA
+          # skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:latest # TODO: uncomment after GA
+      
+      - name: Sign image with Cosign
+        run: |
+          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+          cosign sign --yes ghcr.io/bitwarden/self-host:latest
+      
+      - name: Verify the signed image with Cosign
+        run: |
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/bitwarden/self-host:latest
+
+      - name: Log out of skopeo and ghcr.io
+        run: |
+          skopeo logout --all
+          docker logout ghcr.io
 
       ########## ACR PROD ##########
       - name: Login to Azure ACR
@@ -324,7 +353,7 @@ jobs:
 
       - name: Pull latest project image
         run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+          if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
             docker pull $_AZ_REGISTRY/self-host:dev
           else
             docker pull $_AZ_REGISTRY/self-host:beta
@@ -332,7 +361,7 @@ jobs:
 
       - name: Tag version and latest
         run: |
-          if [[ "${{ github.event.inputs.release_type }}" == "Dry Run" ]]; then
+          if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
             docker tag $_AZ_REGISTRY/self-host:dev $_AZ_REGISTRY/self-host:dryrun
           else
             docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
@@ -340,10 +369,38 @@ jobs:
           fi
 
       - name: Push version and latest image
-        if: ${{ github.event.inputs.release_type != 'Dry Run' }}
+        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           docker push $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
           docker push $_AZ_REGISTRY/self-host:latest
 
       - name: Log out of Docker
-        run: docker logout
+        run: docker logout $_AZ_REGISTRY
+
+
+  trigger-workflows:
+    name: Trigger workflows
+    runs-on: ubuntu-24.04
+    needs:
+      - setup
+      - release
+    steps:
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@c1a285145b9d317df6ced56c09f525b5c2b6f755 # v1.11.1
+        id: app-token
+        with:
+          app-id: ${{ secrets.BW_GHAPP_ID }}
+          private-key: ${{ secrets.BW_GHAPP_KEY }}
+
+      - name: Trigger release-digital-ocean workflow
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'bitwarden',
+              repo: 'self-host',
+              workflow_id: 'release-digital-ocean.yml',
+              ref: 'main',
+              inputs: {}
+            });

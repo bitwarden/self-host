@@ -12,7 +12,7 @@ EOF
 
 cat << EOF
 Open source password management solutions
-Copyright 2015-$(date +'%Y'), 8bit Solutions LLC
+Copyright 2015-$(date +'%Y'), Bitwarden, Inc.
 https://bitwarden.com, https://github.com/bitwarden
 
 ===================================================
@@ -65,8 +65,8 @@ BITWARDEN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=
 RUN_SCRIPT_URL="https://func.bitwarden.com/api/dl/?app=self-host&platform=linux&variant=run"
 
 # Please do not create pull requests modifying the version numbers.
-COREVERSION="2024.12.1"
-WEBVERSION="2024.12.0"
+COREVERSION="2025.2.3"
+WEBVERSION="2025.2.2"
 KEYCONNECTORVERSION="2024.8.0"
 
 echo "bitwarden.sh version $COREVERSION"
