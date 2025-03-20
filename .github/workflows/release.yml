@@ -144,7 +144,7 @@ jobs:
           draft: false
 
 
-  release-version:
+  release-s3:
     name: Upload version.json
     runs-on: ubuntu-24.04
     needs:
@@ -183,8 +183,8 @@ jobs:
           --quiet
 
 
-  tag-docker-latest:
-    name: Tag ${{ matrix.project_name }} image with release version and latest
+  tag-push-latest-images:
+    name: Tag and push ${{ matrix.project_name }} image with release version and latest
     runs-on: ubuntu-24.04
     needs:
       - setup
@@ -254,7 +254,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Pull versioned image
         run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
 
@@ -316,6 +316,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+
       - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
@@ -324,12 +327,12 @@ jobs:
           skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
           skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:beta # TODO: Delete after GA
           # skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:latest # TODO: uncomment after GA
-      
+
       - name: Sign image with Cosign
         run: |
           cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_TAG
           cosign sign --yes ghcr.io/bitwarden/self-host:latest
-      
+
       - name: Verify the signed image with Cosign
         run: |
           cosign verify \
@@ -384,6 +387,8 @@ jobs:
     needs:
       - setup
       - release
+      - tag-push-latest-images
+      - release-unified
     steps:
       - name: Generate GH App token
         uses: actions/create-github-app-token@c1a285145b9d317df6ced56c09f525b5c2b6f755 # v1.11.1

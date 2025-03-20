@@ -104,13 +104,14 @@ jobs:
           app-id: ${{ secrets.BW_GHAPP_ID }}
           private-key: ${{ secrets.BW_GHAPP_KEY }}
           owner: ${{ github.repository_owner }}
-      
+          repository: ${{ github.repository }}
+
       - name: Checkout Branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
           token: ${{ steps.app-token.outputs.token }}
-      
+
       - name: Configure Git
         run: |
           git config --local user.email "actions@github.com"
