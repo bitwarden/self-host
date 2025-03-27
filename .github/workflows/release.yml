@@ -229,9 +229,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
 
-      - name: Login to Azure ACR
-        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
-
       - name: Setup project name and release tag
         id: setup
         run: |
@@ -255,19 +252,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull versioned image
-        run: docker pull $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG
-
-      - name: Tag release version and latest image
-        run: |
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker tag $_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG ghcr.io/bitwarden/$_PROJECT_NAME:latest
-
-      - name: Push release version and latest image
+      - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker push ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          docker push ghcr.io/bitwarden/$_PROJECT_NAME:latest
+          skopeo --version
+          skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
+          skopeo copy --all docker://$_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG docker://ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+          skopeo copy --all docker://$_AZ_REGISTRY/$_PROJECT_NAME:latest docker://ghcr.io/bitwarden/$_PROJECT_NAME:latest
 
       - name: Sign image with Cosign
         run: |
