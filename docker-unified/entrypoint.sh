@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# Set up user group
-PGID="${PGID:-1000}"
-addgroup --gid $PGID bitwarden
+if [[ "$(id -u)" == "0" ]]; then
+  # Set up user group
+  PGID="${PGID:-911}"
+  addgroup --gid "$PGID" bitwarden
 
-# Set up user
-PUID="${PUID:-1000}"
-adduser --no-create-home --shell /bin/bash --disabled-password --uid $PUID --gid $PGID --gecos "" bitwarden
+  # Set up user
+  PUID="${PUID:-911}"
+  adduser --no-create-home --shell /bin/bash --disabled-password --uid "$PUID" --gid "$PGID" --gecos "" bitwarden
+fi
 
 # Translate environment variables for application settings
 VAULT_SERVICE_URI=https://$BW_DOMAIN
@@ -49,60 +51,55 @@ if [ ! -f /etc/bitwarden/identity.pfx ]; then
   -subj "/CN=Bitwarden IdentityServer" \
   -days 36500
   
+  # identity.pfx is soft linked to the necessary locations in the Dockerfile
   openssl pkcs12 \
   -export \
   -out /etc/bitwarden/identity.pfx \
   -inkey /etc/bitwarden/identity.key \
   -in /etc/bitwarden/identity.crt \
-  -passout pass:$globalSettings__identityServer__certificatePassword
+  -passout "pass:$globalSettings__identityServer__certificatePassword"
   
   rm /etc/bitwarden/identity.crt
   rm /etc/bitwarden/identity.key
 fi
 
-cp /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
-cp /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
-
 # Generate SSL certificates
-if [ "$BW_ENABLE_SSL" = "true" -a ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
+if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f "/etc/bitwarden/${BW_SSL_KEY:-ssl.key}" ]; then
   openssl req \
   -x509 \
   -newkey rsa:4096 \
   -sha256 \
   -nodes \
   -days 36500 \
-  -keyout /etc/bitwarden/${BW_SSL_KEY:-ssl.key} \
-  -out /etc/bitwarden/${BW_SSL_CERT:-ssl.crt} \
+  -keyout /etc/bitwarden/"${BW_SSL_KEY:-ssl.key}" \
+  -out /etc/bitwarden/"${BW_SSL_CERT:-ssl.crt}" \
   -reqexts SAN \
   -extensions SAN \
-  -config <(cat /usr/lib/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:${BW_DOMAIN:-localhost}\nbasicConstraints=CA:true")) \
+  -config <(cat /usr/lib/ssl/openssl.cnf <(printf '[SAN]\nsubjectAltName=DNS:%s\nbasicConstraints=CA:true' "${BW_DOMAIN:-localhost}")) \
   -subj "/C=US/ST=California/L=Santa Barbara/O=Bitwarden Inc./OU=Bitwarden/CN=${BW_DOMAIN:-localhost}"
 fi
 
 # Launch a loop to rotate nginx logs on a daily basis
 /bin/sh -c "/logrotate.sh loop >/dev/null 2>&1 &"
 
+# Create necessary directories
+mkdir -p /etc/bitwarden/logs/supervisord
+mkdir -p /etc/bitwarden/logs/nginx
+mkdir -p /etc/bitwarden/nginx
+mkdir -p /tmp/bitwarden
+
 /usr/local/bin/hbs
 
-# Enable/Disable services
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ADMIN}/" /etc/supervisor.d/admin.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_API}/" /etc/supervisor.d/api.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_EVENTS}/" /etc/supervisor.d/events.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ICONS}/" /etc/supervisor.d/icons.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_IDENTITY}/" /etc/supervisor.d/identity.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_NOTIFICATIONS}/" /etc/supervisor.d/notifications.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SCIM}/" /etc/supervisor.d/scim.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SSO}/" /etc/supervisor.d/sso.ini
+if [[ "$(id -u)" == 0 ]]; then
+  find /etc/bitwarden ! -xtype l \( ! -gid "$PGID" -o ! -uid "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
 
-chown -R $PUID:$PGID \
-    /app \
-    /etc/bitwarden \
-    /etc/nginx/http.d \
-    /etc/supervisor \
-    /etc/supervisor.d \
-    /var/lib/nginx \
-    /var/log \
-    /var/run/nginx \
-    /run
+  exec setpriv --reuid="$PUID" --regid="$PGID" --init-groups /usr/bin/supervisord
+else
+  FILES="$(find /etc/bitwarden ! -xtype l \( ! -gid "$(id -g)" -o ! -uid "$(id -u)" \))"
+  if [[ -n "$FILES" ]]; then
+    echo "The following files are not owned by the running user and may cause errors:" >&2
+    echo "$FILES" >&2
+  fi
 
-exec setpriv --reuid=$PUID --regid=$PGID --init-groups /usr/bin/supervisord
+  exec /usr/bin/supervisord
+fi
