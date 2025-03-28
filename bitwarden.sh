@@ -319,7 +319,7 @@ case $1 in
         compressLogs $OUTPUT $2 $3
         ;;
     "checksmtp")
-        # checkOutputDirExists
+        checkOutputDirExists
         checkSmtp $OUTPUT
         ;;
     "help")
