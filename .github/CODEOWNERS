@@ -8,6 +8,4 @@
 * @bitwarden/dept-bre
 
 # Platform team for Unified setup
-docker-unified/Dockerfile @bitwarden/team-platform-dev
-docker-unified/docker-compose.yml @bitwarden/team-platform-dev
-docker-unified/entrypoint.sh @bitwarden/team-platform-dev
+docker-unified/ @bitwarden/team-platform-dev
