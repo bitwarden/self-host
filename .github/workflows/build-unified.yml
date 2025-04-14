@@ -11,6 +11,10 @@ on:
         description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
+      use_latest_core_version:
+        description: "Use the latest core version from versions.json instead of branch"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - ".github/workflows/build-unified.yml"
@@ -36,16 +40,24 @@ jobs:
         env:
           SERVER_BRANCH: ${{ inputs.server_branch }}
         run: |
-          if [[ -z "${SERVER_BRANCH}" ]]; then
-            echo "server_branch=main" >> $GITHUB_OUTPUT
+          if [[ "${{ inputs.use_latest_core_version }}" == "true" ]]; then
+            # Extract coreVersion from versions.json
+            CORE_VERSION=$(jq -r '.versions.coreVersion' versions.json)
+            echo "Server version from versions.json: $CORE_VERSION"
+            echo "server_ref=refs/tags/v$CORE_VERSION" >> $GITHUB_OUTPUT
+            echo "ref_type=tag" >> $GITHUB_OUTPUT
+          elif [[ -z "${SERVER_BRANCH}" ]]; then
+            echo "server_ref=main" >> $GITHUB_OUTPUT
+            echo "ref_type=branch" >> $GITHUB_OUTPUT
           else
-            echo "server_branch=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+            echo "server_ref=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+            echo "ref_type=branch" >> $GITHUB_OUTPUT
           fi
 
       - name: Check Branch to Publish
         env:
           PUBLISH_BRANCHES: "main,rc,hotfix-rc"
-          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
+          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_ref }}
         id: publish-branch-check
         run: |
           REF=${GITHUB_REF#refs/heads/}
@@ -85,13 +97,21 @@ jobs:
       - name: Generate Docker image tag
         id: tag
         env:
-          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_branch }}
+          SERVER_BRANCH: ${{ steps.server-ref.outputs.server_ref }}
+          REF_TYPE: ${{ steps.server-ref.outputs.ref_type }}
         run: |
-          IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
-          if [[ "${IMAGE_TAG}" == "main" ]]; then
-            IMAGE_TAG=dev
-          elif [[ ("${IMAGE_TAG}" == "rc") || ("${IMAGE_TAG}" == "hotfix-rc") ]]; then
+          if [[ "${REF_TYPE}" == "tag" ]]; then
+            # When using a tag (core version), always use beta tag
             IMAGE_TAG=beta
+            echo "Using beta tag for core version release"
+          else
+            # For branch-based builds, use the logic
+            IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
+            if [[ "${IMAGE_TAG}" == "main" ]]; then
+              IMAGE_TAG=dev
+            elif [[ ("${IMAGE_TAG}" == "rc") || ("${IMAGE_TAG}" == "hotfix-rc") ]]; then
+              IMAGE_TAG=beta
+            fi
           fi
 
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
@@ -120,7 +140,7 @@ jobs:
         with:
           repository: bitwarden/server
           token: ${{ steps.app-token.outputs.token }}
-          ref: ${{ steps.server-branch-name.outputs.server_branch }}
+          ref: ${{ steps.server-branch-name.outputs.server_ref }}
           path: "server"
 
       - name: Build and push Docker image
