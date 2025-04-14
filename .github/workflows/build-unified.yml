@@ -58,13 +58,17 @@ jobs:
         env:
           PUBLISH_BRANCHES: "main,rc,hotfix-rc"
           SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_ref }}
+          REF_TYPE: ${{ steps.server-branch-name.outputs.ref_type }}
         id: publish-branch-check
         run: |
           REF=${GITHUB_REF#refs/heads/}
 
           IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
 
-          if [[ "${publish_branches[*]}" =~ "${REF}" && "${publish_branches[*]}" =~ "${SERVER_BRANCH}" ]]; then
+          if [[ "${REF_TYPE}" == "tag" ]]; then
+            # If the build is triggered by a tag, always publish
+            echo "is_publish_branch=true" >> $GITHUB_ENV
+          elif [[ "${publish_branches[*]}" =~ "${REF}" && "${publish_branches[*]}" =~ "${SERVER_BRANCH}" ]]; then
             echo "is_publish_branch=true" >> $GITHUB_ENV
           else
             echo "is_publish_branch=false" >> $GITHUB_ENV
