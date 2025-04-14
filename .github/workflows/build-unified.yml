@@ -119,6 +119,7 @@ jobs:
           fi
 
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "${IMAGE_TAG}"
 
       - name: Generate tag list
         id: tag-list
