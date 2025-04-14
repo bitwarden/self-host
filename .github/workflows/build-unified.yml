@@ -101,8 +101,8 @@ jobs:
       - name: Generate Docker image tag
         id: tag
         env:
-          SERVER_BRANCH: ${{ steps.server-ref.outputs.server_ref }}
-          REF_TYPE: ${{ steps.server-ref.outputs.ref_type }}
+          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_ref }}
+          REF_TYPE: ${{ steps.server-branch-name.outputs.ref_type }}
         run: |
           if [[ "${REF_TYPE}" == "tag" ]]; then
             # When using a tag (core version), always use beta tag
