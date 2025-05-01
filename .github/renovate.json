@@ -17,6 +17,16 @@
       "groupName": "gh minor",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "github-actions",
+      "matchManagers": ["github-actions"],
+      "matchFileNames": [
+        "./github/workflows/release-digital-ocean.yml",
+        "./github/workflows/release.yml"
+      ],
+      "commitMessagePrefix": "[deps] BRE:",
+      "addLabels": ["hold"]
     }
   ]
 }
