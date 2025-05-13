@@ -215,7 +215,7 @@ function checkSmtp() {
         ssl_command="-starttls smtp"
     fi
 
-set +e
+    set +e
     SMTP_RESPONSE=$(
         {
             echo "EHLO localhost"
