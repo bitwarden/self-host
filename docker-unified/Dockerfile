@@ -206,6 +206,8 @@ ENV globalSettings__send__baseDirectory="/etc/bitwarden/attachments/send"
 ENV globalSettings__licenseDirectory="/etc/bitwarden/licenses"
 ENV globalSettings__logDirectoryByProject="false"
 ENV globalSettings__logRollBySizeLimit="1073741824"
+ENV globalSettings__launchDarkly__flagDataFilePath="/etc/bitwarden/core/launch-darkly/flags.json"
+
 
 # Add packages
 RUN apt-get update && apt-get install -y \
