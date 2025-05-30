@@ -5,8 +5,14 @@ on:
   push:
     branches:
       - "main"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches-ignore:
+      - main
   pull_request_target:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
+    branches:
+      - "main"
 
 jobs:
   check-run:
