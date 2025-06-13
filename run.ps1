@@ -82,7 +82,7 @@ function Install() {
 
     Pull-Setup
     docker run -it --rm --name setup -v ${outputDir}:/bitwarden ghcr.io/bitwarden/setup:$coreVersion `
-        dotnet Setup.dll -install 1 -domain ${domain} -letsencrypt ${letsEncrypt} `
+        /app/Setup -install 1 -domain ${domain} -letsencrypt ${letsEncrypt} `
         -os win -corev $coreVersion -webv $webVersion -keyconnectorv $keyConnectorVersion -q $setupQuiet -dbname "$database"
 }
 
@@ -178,7 +178,7 @@ function Update-Database {
 
     docker run -it --rm --name setup $dockerNetworkArgs `
         -v ${outputDir}:/bitwarden ghcr.io/bitwarden/setup:$coreVersion `
-        dotnet Setup.dll -update 1 -db 1 -os win -corev $coreVersion -webv $webVersion `
+        /app/Setup -update 1 -db 1 -os win -corev $coreVersion -webv $webVersion `
         -keyconnectorv $keyConnectorVersion -q $setupQuiet
     Write-Line "Database update complete"
 }
@@ -188,7 +188,7 @@ function Update([switch] $withpull) {
         Pull-Setup
     }
     docker run -it --rm --name setup -v ${outputDir}:/bitwarden ghcr.io/bitwarden/setup:$coreVersion `
-        dotnet Setup.dll -update 1 -os win -corev $coreVersion -webv $webVersion `
+        /app/Setup -update 1 -os win -corev $coreVersion -webv $webVersion `
         -keyconnectorv $keyConnectorVersion -q $setupQuiet
 }
 
@@ -227,7 +227,7 @@ function Uninstall() {
 function Print-Environment {
     Pull-Setup
     docker run -it --rm --name setup -v ${outputDir}:/bitwarden ghcr.io/bitwarden/setup:$coreVersion `
-        dotnet Setup.dll -printenv 1 -os win -corev $coreVersion -webv $webVersion `
+        /app/Setup -printenv 1 -os win -corev $coreVersion -webv $webVersion `
         -keyconnectorv $keyConnectorVersion -q $setupQuiet
 }
 
