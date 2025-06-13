@@ -150,16 +150,22 @@ jobs:
     needs:
       - setup
       - release
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
 
-      - name: Login to Azure - CI Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Azure Login
+        id: azure-login
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
@@ -169,6 +175,9 @@ jobs:
           secrets: "aws-selfhost-version-access-id,
             aws-selfhost-version-access-key,
             aws-selfhost-version-bucket-name"
+
+      - name: Azure Logout
+        uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Upload version.json to S3 bucket
         if: ${{ inputs.release_type != 'Dry Run' }}
@@ -224,10 +233,13 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
-      - name: Login to Azure - Prod Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Azure Login
+        id: azure-login
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Setup project name and release tag
         id: setup
@@ -282,6 +294,9 @@ jobs:
           docker logout ghcr.io
           docker logout $_AZ_REGISTRY
 
+      - name: Azure Logout
+        uses: bitwarden/gh-actions/azure-logout@main
+
 
   release-unified:
     name: Release Self-host unified
@@ -295,10 +310,13 @@ jobs:
       id-token: write
       packages: write
     steps:
-      - name: Login to Azure - PROD Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Azure Login
+        id: azure-login
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -370,6 +388,9 @@ jobs:
 
       - name: Log out of Docker
         run: docker logout $_AZ_REGISTRY
+
+      - name: Azure Logout
+        uses: bitwarden/gh-actions/azure-logout@main
 
 
   trigger-workflows:
