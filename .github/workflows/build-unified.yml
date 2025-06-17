@@ -135,7 +135,7 @@ jobs:
             echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Get Azure Key Vault Secrets
+      - name: Get Azure Key Vault secrets
         id: get-kv-secrets
         uses: bitwarden/gh-actions/get-keyvault-secrets@main
         with:
