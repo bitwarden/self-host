@@ -2,15 +2,14 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM debian AS web-setup
+FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
 
 # Add packages
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
     jq \
     unzip \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    git
 
 WORKDIR /tmp
 
@@ -34,7 +33,7 @@ RUN VERSION=$(cat version.txt) \
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine3.21 AS dotnet-build
 
 # Docker buildx supplies the value for this arg
 ARG TARGETPLATFORM
@@ -42,18 +41,17 @@ ARG TARGETPLATFORM
 # Determine proper runtime value for .NET
 # We put the value in a file to be read by later layers.
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      RID=linux-x64 ; \
+      RID=linux-musl-x64 ; \
     elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      RID=linux-arm64 ; \
+      RID=linux-musl-arm64 ; \
     elif [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
-      RID=linux-arm ; \
+      RID=linux-musl-arm ; \
     fi \
     && echo "RID=$RID" > /tmp/rid.txt
 
 # Add packages
-RUN apt-get update && apt-get install -y \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    npm
 
 # Copy csproj files as distinct layers
 WORKDIR /source
@@ -172,7 +170,7 @@ RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Scim --no-restore --no-s
 ###############################################
 #                  App stage                  #
 ###############################################
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine3.21
 ARG TARGETPLATFORM
 LABEL com.bitwarden.product="bitwarden"
 LABEL com.bitwarden.project="unified"
@@ -208,15 +206,14 @@ ENV globalSettings__logDirectoryByProject="false"
 ENV globalSettings__logRollBySizeLimit="1073741824"
 
 # Add packages
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
     jq \
     nginx \
     openssl \
     supervisor \
     tzdata \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+    unzip
 
 # Create required directories
 RUN mkdir -p /etc/bitwarden/attachments/send

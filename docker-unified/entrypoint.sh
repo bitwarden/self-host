@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Set up user group
 PGID="${PGID:-1000}"
