@@ -213,7 +213,8 @@ RUN apk add --no-cache \
     openssl \
     supervisor \
     tzdata \
-    unzip
+    unzip \
+    su-exec
 
 # Create required directories
 RUN mkdir -p /etc/bitwarden/attachments/send

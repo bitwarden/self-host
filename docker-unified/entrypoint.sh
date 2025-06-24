@@ -2,11 +2,11 @@
 
 # Set up user group
 PGID="${PGID:-1000}"
-addgroup --gid $PGID bitwarden
+addgroup -g $PGID bitwarden
 
 # Set up user
 PUID="${PUID:-1000}"
-adduser --no-create-home --shell /bin/bash --disabled-password --uid $PUID --gid $PGID --gecos "" bitwarden
+adduser -D -H -u $PUID -G bitwarden bitwarden
 
 # Translate environment variables for application settings
 VAULT_SERVICE_URI=https://$BW_DOMAIN
@@ -64,7 +64,10 @@ cp /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
 cp /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
 
 # Generate SSL certificates
-if [ "$BW_ENABLE_SSL" = "true" -a ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
+if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
+  TMP_OPENSSL_CONF="/tmp/openssl_san.cnf"
+  cat /usr/lib/ssl/openssl.cnf > "$TMP_OPENSSL_CONF"
+  printf "\n[SAN]\nsubjectAltName=DNS:${BW_DOMAIN:-localhost}\nbasicConstraints=CA:true\n" >> "$TMP_OPENSSL_CONF"
   openssl req \
   -x509 \
   -newkey rsa:4096 \
@@ -75,8 +78,9 @@ if [ "$BW_ENABLE_SSL" = "true" -a ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; 
   -out /etc/bitwarden/${BW_SSL_CERT:-ssl.crt} \
   -reqexts SAN \
   -extensions SAN \
-  -config <(cat /usr/lib/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:${BW_DOMAIN:-localhost}\nbasicConstraints=CA:true")) \
+  -config "$TMP_OPENSSL_CONF" \
   -subj "/C=US/ST=California/L=Santa Barbara/O=Bitwarden Inc./OU=Bitwarden/CN=${BW_DOMAIN:-localhost}"
+  rm "$TMP_OPENSSL_CONF"
 fi
 
 # Launch a loop to rotate nginx logs on a daily basis
@@ -105,4 +109,8 @@ chown -R $PUID:$PGID \
     /var/run/nginx \
     /run
 
-exec setpriv --reuid=$PUID --regid=$PGID --init-groups /usr/bin/supervisord
+if command -v su-exec >/dev/null 2>&1; then
+  exec su-exec $PUID:$PGID /usr/bin/supervisord
+else
+  exec /usr/bin/supervisord
+fi
