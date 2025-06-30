@@ -92,6 +92,11 @@ function downloadSelf() {
 }
 
 function downloadRunFile() {
+    if ! getent hosts func.bitwarden.com > /dev/null 2>&1; then
+        echo -e "${RED}DNS resolution failed. Please check /etc/resolv.conf or network connectivity.${NC}"
+        exit 1
+    fi
+
     if [ ! -d "$SCRIPTS_DIR" ]
     then
         mkdir $SCRIPTS_DIR
