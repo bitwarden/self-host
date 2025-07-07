@@ -23,6 +23,9 @@ on:
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
 
+permissions:
+  contents: read
+
 jobs:
   build-docker:
     name: Build Docker image
