@@ -144,7 +144,8 @@ jobs:
         with:
           repository: bitwarden/server
           token: ${{ steps.app-token.outputs.token }}
-          ref: ${{ steps.server-branch-name.outputs.server_ref }}
+          #ref: ${{ steps.server-branch-name.outputs.server_ref }}
+          ref: BRE-917/base-image-testing
           path: "server"
 
       - name: Build and push Docker image
