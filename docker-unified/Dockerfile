@@ -214,7 +214,8 @@ RUN apk add --no-cache \
     supervisor \
     tzdata \
     unzip \
-    su-exec
+    su-exec \
+    icu-libs
 
 # Create required directories
 RUN mkdir -p /etc/bitwarden/attachments/send
