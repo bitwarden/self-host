@@ -44,7 +44,7 @@ services:
   #   environment:
   #     MSSQL_SA_PASSWORD: "super_strong_password"
   #     ACCEPT_EULA: Y
-  #   image: mcr.microsoft.com/mssql/server:2019-latest
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
   #   restart: always
   #   volumes:
   #     - data:/var/opt/mssql
