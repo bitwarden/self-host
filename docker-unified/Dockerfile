@@ -215,7 +215,8 @@ RUN apk add --no-cache \
     tzdata \
     unzip \
     su-exec \
-    icu-libs
+    icu-libs \
+    gcompat
 
 # Create required directories
 RUN mkdir -p /etc/bitwarden/attachments/send
