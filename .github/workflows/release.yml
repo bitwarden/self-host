@@ -35,7 +35,7 @@ jobs:
       - name: Branch check
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/agalles/troubleshoot-permissions" ]]; then
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "==================================="
             echo "[!] Can only release from the 'main' branch"
             echo "==================================="
