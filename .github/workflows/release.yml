@@ -35,7 +35,7 @@ jobs:
       - name: Branch check
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+          if [[ "$GITHUB_REF" != "refs/heads/agalles/troubleshoot-permissions" ]]; then
             echo "==================================="
             echo "[!] Can only release from the 'main' branch"
             echo "==================================="
@@ -159,7 +159,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: agalles/troubleshoot-permissions
+          ref: main
 
       - name: Login to Azure - CI Subscription
         uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
