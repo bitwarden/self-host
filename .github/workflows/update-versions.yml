@@ -125,8 +125,6 @@ jobs:
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.repository }}
 
       - name: Checkout Branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
