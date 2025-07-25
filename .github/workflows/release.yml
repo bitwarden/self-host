@@ -136,7 +136,7 @@ jobs:
 
       - name: Create release
         if: ${{ inputs.release_type != 'Dry Run' }}
-        uses: ncipollo/release-action@cdcc88a9acf3ca41c16c37bb7d21b9ad48560d87 # v1.15.0
+        uses: ncipollo/release-action@bcfe5470707e8832e12347755757cec0eb3c22af # v1.18.0
         with:
           artifacts: 'bitwarden.sh,
                       run.sh,
@@ -237,7 +237,7 @@ jobs:
           ref: main
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -263,7 +263,7 @@ jobs:
 
       ### ghcr.io section
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -323,14 +323,14 @@ jobs:
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
