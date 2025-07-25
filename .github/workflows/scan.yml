@@ -56,7 +56,7 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Scan with Checkmarx
-        uses: checkmarx/ast-github-action@dda03dce250dead2404252f9970f35980201934c # 2.0.43
+        uses: checkmarx/ast-github-action@fa338ce82069b297c4852ac77e2d168db9fb56d8 # 2.3.21
         env:
           INCREMENTAL: "${{ contains(github.event_name, 'pull_request') && '--sast-incremental' || '' }}"
         with:
@@ -71,7 +71,7 @@ jobs:
             --output-path . ${{ env.INCREMENTAL }}
 
       - name: Upload Checkmarx results to GitHub
-        uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3.28.9
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           sarif_file: cx_result.sarif
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
