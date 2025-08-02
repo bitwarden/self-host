@@ -1,6 +1,6 @@
 server {
   listen {{{String.Coalesce env.BW_PORT_HTTP "8080"}}} default_server;
-  #listen [::]:{{{String.Coalesce env.BW_PORT_HTTP "8080"}}} default_server;
+  listen [::]:{{{String.Coalesce env.BW_PORT_HTTP "8080"}}} default_server;
   server_name {{{String.Coalesce env.BW_DOMAIN "localhost"}}};
 {{#if (String.Equal env.BW_ENABLE_SSL "true")}}
 
