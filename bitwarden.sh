@@ -82,12 +82,14 @@ echo ""
 # Functions
 
 function downloadSelf() {
-    if curl -L -s -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $BITWARDEN_SCRIPT_URL | grep -q "^http_code 20[0-9]"
+    if curl -L -s -S -w "http_code %{http_code}" -o $SCRIPT_PATH.1 $BITWARDEN_SCRIPT_URL | grep -q "^http_code 20[0-9]"
     then
         mv -f $SCRIPT_PATH.1 $SCRIPT_PATH
         chmod u+x $SCRIPT_PATH
     else
+        exit_code=$?
         rm -f $SCRIPT_PATH.1
+        exit $exit_code
     fi
 }
 
@@ -99,7 +101,7 @@ function downloadRunFile() {
 
     local tmp_script=$(mktemp)
 
-    run_file_status_code=$(curl -s -L -w "%{http_code}" -o $tmp_script $RUN_SCRIPT_URL)
+    run_file_status_code=$(curl -s -S -L -w "%{http_code}" -o $tmp_script $RUN_SCRIPT_URL)
     if echo "$run_file_status_code" | grep -q "^20[0-9]"
     then
         mv $tmp_script $SCRIPTS_DIR/run.sh
