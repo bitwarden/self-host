@@ -19,10 +19,15 @@ on:
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
 
+permissions:
+  contents: read
+
 jobs:
   setup:
     name: Setup
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
       _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
@@ -73,6 +78,8 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-24.04
     needs: setup
+    permissions:
+      contents: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -84,7 +91,7 @@ jobs:
         env:
           _LATEST_SELF_HOST_VERSION: ${{ needs.setup.outputs._LATEST_SELF_HOST_VERSION }}
         run: |
-          git diff --unified=0 $_LATEST_SELF_HOST_VERSION main -- version.json >> diff.txt
+          git diff --unified=0 $_LATEST_SELF_HOST_VERSION $GITHUB_REF_NAME -- version.json >> diff.txt
 
           if grep -q "webVersion" diff.txt; then
             echo "WEB_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
@@ -150,16 +157,21 @@ jobs:
     needs:
       - setup
       - release
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
 
-      - name: Login to Azure - CI Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Retrieve secrets
         id: retrieve-secrets
@@ -169,6 +181,9 @@ jobs:
           secrets: "aws-selfhost-version-access-id,
             aws-selfhost-version-access-key,
             aws-selfhost-version-bucket-name"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Upload version.json to S3 bucket
         if: ${{ inputs.release_type != 'Dry Run' }}
@@ -224,10 +239,12 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
-      - name: Login to Azure - Prod Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Setup project name and release tag
         id: setup
@@ -282,6 +299,9 @@ jobs:
           docker logout ghcr.io
           docker logout $_AZ_REGISTRY
 
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
 
   release-unified:
     name: Release Self-host unified
@@ -295,10 +315,12 @@ jobs:
       id-token: write
       packages: write
     steps:
-      - name: Login to Azure - PROD Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_PROD_KV_CREDENTIALS }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -371,6 +393,9 @@ jobs:
       - name: Log out of Docker
         run: docker logout $_AZ_REGISTRY
 
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
 
   trigger-workflows:
     name: Trigger workflows
@@ -380,13 +405,32 @@ jobs:
       - release
       - tag-push-latest-images
       - release-unified
+    permissions:
+      id-token: write
     steps:
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Get Azure Key Vault secrets
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: gh-org-bitwarden
+          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
       - name: Generate GH App token
-        uses: actions/create-github-app-token@c1a285145b9d317df6ced56c09f525b5c2b6f755 # v1.11.1
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
         id: app-token
         with:
-          app-id: ${{ secrets.BW_GHAPP_ID }}
-          private-key: ${{ secrets.BW_GHAPP_KEY }}
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
 
       - name: Trigger release-digital-ocean workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1

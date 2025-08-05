@@ -2,15 +2,14 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM debian AS web-setup
+FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
 
 # Add packages
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
     jq \
     unzip \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    git
 
 WORKDIR /tmp
 
@@ -25,7 +24,7 @@ RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
 # Download the built release artifact for the 'web' client
 RUN TAG=$(cat tag.txt) \
   && VERSION=$(cat version.txt) \
-  && curl -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O
+  && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O
 
 # Unzip the 'web' client to /tmp/build
 RUN VERSION=$(cat version.txt) \
@@ -34,7 +33,7 @@ RUN VERSION=$(cat version.txt) \
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine3.21 AS dotnet-build
 
 # Docker buildx supplies the value for this arg
 ARG TARGETPLATFORM
@@ -42,18 +41,17 @@ ARG TARGETPLATFORM
 # Determine proper runtime value for .NET
 # We put the value in a file to be read by later layers.
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      RID=linux-x64 ; \
+      RID=linux-musl-x64 ; \
     elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      RID=linux-arm64 ; \
+      RID=linux-musl-arm64 ; \
     elif [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
-      RID=linux-arm ; \
+      RID=linux-musl-arm ; \
     fi \
     && echo "RID=$RID" > /tmp/rid.txt
 
 # Add packages
-RUN apt-get update && apt-get install -y \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    npm
 
 # Copy csproj files as distinct layers
 WORKDIR /source
@@ -172,7 +170,7 @@ RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Scim --no-restore --no-s
 ###############################################
 #                  App stage                  #
 ###############################################
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine3.21
 ARG TARGETPLATFORM
 LABEL com.bitwarden.product="bitwarden"
 LABEL com.bitwarden.project="unified"
@@ -208,7 +206,7 @@ ENV globalSettings__logDirectoryByProject="false"
 ENV globalSettings__logRollBySizeLimit="1073741824"
 
 # Add packages
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
     jq \
     nginx \
@@ -216,7 +214,9 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     tzdata \
     unzip \
-    && rm -rf /var/lib/apt/lists/*
+    su-exec \
+    icu-libs \
+    gcompat
 
 # Create required directories
 RUN mkdir -p /etc/bitwarden/attachments/send
@@ -261,9 +261,9 @@ COPY docker-unified/hbs/config.yaml /etc/hbs/
 
 # Download hbs tool for generating final configurations
 RUN echo "$(curl --silent https://api.github.com/repos/bitwarden/Handlebars.conf/git/refs/tags | jq -r 'last(.[].ref)' | sed 's/refs\/tags\///')"  > /tmp/latest.txt
-RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/amd64" ] ; then curl -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-x64.zip; fi
-RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/arm/v7" ] ; then curl -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm.zip; fi
-RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/arm64" ] ; then curl -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm64.zip; fi
+RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/amd64" ] ; then curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-x64.zip; fi
+RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/arm/v7" ] ; then curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm.zip; fi
+RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/arm64" ] ; then curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm64.zip; fi
 
 # Extract hbs
 RUN unzip hbs.zip -d /usr/local/bin && mv /usr/local/bin/hbs* /usr/local/bin/hbs && rm hbs.zip

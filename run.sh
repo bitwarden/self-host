@@ -104,7 +104,7 @@ function install() {
     pullSetup
     docker run -it --rm --name setup -v $OUTPUT_DIR:/bitwarden \
         --env-file $ENV_DIR/uid.env ghcr.io/bitwarden/setup:$COREVERSION \
-        dotnet Setup.dll -install 1 -domain $DOMAIN -letsencrypt $LETS_ENCRYPT -os $OS \
+        /app/Setup -install 1 -domain $DOMAIN -letsencrypt $LETS_ENCRYPT -os $OS \
         -corev $COREVERSION -webv $WEBVERSION -dbname "$DATABASE" -keyconnectorv $KEYCONNECTORVERSION
 }
 
@@ -200,7 +200,7 @@ function updateDatabase() {
 
     docker run -i --rm --name setup $docker_network_args \
         -v $OUTPUT_DIR:/bitwarden --env-file $ENV_DIR/uid.env ghcr.io/bitwarden/setup:$COREVERSION \
-        dotnet Setup.dll -update 1 -db 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
+        /app/Setup -update 1 -db 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
     echo "Database update complete"
 }
 
@@ -242,7 +242,7 @@ function update() {
     fi
     docker run -i --rm --name setup -v $OUTPUT_DIR:/bitwarden \
         --env-file $ENV_DIR/uid.env ghcr.io/bitwarden/setup:$COREVERSION \
-        dotnet Setup.dll -update 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
+        /app/Setup -update 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
 }
 
 function uninstall() {
@@ -287,7 +287,7 @@ function printEnvironment() {
     pullSetup
     docker run -i --rm --name setup -v $OUTPUT_DIR:/bitwarden \
         --env-file $ENV_DIR/uid.env ghcr.io/bitwarden/setup:$COREVERSION \
-        dotnet Setup.dll -printenv 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
+        /app/Setup -printenv 1 -os $OS -corev $COREVERSION -webv $WEBVERSION -keyconnectorv $KEYCONNECTORVERSION
 }
 
 function restart() {
