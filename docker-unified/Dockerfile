@@ -1,8 +1,8 @@
-# syntax = docker/dockerfile:1.11
+# syntax = docker/dockerfile:1.17
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS web-setup
 
 # Add packages
 RUN apk add --no-cache \
