@@ -343,7 +343,7 @@ jobs:
 
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
           cosign sign --yes ghcr.io/bitwarden/self-host:latest
 
       - name: Verify the signed image with Cosign
@@ -351,7 +351,7 @@ jobs:
           cosign verify \
             --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/self-host:$_RELEASE_TAG
+            ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
 
           cosign verify \
             --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
