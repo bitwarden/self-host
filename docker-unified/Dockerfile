@@ -4,8 +4,8 @@
 ###############################################
 FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
 
-# Build argument for client branch - defaults to 'main' for branch builds
-ARG CLIENT_BRANCH=main
+# Build argument for client branch - defaults to special value indicating "use latest release"
+ARG CLIENT_BRANCH=__LATEST_RELEASE__
 
 # Add packages
 RUN apk add --no-cache \
@@ -19,16 +19,18 @@ RUN apk add --no-cache \
 WORKDIR /tmp
 
 # Check if CLIENT_BRANCH looks like a release tag (starts with 'web-v' and contains version pattern)
-# If it's a release tag, download the pre-built artifact; otherwise build from source
-RUN if echo "$CLIENT_BRANCH" | grep -q "^web-v[0-9]\{4\}\.[0-9]\{1,2\}\.[0-9]\+"; then \
-      echo "Using release tag: $CLIENT_BRANCH" \
-      && echo "$CLIENT_BRANCH" > tag.txt \
-      && cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt \
-      && echo "release" > build_mode.txt; \
-    elif [ "$CLIENT_BRANCH" = "main" ]; then \
-      echo "Using main branch - getting latest release" \
+# If it's a release tag, download the pre-built artifact
+# If CLIENT_BRANCH is the default sentinel value, use latest release (backward compatibility)
+# Otherwise, build from the specified branch
+RUN if [ "$CLIENT_BRANCH" = "__LATEST_RELEASE__" ]; then \
+      echo "Using default behavior - getting latest release for backward compatibility" \
       && git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt \
       && cat tag.txt \
+      && cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt \
+      && echo "release" > build_mode.txt; \
+    elif echo "$CLIENT_BRANCH" | grep -q "^web-v[0-9]\{4\}\.[0-9]\{1,2\}\.[0-9]\+"; then \
+      echo "Using release tag: $CLIENT_BRANCH" \
+      && echo "$CLIENT_BRANCH" > tag.txt \
       && cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt \
       && echo "release" > build_mode.txt; \
     else \

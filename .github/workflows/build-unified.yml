@@ -12,7 +12,7 @@ on:
         type: string
         default: main
       client_branch:
-        description: "Client branch name to deploy (examples: 'main', 'rc', 'feature/name') - defaults to 'main' which uses latest release"
+        description: "Client branch name to deploy (examples: 'main', 'rc', 'feature/name') - if not specified, uses latest release"
         type: string
         default: main
       use_latest_core_version:
