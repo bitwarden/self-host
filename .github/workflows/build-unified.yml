@@ -14,7 +14,6 @@ on:
       client_branch:
         description: "Client branch name to deploy (examples: 'main', 'rc', 'feature/name') - if not specified, uses latest release"
         type: string
-        default: main
       use_latest_core_version:
         description: "Use the latest core version from versions.json instead of branch"
         type: boolean
@@ -67,9 +66,12 @@ jobs:
           CLIENT_BRANCH: ${{ inputs.client_branch }}
         run: |
           if [[ -z "${CLIENT_BRANCH}" ]]; then
-            echo "client_ref=main" >> $GITHUB_OUTPUT
+            echo "No client branch specified, using default Dockerfile behavior"
+            echo "client_ref=" >> $GITHUB_OUTPUT
+            echo "use_client_build_arg=false" >> $GITHUB_OUTPUT
           else
             echo "client_ref=${CLIENT_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
+            echo "use_client_build_arg=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Check Branch to Publish
@@ -187,7 +189,7 @@ jobs:
           push: true
           tags: ${{ steps.tag-list.outputs.tags }}
           build-args: |
-            CLIENT_BRANCH=${{ steps.client-branch-name.outputs.client_ref }}
+            ${{ steps.client-branch-name.outputs.use_client_build_arg == 'true' && format('CLIENT_BRANCH={0}', steps.client-branch-name.outputs.client_ref) || '' }}
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'
