@@ -11,6 +11,10 @@ on:
         description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
+      client_branch:
+        description: "Client branch name to deploy (examples: 'main', 'rc', 'feature/name') - defaults to 'main' which uses latest release"
+        type: string
+        default: main
       use_latest_core_version:
         description: "Use the latest core version from versions.json instead of branch"
         type: boolean
@@ -55,6 +59,17 @@ jobs:
           else
             echo "server_ref=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
             echo "ref_type=branch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get client branch to use
+        id: client-branch-name
+        env:
+          CLIENT_BRANCH: ${{ inputs.client_branch }}
+        run: |
+          if [[ -z "${CLIENT_BRANCH}" ]]; then
+            echo "client_ref=main" >> $GITHUB_OUTPUT
+          else
+            echo "client_ref=${CLIENT_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
           fi
 
       - name: Check Branch to Publish
@@ -171,6 +186,8 @@ jobs:
             linux/arm64/v8
           push: true
           tags: ${{ steps.tag-list.outputs.tags }}
+          build-args: |
+            CLIENT_BRANCH=${{ steps.client-branch-name.outputs.client_ref }}
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'

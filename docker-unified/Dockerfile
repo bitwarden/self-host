@@ -4,31 +4,63 @@
 ###############################################
 FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
 
+# Build argument for client branch - defaults to 'main' for branch builds
+ARG CLIENT_BRANCH=main
+
 # Add packages
 RUN apk add --no-cache \
     curl \
     jq \
     unzip \
-    git
+    git \
+    nodejs \
+    npm
 
 WORKDIR /tmp
 
-# Grab last tag/release of the 'web' client
-RUN git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt
+# Check if CLIENT_BRANCH looks like a release tag (starts with 'web-v' and contains version pattern)
+# If it's a release tag, download the pre-built artifact; otherwise build from source
+RUN if echo "$CLIENT_BRANCH" | grep -q "^web-v[0-9]\{4\}\.[0-9]\{1,2\}\.[0-9]\+"; then \
+      echo "Using release tag: $CLIENT_BRANCH" \
+      && echo "$CLIENT_BRANCH" > tag.txt \
+      && cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt \
+      && echo "release" > build_mode.txt; \
+    elif [ "$CLIENT_BRANCH" = "main" ]; then \
+      echo "Using main branch - getting latest release" \
+      && git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt \
+      && cat tag.txt \
+      && cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt \
+      && echo "release" > build_mode.txt; \
+    else \
+      echo "Building from branch: $CLIENT_BRANCH" \
+      && echo "$CLIENT_BRANCH" > branch.txt \
+      && echo "branch" > build_mode.txt; \
+    fi
 
-RUN cat tag.txt
+# Download release artifact if in release mode
+RUN if [ "$(cat build_mode.txt)" = "release" ]; then \
+      TAG=$(cat tag.txt) \
+      && VERSION=$(cat version.txt) \
+      && echo "Downloading release artifact for $TAG" \
+      && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O \
+      && unzip web-$VERSION-selfhosted-COMMERCIAL.zip; \
+    fi
 
-# Extract the version of the 'web' client
-RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
+# Build from source if in branch mode
+RUN if [ "$(cat build_mode.txt)" = "branch" ]; then \
+      BRANCH=$(cat branch.txt) \
+      && echo "Cloning and building from branch: $BRANCH" \
+      && git clone --depth 1 --branch "$BRANCH" https://github.com/bitwarden/clients.git \
+      && cd clients \
+      && npm ci \
+      && cd apps/web \
+      && npm run build:bit:selfhost:prod \
+      && mkdir -p /tmp/build \
+      && cp -r build/* /tmp/build/; \
+    fi
 
-# Download the built release artifact for the 'web' client
-RUN TAG=$(cat tag.txt) \
-  && VERSION=$(cat version.txt) \
-  && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O
-
-# Unzip the 'web' client to /tmp/build
-RUN VERSION=$(cat version.txt) \
-  && unzip web-$VERSION-selfhosted-COMMERCIAL.zip
+# Ensure build directory exists for the copy step in final stage
+RUN if [ ! -d "/tmp/build" ]; then mkdir -p /tmp/build; fi
 
 ###############################################
 #                 Build stage                 #
