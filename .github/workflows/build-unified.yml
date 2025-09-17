@@ -176,6 +176,36 @@ jobs:
           ref: ${{ steps.server-branch-name.outputs.server_ref }}
           path: "server"
 
+      - name: Checkout client repo (if client branch specified)
+        if: steps.client-branch-name.outputs.use_client_build_arg == 'true'
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: bitwarden/clients
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ steps.client-branch-name.outputs.client_ref }}
+          path: "clients"
+
+      - name: Setup Node.js (if building client from branch)
+        if: steps.client-branch-name.outputs.use_client_build_arg == 'true'
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: '20'
+
+      - name: Setup client build directory
+        run: |
+          # Always create web-build directory for Docker context
+          mkdir -p web-build
+
+      - name: Build web client (if building from branch)
+        if: steps.client-branch-name.outputs.use_client_build_arg == 'true'
+        run: |
+          cd clients
+          npm ci
+          cd apps/web
+          npm run build:bit:selfhost:prod
+          # Copy built files to Docker build context
+          cp -r build/* ../../../web-build/
+
       - name: Build and push Docker image
         id: build-docker
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0

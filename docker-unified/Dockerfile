@@ -12,16 +12,17 @@ RUN apk add --no-cache \
     curl \
     jq \
     unzip \
-    git \
-    nodejs \
-    npm
+    git
 
 WORKDIR /tmp
+
+# Copy potential pre-built web files from build context
+COPY web-build /tmp/web-build
 
 # Check if CLIENT_BRANCH looks like a release tag (starts with 'web-v' and contains version pattern)
 # If it's a release tag, download the pre-built artifact
 # If CLIENT_BRANCH is the default sentinel value, use latest release (backward compatibility)
-# Otherwise, build from the specified branch
+# Otherwise, expect pre-built client files from workflow in /context/web-build
 RUN if [ "$CLIENT_BRANCH" = "__LATEST_RELEASE__" ]; then \
       echo "Using default behavior - getting latest release for backward compatibility" \
       && git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt \
@@ -34,9 +35,8 @@ RUN if [ "$CLIENT_BRANCH" = "__LATEST_RELEASE__" ]; then \
       && cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt \
       && echo "release" > build_mode.txt; \
     else \
-      echo "Building from branch: $CLIENT_BRANCH" \
-      && echo "$CLIENT_BRANCH" > branch.txt \
-      && echo "branch" > build_mode.txt; \
+      echo "Using pre-built client from workflow for branch: $CLIENT_BRANCH" \
+      && echo "workflow" > build_mode.txt; \
     fi
 
 # Download release artifact if in release mode
@@ -48,17 +48,16 @@ RUN if [ "$(cat build_mode.txt)" = "release" ]; then \
       && unzip web-$VERSION-selfhosted-COMMERCIAL.zip; \
     fi
 
-# Build from source if in branch mode
-RUN if [ "$(cat build_mode.txt)" = "branch" ]; then \
-      BRANCH=$(cat branch.txt) \
-      && echo "Cloning and building from branch: $BRANCH" \
-      && git clone --depth 1 --branch "$BRANCH" https://github.com/bitwarden/clients.git \
-      && cd clients \
-      && npm ci \
-      && cd apps/web \
-      && npm run build:bit:selfhost:prod \
+# Copy pre-built client files if in workflow mode
+RUN if [ "$(cat build_mode.txt)" = "workflow" ]; then \
+      echo "Using pre-built client files from workflow" \
       && mkdir -p /tmp/build \
-      && cp -r build/* /tmp/build/; \
+      && if [ -d "/tmp/web-build" ] && [ "$(ls -A /tmp/web-build 2>/dev/null)" ]; then \
+        cp -r /tmp/web-build/* /tmp/build/; \
+        echo "Successfully copied pre-built client files"; \
+      else \
+        echo "Warning: No pre-built client files found, using empty build directory"; \
+      fi; \
     fi
 
 # Ensure build directory exists for the copy step in final stage
