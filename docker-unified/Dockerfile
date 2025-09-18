@@ -3,6 +3,7 @@
 #                 Build stage                 #
 ###############################################
 FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
+ARG WEB_ARTIFACT_PATH
 
 # Add packages
 RUN apk add --no-cache \
@@ -14,21 +15,32 @@ RUN apk add --no-cache \
 WORKDIR /tmp
 
 # Grab last tag/release of the 'web' client
-RUN git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt
-
-RUN cat tag.txt
+RUN  if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
+    git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt; \
+    fi
 
 # Extract the version of the 'web' client
-RUN cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt
+RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
+    cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt; \
+    fi
 
 # Download the built release artifact for the 'web' client
-RUN TAG=$(cat tag.txt) \
-  && VERSION=$(cat version.txt) \
-  && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O
+RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
+    TAG=$(cat tag.txt) \
+    && VERSION=$(cat version.txt) \
+    && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O; \
+    fi
+
+# Copy provided web artifact if available
+COPY ${WEB_ARTIFACT_PATH}* /tmp/
 
 # Unzip the 'web' client to /tmp/build
-RUN VERSION=$(cat version.txt) \
-  && unzip web-$VERSION-selfhosted-COMMERCIAL.zip
+RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
+    VERSION=$(cat version.txt) \
+    && unzip web-$VERSION-selfhosted-COMMERCIAL.zip; \
+    else \
+    unzip ${WEB_ARTIFACT_PATH} -d /tmp/; \
+    fi
 
 ###############################################
 #                 Build stage                 #
@@ -41,11 +53,11 @@ ARG TARGETPLATFORM
 # Determine proper runtime value for .NET
 # We put the value in a file to be read by later layers.
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      RID=linux-musl-x64 ; \
+    RID=linux-musl-x64 ; \
     elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      RID=linux-musl-arm64 ; \
+    RID=linux-musl-arm64 ; \
     elif [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
-      RID=linux-musl-arm ; \
+    RID=linux-musl-arm ; \
     fi \
     && echo "RID=$RID" > /tmp/rid.txt
 
