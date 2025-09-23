@@ -11,6 +11,10 @@ on:
         description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
+      web_branch:
+        description: "Web client branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
+        type: string
+        default: main
       use_latest_core_version:
         description: "Use the latest core version from versions.json instead of branch"
         type: boolean
@@ -159,6 +163,26 @@ jobs:
           ref: ${{ steps.server-branch-name.outputs.server_ref }}
           path: "server"
 
+      - name: Download web client branch artifacts for dev builds
+        if: steps.tag.outputs.image_tag == 'dev'
+        uses: bitwarden/gh-actions/download-artifacts@main
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          workflow: build-web.yml
+          workflow_conclusion: success
+          branch: ${{ inputs.web_branch }}
+          repo: bitwarden/clients
+          artifacts: "web-*-selfhosted-DEV.zip"
+
+      - name: Set web artifact path for dev builds
+        if: steps.tag.outputs.image_tag == 'dev'
+        id: set-web-artifact-path
+        run: |
+          WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
+          if [[ -n "${WEB_ARTIFACT}" ]]; then
+            echo "WEB_ARTIFACT_PATH=${WEB_ARTIFACT}" >> $GITHUB_ENV
+          fi
+
       - name: Build and push Docker image
         id: build-docker
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -171,6 +195,8 @@ jobs:
             linux/arm64/v8
           push: true
           tags: ${{ steps.tag-list.outputs.tags }}
+          build-args: |
+            WEB_ARTIFACT_PATH=${{ env.WEB_ARTIFACT_PATH }}
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'
@@ -215,7 +241,7 @@ jobs:
           ref: ${{ contains(github.event_name, 'pull_request') && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
 
       - name: Log out of Docker
-        if: ${{ env.is_publish_branch == 'true' }}
+        if: env.is_publish_branch == 'true'
         run: |
           docker logout ghcr.io
           docker logout $_AZ_REGISTRY
