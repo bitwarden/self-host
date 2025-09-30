@@ -9,3 +9,9 @@
 
 # Platform team for Unified setup
 docker-unified/ @bitwarden/team-platform-dev
+
+# Docker-related files
+**/Dockerfile @bitwarden/team-appsec @bitwarden/dept-bre
+**/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
+**/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
+**/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
