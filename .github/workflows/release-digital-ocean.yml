@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -47,7 +49,7 @@ jobs:
           VERSION=$(grep '^ *"coreVersion":' version.json \
             | awk -F\: '{ print $2 }' \
             | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Hashicorp Packer
         uses: hashicorp/setup-packer@1aa358be5cf73883762b302a3a03abd66e75b232 # v3.1.0
@@ -76,4 +78,4 @@ jobs:
           DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
 
           # Force remove the snapshot
-          doctl compute image delete $DO_ARTIFACT -f
+          doctl compute image delete "$DO_ARTIFACT" -f
