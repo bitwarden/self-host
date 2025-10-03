@@ -41,6 +41,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Get server branch to checkout
         id: server-branch-name
@@ -51,14 +53,14 @@ jobs:
             # Extract coreVersion from versions.json
             CORE_VERSION=$(jq -r '.versions.coreVersion' versions.json)
             echo "Server version from versions.json: $CORE_VERSION"
-            echo "server_ref=refs/tags/v$CORE_VERSION" >> $GITHUB_OUTPUT
-            echo "ref_type=tag" >> $GITHUB_OUTPUT
+            echo "server_ref=refs/tags/v$CORE_VERSION" >> "$GITHUB_OUTPUT"
+            echo "ref_type=tag" >> "$GITHUB_OUTPUT"
           elif [[ -z "${SERVER_BRANCH}" ]]; then
-            echo "server_ref=main" >> $GITHUB_OUTPUT
-            echo "ref_type=branch" >> $GITHUB_OUTPUT
+            echo "server_ref=main" >> "$GITHUB_OUTPUT"
+            echo "ref_type=branch" >> "$GITHUB_OUTPUT"
           else
-            echo "server_ref=${SERVER_BRANCH#refs/heads/}" >> $GITHUB_OUTPUT
-            echo "ref_type=branch" >> $GITHUB_OUTPUT
+            echo "server_ref=${SERVER_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+            echo "ref_type=branch" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check Branch to Publish
@@ -70,15 +72,15 @@ jobs:
         run: |
           REF=${GITHUB_REF#refs/heads/}
 
-          IFS="," read -a publish_branches <<< $PUBLISH_BRANCHES
+          IFS="," read -a publish_branches <<< "$PUBLISH_BRANCHES"
 
           if [[ "${REF_TYPE}" == "tag" ]]; then
             # If the build is triggered by a tag, always publish
-            echo "is_publish_branch=true" >> $GITHUB_ENV
+            echo "is_publish_branch=true" >> "$GITHUB_ENV"
           elif [[ "${publish_branches[*]}" =~ "${REF}" && "${publish_branches[*]}" =~ "${SERVER_BRANCH}" ]]; then
-            echo "is_publish_branch=true" >> $GITHUB_ENV
+            echo "is_publish_branch=true" >> "$GITHUB_ENV"
           else
-            echo "is_publish_branch=false" >> $GITHUB_ENV
+            echo "is_publish_branch=false" >> "$GITHUB_ENV"
           fi
 
       ########## Set up Docker ##########
@@ -127,7 +129,7 @@ jobs:
             fi
           fi
 
-          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Generate tag list
         id: tag-list
@@ -136,9 +138,9 @@ jobs:
           IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
           if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           else
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Get Azure Key Vault secrets
@@ -162,6 +164,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ steps.server-branch-name.outputs.server_ref }}
           path: "server"
+          persist-credentials: false
 
       - name: Download web client branch artifacts for dev builds
         if: steps.tag.outputs.image_tag == 'dev'
@@ -180,7 +183,7 @@ jobs:
         run: |
           WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
           if [[ -n "${WEB_ARTIFACT}" ]]; then
-            echo "WEB_ARTIFACT_PATH=${WEB_ARTIFACT}" >> $GITHUB_ENV
+            echo "WEB_ARTIFACT_PATH=${WEB_ARTIFACT}" >> "$GITHUB_ENV"
           fi
 
       - name: Build and push Docker image
@@ -214,16 +217,18 @@ jobs:
           for tag in "${tags[@]}"; do
             images+="${tag}@${DIGEST} "
           done
-          cosign sign --yes ${images}
-          echo "images=${images}" >> $GITHUB_OUTPUT
+          cosign sign --yes "${images}"
+          echo "images=${images}" >> "$GITHUB_OUTPUT"
 
       - name: Verify the signed image(s) with Cosign
         if: env.is_publish_branch == 'true'
+        env:
+          IMAGES: ${{ steps.sign.outputs.images }}
         run: |
           cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ${{ steps.sign.outputs.images }}
+            "${IMAGES}"
 
       - name: Scan Docker image
         id: container-scan
@@ -244,7 +249,7 @@ jobs:
         if: env.is_publish_branch == 'true'
         run: |
           docker logout ghcr.io
-          docker logout $_AZ_REGISTRY
+          docker logout "$_AZ_REGISTRY"
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main

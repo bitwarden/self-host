@@ -46,6 +46,8 @@ jobs:
 
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Get Latest Self-Host Version
         id: get-self-host
@@ -70,9 +72,11 @@ jobs:
           CORE=$(jq -r '.versions.coreVersion' < version.json)
           KEY_CONNECTOR=$(jq -r '.versions.keyConnectorVersion' < version.json)
 
-          echo "WEB_RELEASE_TAG=$WEB" >> $GITHUB_OUTPUT
-          echo "CORE_RELEASE_TAG=$CORE" >> $GITHUB_OUTPUT
-          echo "KEY_CONNECTOR_RELEASE_TAG=$KEY_CONNECTOR" >> $GITHUB_OUTPUT
+          {
+            echo "WEB_RELEASE_TAG=$WEB"
+            echo "CORE_RELEASE_TAG=$CORE"
+            echo "KEY_CONNECTOR_RELEASE_TAG=$KEY_CONNECTOR"
+          } >> "$GITHUB_OUTPUT"
 
   release:
     name: Create GitHub Release
@@ -85,54 +89,63 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Get projects that changed versions
         id: changed-projects
         env:
           _LATEST_SELF_HOST_VERSION: ${{ needs.setup.outputs._LATEST_SELF_HOST_VERSION }}
         run: |
-          git diff --unified=0 $_LATEST_SELF_HOST_VERSION $GITHUB_REF_NAME -- version.json >> diff.txt
+          git diff --unified=0 "$_LATEST_SELF_HOST_VERSION" "$GITHUB_REF_NAME" -- version.json >> diff.txt
 
           if grep -q "webVersion" diff.txt; then
-            echo "WEB_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+            echo "WEB_VERSION_CHANGED=true" >> "$GITHUB_OUTPUT"
           fi
 
           if grep -q "coreVersion" diff.txt; then
-            echo "CORE_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+            echo "CORE_VERSION_CHANGED=true" >> "$GITHUB_OUTPUT"
           fi
 
           if grep -q "keyConnectorVersion" diff.txt; then
-            echo "KEY_CONNECTOR_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+            echo "KEY_CONNECTOR_VERSION_CHANGED=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Prepare release notes
         id: prepare-release-notes
+        env:
+          CORE_VERSION_CHANGED: ${{ steps.changed-projects.outputs.CORE_VERSION_CHANGED }}
+          CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
+          WEB_VERSION_CHANGED: ${{ steps.changed-projects.outputs.WEB_VERSION_CHANGED }}
+          WEB_RELEASE_TAG: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
+          KEY_CONNECTOR_VERSION_CHANGED: ${{ steps.changed-projects.outputs.KEY_CONNECTOR_VERSION_CHANGED }}
+          KEY_CONNECTOR_RELEASE_TAG: ${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }}
+
         run: |
           RELEASE_NOTES=""
 
-          if [ -n "${{ steps.changed-projects.outputs.CORE_VERSION_CHANGED }}" ]; then
-            RELEASE_NOTES+="Update Core version to [v${{ needs.setup.outputs._CORE_RELEASE_TAG }}](https://github.com/bitwarden/server/releases/tag/v${{ needs.setup.outputs._CORE_RELEASE_TAG }})"
+          if [ -n "${CORE_VERSION_CHANGED}" ]; then
+            RELEASE_NOTES+="Update Core version to [v${CORE_RELEASE_TAG}](https://github.com/bitwarden/server/releases/tag/v${CORE_RELEASE_TAG})"
           fi
 
-          if [ -n "${{ steps.changed-projects.outputs.WEB_VERSION_CHANGED }}" ]; then
+          if [ -n "${WEB_VERSION_CHANGED}" ]; then
             if [ -n "$RELEASE_NOTES" ]; then
               RELEASE_NOTES+=$'\n'
             fi
-            RELEASE_NOTES+="Update Web version to [v${{ needs.setup.outputs._WEB_RELEASE_TAG }}](https://github.com/bitwarden/clients/releases/tag/web-v${{ needs.setup.outputs._WEB_RELEASE_TAG }})"
+            RELEASE_NOTES+="Update Web version to [v${WEB_RELEASE_TAG}](https://github.com/bitwarden/clients/releases/tag/web-v${WEB_RELEASE_TAG})"
           fi
 
-          if [ -n "${{ steps.changed-projects.outputs.KEY_CONNECTOR_VERSION_CHANGED }}" ]; then
+          if [ -n "${KEY_CONNECTOR_VERSION_CHANGED}" ]; then
             if [ -n "$RELEASE_NOTES" ]; then
               RELEASE_NOTES+=$'\n'
             fi
-            RELEASE_NOTES+="Update Key Connector version to [v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }}](https://github.com/bitwarden/key-connector/releases/tag/v${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }})"
+            RELEASE_NOTES+="Update Key Connector version to [v${KEY_CONNECTOR_RELEASE_TAG}](https://github.com/bitwarden/key-connector/releases/tag/v${KEY_CONNECTOR_RELEASE_TAG})"
           fi
 
           (
             echo 'RELEASE_NOTES<<EOF'
             echo "$RELEASE_NOTES"
             echo EOF
-          ) >> $GITHUB_OUTPUT
+          ) >> "$GITHUB_OUTPUT"
 
       - name: Create release
         if: ${{ inputs.release_type != 'Dry Run' }}
@@ -165,6 +178,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: main
+          persist-credentials: false
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -193,7 +207,7 @@ jobs:
           AWS_DEFAULT_REGION: 'us-east-1'
           AWS_S3_BUCKET_NAME: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-bucket-name }}
         run: |
-          aws s3 cp version.json $AWS_S3_BUCKET_NAME \
+          aws s3 cp version.json "$AWS_S3_BUCKET_NAME" \
           --acl "public-read" \
           --quiet
 
@@ -235,6 +249,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: main
+          persist-credentials: false
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
@@ -248,17 +263,19 @@ jobs:
 
       - name: Setup project name and release tag
         id: setup
+        env:
+          MATRIX_RELEASE_TAG: ${{ matrix.release_tag }}
         run: |
           PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.project_name }}"
           echo "PROJECT_NAME: $PROJECT_NAME"
-          echo "_PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV
+          echo "_PROJECT_NAME=$PROJECT_NAME" >> "$GITHUB_ENV"
 
-          if [ -z "${{ matrix.release_tag }}" ]; then
+          if [ -z "${MATRIX_RELEASE_TAG}" ]; then
             # Use core release tag by default.
-            echo "_RELEASE_TAG=$_CORE_RELEASE_TAG" >> $GITHUB_ENV
+            echo "_RELEASE_TAG=$_CORE_RELEASE_TAG" >> "$GITHUB_ENV"
           else
-            echo "_RELEASE_TAG=${{ matrix.release_tag }}" >> $GITHUB_ENV
+            echo "_RELEASE_TAG=${MATRIX_RELEASE_TAG}" >> "$GITHUB_ENV"
           fi
 
       ### ghcr.io section
@@ -273,31 +290,31 @@ jobs:
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           skopeo --version
-          skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
-          skopeo copy --all docker://$_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG docker://ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          skopeo copy --all docker://$_AZ_REGISTRY/$_PROJECT_NAME:latest docker://ghcr.io/bitwarden/$_PROJECT_NAME:latest
+          skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
+          skopeo copy --all "docker://$_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG" "docker://ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
+          skopeo copy --all "docker://$_AZ_REGISTRY/$_PROJECT_NAME:latest" "docker://ghcr.io/bitwarden/$_PROJECT_NAME:latest"
 
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
-          cosign sign --yes ghcr.io/bitwarden/$_PROJECT_NAME:latest
+          cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
+          cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
 
       - name: Verify the signed image with Cosign
         run: |
           cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG
+            "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
 
           cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/$_PROJECT_NAME:latest
+            "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
 
       - name: Log out of Docker
         run: |
           docker logout ghcr.io
-          docker logout $_AZ_REGISTRY
+          docker logout "$_AZ_REGISTRY"
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
@@ -336,27 +353,27 @@ jobs:
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           skopeo --version
-          skopeo login $_AZ_REGISTRY -u 00000000-0000-0000-0000-000000000000 -p $(az acr login --expose-token --name ${_AZ_REGISTRY%.azurecr.io} | jq -r .accessToken)
-          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
-          skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:beta # TODO: Delete after GA
-          # skopeo copy --all docker://$_AZ_REGISTRY/self-host:beta docker://ghcr.io/bitwarden/self-host:latest # TODO: uncomment after GA
+          skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
+          skopeo copy --all "docker://$_AZ_REGISTRY/self-host:beta" "docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
+          skopeo copy --all "docker://$_AZ_REGISTRY/self-host:beta" "docker://ghcr.io/bitwarden/self-host:beta" # TODO: Delete after GA
+          # skopeo copy --all "docker://$_AZ_REGISTRY/self-host:beta" "docker://ghcr.io/bitwarden/self-host:latest" # TODO: uncomment after GA
 
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
-          cosign sign --yes ghcr.io/bitwarden/self-host:latest
+          cosign sign --yes "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
+          cosign sign --yes "ghcr.io/bitwarden/self-host:latest"
 
       - name: Verify the signed image with Cosign
         run: |
           cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/self-host:$_RELEASE_VERSION
+            "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
 
           cosign verify \
-            --certificate-identity "${{ github.server_url }}/${{ github.workflow_ref }}" \
+            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            ghcr.io/bitwarden/self-host:latest
+            "ghcr.io/bitwarden/self-host:latest"
 
       - name: Log out of skopeo and ghcr.io
         run: |
@@ -365,33 +382,33 @@ jobs:
 
       ########## ACR PROD ##########
       - name: Login to Azure ACR
-        run: az acr login -n ${_AZ_REGISTRY%.azurecr.io}
+        run: az acr login -n "${_AZ_REGISTRY%.azurecr.io}"
 
       - name: Pull latest project image
         run: |
           if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull $_AZ_REGISTRY/self-host:dev
+            docker pull "$_AZ_REGISTRY/self-host:dev"
           else
-            docker pull $_AZ_REGISTRY/self-host:beta
+            docker pull "$_AZ_REGISTRY/self-host:beta"
           fi
 
       - name: Tag version and latest
         run: |
           if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag $_AZ_REGISTRY/self-host:dev $_AZ_REGISTRY/self-host:dryrun
+            docker tag "$_AZ_REGISTRY/self-host:dev" "$_AZ_REGISTRY/self-host:dryrun"
           else
-            docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
-            docker tag $_AZ_REGISTRY/self-host:beta $_AZ_REGISTRY/self-host:latest
+            docker tag "$_AZ_REGISTRY/self-host:beta" "$_AZ_REGISTRY/self-host:$_RELEASE_VERSION"
+            docker tag "$_AZ_REGISTRY/self-host:beta" "$_AZ_REGISTRY/self-host:latest"
           fi
 
       - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker push $_AZ_REGISTRY/self-host:$_RELEASE_VERSION
-          docker push $_AZ_REGISTRY/self-host:latest
+          docker push "$_AZ_REGISTRY/self-host:$_RELEASE_VERSION"
+          docker push "$_AZ_REGISTRY/self-host:latest"
 
       - name: Log out of Docker
-        run: docker logout $_AZ_REGISTRY
+        run: docker logout "$_AZ_REGISTRY"
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
