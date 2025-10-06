@@ -212,23 +212,24 @@ jobs:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
           TAGS: ${{ steps.tag-list.outputs.tags }}
         run: |
-          IFS="," read -a tags <<< "${TAGS}"
-          images=""
-          for tag in "${tags[@]}"; do
-            images+="${tag}@${DIGEST} "
+          IFS=',' read -r -a tags_array <<< "${TAGS}"
+          images=()
+          for tag in "${tags_array[@]}"; do
+            images+=("${tag}@${DIGEST}")
           done
-          cosign sign --yes "${images}"
-          echo "images=${images}" >> "$GITHUB_OUTPUT"
+          cosign sign --yes "${images[@]}"
+          echo "images=${images[*]}" >> "$GITHUB_OUTPUT"
 
       - name: Verify the signed image(s) with Cosign
         if: env.is_publish_branch == 'true'
         env:
           IMAGES: ${{ steps.sign.outputs.images }}
         run: |
+          read -r -a images_array <<< "${COSIGN_IMAGES}"
           cosign verify \
             --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "${IMAGES}"
+            "${images_array[@]}"
 
       - name: Scan Docker image
         id: container-scan
