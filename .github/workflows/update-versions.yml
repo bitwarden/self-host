@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout Branch
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Get Latest Core Version
         id: get-core
@@ -38,9 +40,9 @@ jobs:
           echo "Latest Core Version: $LATEST_CORE_VERSION"
           if [ "$CORE_VERSION" != "$LATEST_CORE_VERSION" ]; then
             echo "Needs Core update!"
-            echo "update=1" >> $GITHUB_OUTPUT
+            echo "update=1" >> "$GITHUB_OUTPUT"
           else
-            echo "update=0" >> $GITHUB_OUTPUT
+            echo "update=0" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Get Latest Web Version
@@ -62,9 +64,9 @@ jobs:
           echo "Latest Web Version: $LATEST_WEB_VERSION"
           if [ "$WEB_VERSION" != "$LATEST_WEB_VERSION" ]; then
             echo "Needs Web update!"
-            echo "update=1" >> $GITHUB_OUTPUT
+            echo "update=1" >> "$GITHUB_OUTPUT"
           else
-            echo "update=0" >> $GITHUB_OUTPUT
+            echo "update=0" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Get Latest Key Connector Version
@@ -84,9 +86,9 @@ jobs:
           echo "Latest Key Connector Version: $LATEST_KEY_CONNECTOR_VERSION"
           if [ "$KEY_CONNECTOR_VERSION" != "$LATEST_KEY_CONNECTOR_VERSION" ]; then
             echo "Needs Key Connector update!"
-            echo "update=1" >> $GITHUB_OUTPUT
+            echo "update=1" >> "$GITHUB_OUTPUT"
           else
-            echo "update=0" >> $GITHUB_OUTPUT
+            echo "update=0" >> "$GITHUB_OUTPUT"
           fi
 
 
@@ -131,6 +133,7 @@ jobs:
         with:
           ref: main
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
 
       - name: Configure Git
         run: |
@@ -165,9 +168,9 @@ jobs:
         id: version-changed
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            echo "changes_to_commit=TRUE" >> $GITHUB_OUTPUT
+            echo "changes_to_commit=TRUE" >> "$GITHUB_OUTPUT"
           else
-            echo "changes_to_commit=FALSE" >> $GITHUB_OUTPUT
+            echo "changes_to_commit=FALSE" >> "$GITHUB_OUTPUT"
             echo "No changes to commit!";
           fi
 
