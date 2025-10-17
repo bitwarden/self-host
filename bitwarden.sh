@@ -192,57 +192,6 @@ function compressLogs() {
     rm $tempfile
 }
 
-function checkSmtp() {
-    CONFIG_FILE="$1/env/global.override.env"
-
-    if [ ! -f "$CONFIG_FILE" ]; then
-        echo "Configuration file not found at $CONFIG_FILE"
-        exit 1
-    fi
-
-    if ! command -v openssl &> /dev/null; then
-        echo "OpenSSL is not available but is required for this check."
-        exit 1
-    fi
-
-    host=$(grep 'globalSettings__mail__smtp__host=' "$CONFIG_FILE" | cut -d '=' -f2)
-    port=$(grep 'globalSettings__mail__smtp__port=' "$CONFIG_FILE" | cut -d '=' -f2)
-    ssl=$(grep 'globalSettings__mail__smtp__ssl=' "$CONFIG_FILE" | cut -d '=' -f2)
-    username=$(grep 'globalSettings__mail__smtp__username=' "$CONFIG_FILE" | cut -d '=' -f2)
-    password=$(grep 'globalSettings__mail__smtp__password=' "$CONFIG_FILE" | cut -d '=' -f2)
-
-    if [ "$ssl" == "true" ]; then
-        ssl_command="-ssl"
-    else
-        ssl_command="-starttls smtp"
-    fi
-
-    set +e
-    SMTP_RESPONSE=$(
-        {
-            echo "EHLO localhost"
-            if [ "$ssl_command" != "-ssl" ]; then
-                echo "STARTTLS"
-                sleep 2
-                echo "EHLO localhost"
-            fi
-            # Check if username and password are set before proceeding
-            if [[ -n "$username" && -n "$password" ]]; then
-                echo "AUTH LOGIN"
-                echo "$(echo -ne "$username" | base64)"
-                echo "$(echo -ne "$password" | base64)"
-            fi
-            echo "QUIT"
-        } | openssl s_client -connect $host:$port $ssl_command -ign_eof 2>/dev/null
-    )
-
-    if echo "$SMTP_RESPONSE" | grep -q "^2[0-9][0-9] "; then
-        echo -e "SMTP settings are correct."
-    else
-        echo "SMTP authentication failed or connection error occurred."
-    fi
-}
-
 function listCommands() {
 cat << EOT
 Available commands:
@@ -319,10 +268,6 @@ case $1 in
     "compresslogs")
         checkOutputDirExists
         compressLogs $OUTPUT $2 $3
-        ;;
-    "checksmtp")
-        checkOutputDirExists
-        checkSmtp $OUTPUT
         ;;
     "help")
         listCommands
