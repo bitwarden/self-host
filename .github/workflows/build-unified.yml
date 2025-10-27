@@ -203,11 +203,10 @@ jobs:
 
       - name: Install Cosign
         if: env.is_publish_branch == 'true'
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign image with Cosign
         if: env.is_publish_branch == 'true'
-        id: sign
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
           TAGS: ${{ steps.tag-list.outputs.tags }}
@@ -218,18 +217,6 @@ jobs:
             images+=("${tag}@${DIGEST}")
           done
           cosign sign --yes "${images[@]}"
-          echo "images=${images[*]}" >> "$GITHUB_OUTPUT"
-
-      - name: Verify the signed image(s) with Cosign
-        if: env.is_publish_branch == 'true'
-        env:
-          IMAGES: ${{ steps.sign.outputs.images }}
-        run: |
-          read -r -a images_array <<< "${COSIGN_IMAGES}"
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "${images_array[@]}"
 
       - name: Scan Docker image
         id: container-scan

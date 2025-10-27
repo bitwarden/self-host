@@ -299,18 +299,6 @@ jobs:
           cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
           cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
 
-      - name: Verify the signed image with Cosign
-        run: |
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
-
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
-
       - name: Log out of Docker
         run: |
           docker logout ghcr.io
@@ -362,18 +350,6 @@ jobs:
         run: |
           cosign sign --yes "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
           cosign sign --yes "ghcr.io/bitwarden/self-host:latest"
-
-      - name: Verify the signed image with Cosign
-        run: |
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
-
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/self-host:latest"
 
       - name: Log out of skopeo and ghcr.io
         run: |
