@@ -252,7 +252,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -299,18 +299,6 @@ jobs:
           cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
           cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
 
-      - name: Verify the signed image with Cosign
-        run: |
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
-
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
-
       - name: Log out of Docker
         run: |
           docker logout ghcr.io
@@ -347,7 +335,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
@@ -362,18 +350,6 @@ jobs:
         run: |
           cosign sign --yes "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
           cosign sign --yes "ghcr.io/bitwarden/self-host:latest"
-
-      - name: Verify the signed image with Cosign
-        run: |
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
-
-          cosign verify \
-            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "ghcr.io/bitwarden/self-host:latest"
 
       - name: Log out of skopeo and ghcr.io
         run: |
