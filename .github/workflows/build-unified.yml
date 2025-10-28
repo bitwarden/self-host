@@ -216,7 +216,7 @@ jobs:
           for tag in "${tags_array[@]}"; do
             images+=("${tag}@${DIGEST}")
           done
-          cosign sign --yes "${images[@]}"
+          cosign sign --yes ${images[@]}
 
       - name: Scan Docker image
         id: container-scan
