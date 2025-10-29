@@ -16,7 +16,7 @@ on:
         type: string
         default: main
       use_latest_core_version:
-        description: "Use the latest core version from versions.json instead of branch"
+        description: "Use the latest core version from version.json instead of branch"
         type: boolean
         default: false
   pull_request:
@@ -50,9 +50,9 @@ jobs:
           SERVER_BRANCH: ${{ inputs.server_branch }}
         run: |
           if [[ "${{ inputs.use_latest_core_version }}" == "true" ]]; then
-            # Extract coreVersion from versions.json
-            CORE_VERSION=$(jq -r '.versions.coreVersion' versions.json)
-            echo "Server version from versions.json: $CORE_VERSION"
+            # Extract coreVersion from version.json
+            CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
+            echo "Server version from version.json: $CORE_VERSION"
             echo "server_ref=refs/tags/v$CORE_VERSION" >> "$GITHUB_OUTPUT"
             echo "ref_type=tag" >> "$GITHUB_OUTPUT"
           elif [[ -z "${SERVER_BRANCH}" ]]; then
