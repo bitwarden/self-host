@@ -15,6 +15,4 @@
 
 # Shared Platform and BRE
 .github/workflows/build-unified.yml @bitwarden/team-platform-dev @bitwarden/dept-bre
-
-# Platform team
 docker-unified/ @bitwarden/team-platform-dev @bitwarden/dept-bre
