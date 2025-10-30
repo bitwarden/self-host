@@ -13,10 +13,8 @@
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
 
-# Shared BRE and Platform
+# Shared Platform and BRE
 .github/workflows/build-unified.yml @bitwarden/team-platform-dev @bitwarden/dept-bre
 
 # Platform team
-docker-unified/Dockerfile @bitwarden/team-appsec @bitwarden/team-platform-dev
-
-
+docker-unified/ @bitwarden/team-platform-dev @bitwarden/dept-bre
