@@ -1,8 +1,8 @@
-# syntax = docker/dockerfile:1.18
+# syntax = docker/dockerfile:1.19
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM alpine:3.21 AS web-setup
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS web-setup
 ARG WEB_ARTIFACT_PATH
 
 # Add packages
