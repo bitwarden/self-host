@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       server_branch:
-        description: "Server branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
+        description: "Server branch name (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
       web_branch:
-        description: "Web client branch name to deploy (examples: 'main', 'rc', 'feature/sm')"
+        description: "Web client branch name (examples: 'main', 'rc', 'feature/sm')"
         type: string
         default: main
       use_latest_core_version:
@@ -48,8 +48,9 @@ jobs:
         id: server-branch-name
         env:
           SERVER_BRANCH: ${{ inputs.server_branch }}
+          USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
         run: |
-          if [[ "${{ inputs.use_latest_core_version }}" == "true" ]]; then
+          if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
             # Extract coreVersion from version.json
             CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
             echo "Server version from version.json: $CORE_VERSION"
@@ -138,9 +139,9 @@ jobs:
           IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
         run: |
           if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG},ghcr.io/bitwarden/self-host:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "tags=$_AZ_REGISTRY/lite:${IMAGE_TAG},ghcr.io/bitwarden/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           else
-            echo "tags=$_AZ_REGISTRY/self-host:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "tags=$_AZ_REGISTRY/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Get Azure Key Vault secrets
