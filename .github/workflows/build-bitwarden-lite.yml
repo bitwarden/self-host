@@ -1,10 +1,10 @@
-name: Build Self-Host Unified
+name: Build Bitwarden Lite
 
 on:
   push:
     paths:
-      - "docker-unified/**"
-      - ".github/workflows/build-unified.yml"
+      - "bitwarden-lite/**"
+      - ".github/workflows/build-bitwarden-lite.yml"
   workflow_dispatch:
     inputs:
       server_branch:
@@ -21,8 +21,8 @@ on:
         default: false
   pull_request:
     paths:
-      - ".github/workflows/build-unified.yml"
-      - "docker-unified/**"
+      - ".github/workflows/build-bitwarden-lite.yml"
+      - "bitwarden-lite/**"
 
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
@@ -191,7 +191,7 @@ jobs:
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
-          file: docker-unified/Dockerfile
+          file: bitwarden-lite/Dockerfile
           platforms: |
             linux/amd64,
             linux/arm/v7,

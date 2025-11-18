@@ -308,8 +308,8 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
 
-  release-unified:
-    name: Release Self-host unified
+  release-bitwarden-lite:
+    name: Release Bitwarden Lite
     runs-on: ubuntu-24.04
     needs:
       - setup
@@ -397,7 +397,7 @@ jobs:
       - setup
       - release
       - tag-push-latest-images
-      - release-unified
+      - release-bitwarden-lite
     permissions:
       id-token: write
     steps:

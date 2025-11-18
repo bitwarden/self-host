@@ -14,5 +14,5 @@
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
 
 # Shared Platform and BRE
-.github/workflows/build-unified.yml @bitwarden/team-platform-dev @bitwarden/dept-bre
-docker-unified/ @bitwarden/team-platform-dev @bitwarden/dept-bre
+.github/workflows/build-bitwarden-lite.yml @bitwarden/team-platform-dev @bitwarden/dept-bre
+bitwarden-lite/ @bitwarden/team-platform-dev @bitwarden/dept-bre
