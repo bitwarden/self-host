@@ -342,14 +342,14 @@ jobs:
         run: |
           skopeo --version
           skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
-          skopeo copy --all "docker://$_AZ_REGISTRY/self-host:beta" "docker://ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
-          skopeo copy --all "docker://$_AZ_REGISTRY/self-host:beta" "docker://ghcr.io/bitwarden/self-host:beta" # TODO: Delete after GA
-          # skopeo copy --all "docker://$_AZ_REGISTRY/self-host:beta" "docker://ghcr.io/bitwarden/self-host:latest" # TODO: uncomment after GA
+          skopeo copy --all "docker://$_AZ_REGISTRY/lite:beta" "docker://ghcr.io/bitwarden/lite:$_RELEASE_VERSION"
+          skopeo copy --all "docker://$_AZ_REGISTRY/lite:beta" "docker://ghcr.io/bitwarden/lite:beta" # TODO: Delete after GA
+          # skopeo copy --all "docker://$_AZ_REGISTRY/lite:beta" "docker://ghcr.io/bitwarden/lite:latest" # TODO: uncomment after GA
 
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes "ghcr.io/bitwarden/self-host:$_RELEASE_VERSION"
-          cosign sign --yes "ghcr.io/bitwarden/self-host:latest"
+          cosign sign --yes "ghcr.io/bitwarden/lite:$_RELEASE_VERSION"
+          cosign sign --yes "ghcr.io/bitwarden/lite:latest"
 
       - name: Log out of skopeo and ghcr.io
         run: |
@@ -363,25 +363,25 @@ jobs:
       - name: Pull latest project image
         run: |
           if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull "$_AZ_REGISTRY/self-host:dev"
+            docker pull "$_AZ_REGISTRY/lite:dev"
           else
-            docker pull "$_AZ_REGISTRY/self-host:beta"
+            docker pull "$_AZ_REGISTRY/lite:beta"
           fi
 
       - name: Tag version and latest
         run: |
           if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag "$_AZ_REGISTRY/self-host:dev" "$_AZ_REGISTRY/self-host:dryrun"
+            docker tag "$_AZ_REGISTRY/lite:dev" "$_AZ_REGISTRY/lite:dryrun"
           else
-            docker tag "$_AZ_REGISTRY/self-host:beta" "$_AZ_REGISTRY/self-host:$_RELEASE_VERSION"
-            docker tag "$_AZ_REGISTRY/self-host:beta" "$_AZ_REGISTRY/self-host:latest"
+            docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
+            docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:latest"
           fi
 
       - name: Push version and latest image
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          docker push "$_AZ_REGISTRY/self-host:$_RELEASE_VERSION"
-          docker push "$_AZ_REGISTRY/self-host:latest"
+          docker push "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
+          docker push "$_AZ_REGISTRY/lite:latest"
 
       - name: Log out of Docker
         run: docker logout "$_AZ_REGISTRY"
