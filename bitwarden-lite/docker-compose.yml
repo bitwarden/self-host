@@ -22,7 +22,7 @@ services:
       MARIADB_PASSWORD: "super_strong_password"
       MARIADB_DATABASE: "bitwarden_vault"
       MARIADB_RANDOM_ROOT_PASSWORD: "true"
-    image: mariadb:10
+    image: mariadb:12
     restart: always
     volumes:
       - data:/var/lib/mysql
