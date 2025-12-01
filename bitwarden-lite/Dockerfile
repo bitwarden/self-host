@@ -14,20 +14,12 @@ RUN apk add --no-cache \
 
 WORKDIR /tmp
 
-# Grab last tag/release of the 'web' client
-RUN  if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt; \
-    fi
-
-# Extract the version of the 'web' client
+# Grab last tag/release and download the 'web' client
 RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt; \
-    fi
-
-# Download the built release artifact for the 'web' client
-RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    TAG=$(cat tag.txt) \
-    && VERSION=$(cat version.txt) \
+    TAG=$(git ls-remote --tags https://github.com/bitwarden/clients.git \
+        | grep -E 'refs/tags/web-v[0-9]{4}\.([1-9]|1[0-2])\.[0-9]+' \
+        | cut -d/ -f3 | sort -Vr | head -1) \
+    && VERSION=$(echo "$TAG" | grep -o -E '[0-9]{4}\.([1-9]|1[0-2])\.[0-9]+') \
     && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O; \
     fi
 
@@ -36,8 +28,7 @@ COPY ${WEB_ARTIFACT_PATH}* /tmp/
 
 # Unzip the 'web' client to /tmp/build
 RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    VERSION=$(cat version.txt) \
-    && unzip web-$VERSION-selfhosted-COMMERCIAL.zip; \
+    unzip web-*-selfhosted-COMMERCIAL.zip; \
     else \
     unzip ${WEB_ARTIFACT_PATH} -d /tmp/; \
     fi
@@ -85,8 +76,7 @@ COPY server/util/PostgresMigrations/*.csproj ./util/PostgresMigrations/
 COPY server/util/SqliteMigrations/*.csproj ./util/SqliteMigrations/
 COPY server/bitwarden_license/src/Commercial.Core/*.csproj ./bitwarden_license/src/Commercial.Core/
 COPY server/bitwarden_license/src/Commercial.Infrastructure.EntityFramework/*.csproj ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
-COPY server/Directory.Build.props .
-COPY server/.editorconfig .
+COPY server/Directory.Build.props server/.editorconfig ./
 
 # Restore Admin project dependencies and tools
 WORKDIR /source/src/Admin
@@ -120,6 +110,16 @@ RUN . /tmp/rid.txt && dotnet restore -r $RID
 WORKDIR /source/bitwarden_license/src/Scim
 RUN . /tmp/rid.txt && dotnet restore -r $RID
 
+# Copy package files and install npm dependencies for Admin
+WORKDIR /source/src/Admin
+COPY server/src/Admin/package*.json ./
+RUN npm ci
+
+# Copy package files and install npm dependencies for Sso
+WORKDIR /source/bitwarden_license/src/Sso
+COPY server/bitwarden_license/src/Sso/package*.json ./
+RUN npm ci
+
 # Copy required project files
 WORKDIR /source
 COPY server/src/Admin/. ./src/Admin/
@@ -141,11 +141,9 @@ COPY server/util/SqliteMigrations/. ./util/SqliteMigrations/
 COPY server/util/EfShared/. ./util/EfShared/
 COPY server/bitwarden_license/src/Commercial.Core/. ./bitwarden_license/src/Commercial.Core/
 COPY server/bitwarden_license/src/Commercial.Infrastructure.EntityFramework/. ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
-COPY server/.git/. ./.git/
 
 # Build Admin app
 WORKDIR /source/src/Admin
-RUN npm install
 RUN npm run build
 RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Admin --no-restore --no-self-contained -r $RID
 
@@ -171,7 +169,6 @@ RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Notifications --no-resto
 
 # Build Sso app
 WORKDIR /source/bitwarden_license/src/Sso
-RUN npm install
 RUN npm run build
 RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Sso --no-restore --no-self-contained -r $RID
 
@@ -184,38 +181,38 @@ RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Scim --no-restore --no-s
 ###############################################
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine3.21
 ARG TARGETPLATFORM
-LABEL com.bitwarden.product="bitwarden"
-LABEL com.bitwarden.project="lite"
-ENV ASPNETCORE_ENVIRONMENT=Production
-ENV BW_ENABLE_ADMIN=true
-ENV BW_ENABLE_API=true
-ENV BW_ENABLE_EVENTS=false
-ENV BW_ENABLE_ICONS=true
-ENV BW_ENABLE_IDENTITY=true
-ENV BW_ENABLE_NOTIFICATIONS=true
-ENV BW_ENABLE_SCIM=false
-ENV BW_ENABLE_SSO=false
-ENV BW_DB_FILE="/etc/bitwarden/vault.db"
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-ENV globalSettings__selfHosted="true"
-ENV globalSettings__liteDeployment="true"
-ENV globalSettings__pushRelayBaseUri="https://push.bitwarden.com"
-ENV globalSettings__baseServiceUri__internalAdmin="http://localhost:5000"
-ENV globalSettings__baseServiceUri__internalApi="http://localhost:5001"
-ENV globalSettings__baseServiceUri__internalEvents="http://localhost:5003"
-ENV globalSettings__baseServiceUri__internalIcons="http://localhost:5004"
-ENV globalSettings__baseServiceUri__internalIdentity="http://localhost:5005"
-ENV globalSettings__baseServiceUri__internalNotifications="http://localhost:5006"
-ENV globalSettings__baseServiceUri__internalSso="http://localhost:5007"
-ENV globalSettings__baseServiceUri__internalScim="http://localhost:5002"
-ENV globalSettings__baseServiceUri__internalVault="http://localhost:8080"
-ENV globalSettings__identityServer__certificatePassword="default_cert_password"
-ENV globalSettings__dataProtection__directory="/etc/bitwarden/data-protection"
-ENV globalSettings__attachment__baseDirectory="/etc/bitwarden/attachments"
-ENV globalSettings__send__baseDirectory="/etc/bitwarden/attachments/send"
-ENV globalSettings__licenseDirectory="/etc/bitwarden/licenses"
-ENV globalSettings__logDirectoryByProject="false"
-ENV globalSettings__logRollBySizeLimit="1073741824"
+LABEL com.bitwarden.product="bitwarden" \
+      com.bitwarden.project="lite"
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    BW_ENABLE_ADMIN=true \
+    BW_ENABLE_API=true \
+    BW_ENABLE_EVENTS=false \
+    BW_ENABLE_ICONS=true \
+    BW_ENABLE_IDENTITY=true \
+    BW_ENABLE_NOTIFICATIONS=true \
+    BW_ENABLE_SCIM=false \
+    BW_ENABLE_SSO=false \
+    BW_DB_FILE="/etc/bitwarden/vault.db" \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    globalSettings__selfHosted="true" \
+    globalSettings__liteDeployment="true" \
+    globalSettings__pushRelayBaseUri="https://push.bitwarden.com" \
+    globalSettings__baseServiceUri__internalAdmin="http://localhost:5000" \
+    globalSettings__baseServiceUri__internalApi="http://localhost:5001" \
+    globalSettings__baseServiceUri__internalEvents="http://localhost:5003" \
+    globalSettings__baseServiceUri__internalIcons="http://localhost:5004" \
+    globalSettings__baseServiceUri__internalIdentity="http://localhost:5005" \
+    globalSettings__baseServiceUri__internalNotifications="http://localhost:5006" \
+    globalSettings__baseServiceUri__internalSso="http://localhost:5007" \
+    globalSettings__baseServiceUri__internalScim="http://localhost:5002" \
+    globalSettings__baseServiceUri__internalVault="http://localhost:8080" \
+    globalSettings__identityServer__certificatePassword="default_cert_password" \
+    globalSettings__dataProtection__directory="/etc/bitwarden/data-protection" \
+    globalSettings__attachment__baseDirectory="/etc/bitwarden/attachments" \
+    globalSettings__send__baseDirectory="/etc/bitwarden/attachments/send" \
+    globalSettings__licenseDirectory="/etc/bitwarden/licenses" \
+    globalSettings__logDirectoryByProject="false" \
+    globalSettings__logRollBySizeLimit="1073741824"
 
 # Add packages
 RUN apk add --no-cache \
@@ -231,19 +228,20 @@ RUN apk add --no-cache \
     gcompat
 
 # Create required directories
-RUN mkdir -p /etc/bitwarden/attachments/send
-RUN mkdir -p /etc/bitwarden/data-protection
-RUN mkdir -p /etc/bitwarden/licenses
-RUN mkdir -p /etc/bitwarden/logs
-RUN mkdir -p /etc/supervisor
-RUN mkdir -p /etc/supervisor.d
-RUN mkdir -p /var/log/bitwarden
-RUN mkdir -p /var/log/nginx/logs
-RUN mkdir -p /etc/nginx/http.d
-RUN mkdir -p /var/run/nginx
-RUN mkdir -p /var/lib/nginx/tmp
-RUN touch /var/run/nginx/nginx.pid
-RUN mkdir -p /app
+RUN mkdir -p \
+    /etc/bitwarden/attachments/send \
+    /etc/bitwarden/data-protection \
+    /etc/bitwarden/licenses \
+    /etc/bitwarden/logs \
+    /etc/supervisor \
+    /etc/supervisor.d \
+    /var/log/bitwarden \
+    /var/log/nginx/logs \
+    /etc/nginx/http.d \
+    /var/run/nginx \
+    /var/lib/nginx/tmp \
+    /app \
+    && touch /var/run/nginx/nginx.pid
 
 # Copy all apps from dotnet-build stage
 WORKDIR /app
@@ -258,28 +256,34 @@ COPY bitwarden-lite/supervisord/supervisord.conf /etc/supervisor/supervisord.con
 RUN rm -f /etc/supervisord.conf
 
 # Set up nginx
-COPY bitwarden-lite/nginx/nginx.conf /etc/nginx
-COPY bitwarden-lite/nginx/proxy.conf /etc/nginx
-COPY bitwarden-lite/nginx/mime.types /etc/nginx
-COPY bitwarden-lite/nginx/security-headers.conf /etc/nginx
-COPY bitwarden-lite/nginx/security-headers-ssl.conf /etc/nginx
+COPY bitwarden-lite/nginx/nginx.conf \
+     bitwarden-lite/nginx/proxy.conf \
+     bitwarden-lite/nginx/mime.types \
+     bitwarden-lite/nginx/security-headers.conf \
+     bitwarden-lite/nginx/security-headers-ssl.conf \
+     /etc/nginx/
 COPY bitwarden-lite/nginx/logrotate.sh /
 RUN chmod +x /logrotate.sh
 
 # Copy configuration templates
-COPY bitwarden-lite/hbs/nginx-config.hbs /etc/hbs/
-COPY bitwarden-lite/hbs/app-id.hbs /etc/hbs/
-COPY bitwarden-lite/hbs/config.yaml /etc/hbs/
+COPY bitwarden-lite/hbs/nginx-config.hbs \
+     bitwarden-lite/hbs/app-id.hbs \
+     bitwarden-lite/hbs/config.yaml \
+     /etc/hbs/
 
 # Download hbs tool for generating final configurations
-RUN echo "$(curl --silent https://api.github.com/repos/bitwarden/Handlebars.conf/git/refs/tags | jq -r 'last(.[].ref)' | sed 's/refs\/tags\///')"  > /tmp/latest.txt
-RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/amd64" ] ; then curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-x64.zip; fi
-RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/arm/v7" ] ; then curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm.zip; fi
-RUN LATEST_VERSION=$(cat /tmp/latest.txt) && if [ "$TARGETPLATFORM" = "linux/arm64" ] ; then curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm64.zip; fi
-
-# Extract hbs
-RUN unzip hbs.zip -d /usr/local/bin && mv /usr/local/bin/hbs* /usr/local/bin/hbs && rm hbs.zip
-RUN chmod +x /usr/local/bin/hbs
+RUN LATEST_VERSION=$(curl --silent https://api.github.com/repos/bitwarden/Handlebars.conf/git/refs/tags | jq -r 'last(.[].ref)' | sed 's/refs\/tags\///') \
+    && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+        curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-x64.zip; \
+    elif [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
+        curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm.zip; \
+    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        curl --proto "=https" -L --output hbs.zip https://github.com/bitwarden/Handlebars.conf/releases/download/$LATEST_VERSION/hbs_linux-arm64.zip; \
+    fi \
+    && unzip hbs.zip -d /usr/local/bin \
+    && mv /usr/local/bin/hbs* /usr/local/bin/hbs \
+    && rm hbs.zip \
+    && chmod +x /usr/local/bin/hbs
 
 # Copy entrypoint script and make it executable
 COPY bitwarden-lite/entrypoint.sh /entrypoint.sh
