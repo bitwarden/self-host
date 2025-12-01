@@ -1,5 +1,5 @@
 name: Release
-run-name: Release ${{ inputs.release_type }} v${{ inputs.release_version }}
+run-name: Release v${{ inputs.release_version }}
 
 on:
   workflow_dispatch:
@@ -7,14 +7,6 @@ on:
       release_version:
         description: "Release Version (example: '2025.2.1')"
         required: true
-      release_type:
-        description: "Release Options"
-        required: true
-        default: "Release"
-        type: choice
-        options:
-          - Release
-          - Dry Run
 
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
@@ -23,27 +15,13 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: Setup
+  self-host-version-check:
+    name: Check Self-Host Version Input
+    if: github.ref_name == 'main'
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
     outputs:
-      _WEB_RELEASE_TAG: ${{ steps.set-tags.outputs.WEB_RELEASE_TAG }}
-      _CORE_RELEASE_TAG: ${{ steps.set-tags.outputs.CORE_RELEASE_TAG }}
-      _KEY_CONNECTOR_RELEASE_TAG: ${{ steps.set-tags.outputs.KEY_CONNECTOR_RELEASE_TAG }}
-      _LATEST_SELF_HOST_VERSION: ${{ steps.get-self-host.outputs.version }}
+      latest_version: ${{ steps.get-self-host.outputs.version }}
     steps:
-      - name: Branch check
-        if: ${{ inputs.release_type != 'Dry Run' }}
-        run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "==================================="
-            echo "[!] Can only release from the 'main' branch"
-            echo "==================================="
-            exit 1
-          fi
-
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -65,23 +43,161 @@ jobs:
             exit 1
           fi
 
-      - name: Set Release Tags
-        id: set-tags
+
+  update-versions:
+    name: "Update versions"
+    runs-on: ubuntu-24.04
+    needs: self-host-version-check
+    permissions:
+      contents: write
+      id-token: write
+    outputs:
+      core_release_tag: ${{ steps.update-core-version.outputs.tag }}
+      core_version_changed: ${{ steps.update-core-version.outputs.changed }}
+      web_release_tag: ${{ steps.update-web-version.outputs.tag }}
+      web_version_changed: ${{ steps.update-web-version.outputs.changed }}
+      key_connector_release_tag: ${{ steps.update-key-connector-version.outputs.tag }}
+      key_connector_version_changed: ${{ steps.update-key-connector-version.outputs.changed }}
+    steps:
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Get Azure Key Vault secrets
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: gh-org-bitwarden
+          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.0
+        id: app-token
+        with:
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+
+      - name: Checkout Branch
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Get Latest Core Version
+        id: get-core
+        uses: bitwarden/gh-actions/get-release-version@main
+        with:
+          repository: bitwarden/server
+          trim: true
+
+      - name: Update Core version 
+        id: update-core-version
+        env:
+          NEW_VERSION: ${{ steps.get-core.outputs.version }}
         run: |
-          WEB=$(jq -r '.versions.webVersion' < version.json)
-          CORE=$(jq -r '.versions.coreVersion' < version.json)
-          KEY_CONNECTOR=$(jq -r '.versions.keyConnectorVersion' < version.json)
+          OLD_VERSION=$(jq -r '.versions.coreVersion' version.json)
+          
+          sed -i -e "/^\s*COREVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$coreVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.ps1
+          sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"'$NEW_VERSION'"/' version.json
 
-          {
-            echo "WEB_RELEASE_TAG=$WEB"
-            echo "CORE_RELEASE_TAG=$CORE"
-            echo "KEY_CONNECTOR_RELEASE_TAG=$KEY_CONNECTOR"
-          } >> "$GITHUB_OUTPUT"
+          if [[ "$OLD_VERSION" != "$NEW_VERSION" ]]; then
+              echo "Core version changed from '$OLD_VERSION' to '$NEW_VERSION'" >> "$GITHUB_STEP_SUMMARY"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
-  release:
+          echo "tag=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get Latest Web Version
+        id: get-web
+        uses: bitwarden/gh-actions/get-release-version@main
+        with:
+          repository: bitwarden/clients
+          monorepo: true
+          monorepo-project: web
+          trim: true
+
+      - name: Update Web version
+        id: update-web-version
+        env:
+          NEW_VERSION: ${{ steps.get-web.outputs.version }}
+        run: |
+          OLD_VERSION=$(jq -r '.versions.webVersion' version.json)
+
+          sed -i -e "/^\s*WEBVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$webVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.ps1
+          sed -i -e '/"webVersion":/ s/"webVersion":[^,]*/"webVersion":"'$NEW_VERSION'"/' version.json
+
+          if [[ "$OLD_VERSION" != "$NEW_VERSION" ]]; then
+              echo "Web version changed from '$OLD_VERSION' to '$NEW_VERSION'" >> "$GITHUB_STEP_SUMMARY"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "tag=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get Latest Key Connector Version
+        id: get-key-connector
+        uses: bitwarden/gh-actions/get-release-version@main
+        with:
+          repository: bitwarden/key-connector
+          trim: true
+
+      - name: Update Key Connector version
+        id: update-key-connector-version
+        env:
+          NEW_VERSION: ${{ steps.get-key-connector.outputs.version }}
+        run: |
+          OLD_VERSION=$(jq -r '.versions.keyConnectorVersion' version.json)
+
+          sed -i -e "/^\s*KEYCONNECTORVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.sh
+          sed -i -e "/^\s*\$keyConnectorVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.ps1
+          sed -i -e '/"keyConnectorVersion":/ s/"keyConnectorVersion":[^,]*/"keyConnectorVersion":"'$NEW_VERSION'"/' version.json
+
+          if [[ "$OLD_VERSION" != "$NEW_VERSION" ]]; then
+              echo "Key Connector version changed from '$OLD_VERSION' to '$NEW_VERSION'" >> "$GITHUB_STEP_SUMMARY"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "tag=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if version changed
+        id: version-changed
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes_to_commit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes_to_commit=FALSE" >> "$GITHUB_OUTPUT"
+            echo "No changes to commit!";
+          fi
+
+      - name: Configure Git
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'true' }}
+        run: |
+          git config --local user.email "178206702+bw-ghapp[bot]@users.noreply.github.com"
+          git config --local user.name "bw-ghapp[bot]"
+
+      - name: Commit files
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'true' }}
+        run: git commit -m "Updated core, web, and key-connector versions" -a
+
+      - name: Push changes
+        if: ${{ steps.version-changed.outputs.changes_to_commit == 'true' }}
+        run: git push
+
+
+  release-github:
     name: Create GitHub Release
     runs-on: ubuntu-24.04
-    needs: setup
+    needs:
+      - self-host-version-check
+      - update-versions
     permissions:
       contents: write
     steps:
@@ -90,36 +206,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Get projects that changed versions
-        id: changed-projects
-        env:
-          _LATEST_SELF_HOST_VERSION: ${{ needs.setup.outputs._LATEST_SELF_HOST_VERSION }}
-        run: |
-          git diff --unified=0 "$_LATEST_SELF_HOST_VERSION" "$GITHUB_REF_NAME" -- version.json >> diff.txt
-
-          if grep -q "webVersion" diff.txt; then
-            echo "WEB_VERSION_CHANGED=true" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -q "coreVersion" diff.txt; then
-            echo "CORE_VERSION_CHANGED=true" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -q "keyConnectorVersion" diff.txt; then
-            echo "KEY_CONNECTOR_VERSION_CHANGED=true" >> "$GITHUB_OUTPUT"
-          fi
+          ref: main
 
       - name: Prepare release notes
         id: prepare-release-notes
         env:
-          CORE_VERSION_CHANGED: ${{ steps.changed-projects.outputs.CORE_VERSION_CHANGED }}
-          CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
-          WEB_VERSION_CHANGED: ${{ steps.changed-projects.outputs.WEB_VERSION_CHANGED }}
-          WEB_RELEASE_TAG: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
-          KEY_CONNECTOR_VERSION_CHANGED: ${{ steps.changed-projects.outputs.KEY_CONNECTOR_VERSION_CHANGED }}
-          KEY_CONNECTOR_RELEASE_TAG: ${{ needs.setup.outputs._KEY_CONNECTOR_RELEASE_TAG }}
-
+          CORE_RELEASE_TAG: ${{ needs.update-versions.outputs.core_release_tag }}
+          CORE_VERSION_CHANGED: ${{ needs.update-versions.outputs.core_version_changed }}
+          WEB_RELEASE_TAG: ${{ needs.update-versions.outputs.web_release_tag }}
+          WEB_VERSION_CHANGED: ${{ needs.update-versions.outputs.web_version_changed }}
+          KEY_CONNECTOR_RELEASE_TAG: ${{ needs.update-versions.outputs.key_connector_release_tag }}
+          KEY_CONNECTOR_VERSION_CHANGED: ${{ needs.update-versions.outputs.key_connector_version_changed }}
         run: |
           RELEASE_NOTES=""
 
@@ -147,8 +244,7 @@ jobs:
             echo EOF
           ) >> "$GITHUB_OUTPUT"
 
-      - name: Create release
-        if: ${{ inputs.release_type != 'Dry Run' }}
+      - name: Create GitHub release
         uses: ncipollo/release-action@bcfe5470707e8832e12347755757cec0eb3c22af # v1.18.0
         with:
           artifacts: 'bitwarden.sh,
@@ -156,7 +252,6 @@ jobs:
                       bitwarden.ps1,
                       run.ps1,
                       version.json'
-          commit: ${{ github.sha }}
           tag: "v${{ inputs.release_version }}"
           name: "Version ${{ inputs.release_version }}"
           body: ${{ steps.prepare-release-notes.outputs.RELEASE_NOTES }}
@@ -167,9 +262,7 @@ jobs:
   release-s3:
     name: Upload version.json
     runs-on: ubuntu-24.04
-    needs:
-      - setup
-      - release
+    needs: release-github
     permissions:
       contents: read
       id-token: write
@@ -177,8 +270,8 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          ref: main
           persist-credentials: false
+          ref: main
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -200,7 +293,6 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Upload version.json to S3 bucket
-        if: ${{ inputs.release_type != 'Dry Run' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-selfhost-version-access-key }}
@@ -216,16 +308,13 @@ jobs:
     name: Tag and push ${{ matrix.project_name }} image with release version and latest
     runs-on: ubuntu-24.04
     needs:
-      - setup
-      - release
-    env:
-      _CORE_RELEASE_TAG: ${{ needs.setup.outputs._CORE_RELEASE_TAG }}
-      _BRANCH_NAME: main
+      - update-versions
+      - release-github
     permissions:
       id-token: write
       packages: write
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - project_name: Admin
@@ -243,12 +332,10 @@ jobs:
           - project_name: Setup
           - project_name: Sso
           - project_name: Web
-            release_tag: ${{ needs.setup.outputs._WEB_RELEASE_TAG }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          ref: main
           persist-credentials: false
 
       - name: Install Cosign
@@ -262,20 +349,20 @@ jobs:
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Setup project name and release tag
-        id: setup
+        id: image-setup
         env:
-          MATRIX_RELEASE_TAG: ${{ matrix.release_tag }}
+          CORE_RELEASE_TAG: ${{ needs.update-versions.outputs.core_release_tag }}
+          WEB_RELEASE_TAG: ${{ needs.update-versions.outputs.web_release_tag }}
         run: |
           PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
           echo "Matrix name: ${{ matrix.project_name }}"
           echo "PROJECT_NAME: $PROJECT_NAME"
-          echo "_PROJECT_NAME=$PROJECT_NAME" >> "$GITHUB_ENV"
+          echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
 
-          if [ -z "${MATRIX_RELEASE_TAG}" ]; then
-            # Use core release tag by default.
-            echo "_RELEASE_TAG=$_CORE_RELEASE_TAG" >> "$GITHUB_ENV"
+          if [[ "$PROJECT_NAME" == "web" ]]; then
+            echo "release_tag=$WEB_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           else
-            echo "_RELEASE_TAG=${MATRIX_RELEASE_TAG}" >> "$GITHUB_ENV"
+            echo "release_tag=$CORE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           fi
 
       ### ghcr.io section
@@ -287,17 +374,22 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push version and latest image
-        if: ${{ inputs.release_type != 'Dry Run' }}
+        env:
+          PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
+          RELEASE_TAG: ${{ steps.image-setup.outputs.release_tag }}
         run: |
           skopeo --version
           skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
-          skopeo copy --all "docker://$_AZ_REGISTRY/$_PROJECT_NAME:$_RELEASE_TAG" "docker://ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
-          skopeo copy --all "docker://$_AZ_REGISTRY/$_PROJECT_NAME:latest" "docker://ghcr.io/bitwarden/$_PROJECT_NAME:latest"
+          skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:$RELEASE_TAG" "docker://ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG"
+          skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:latest" "docker://ghcr.io/bitwarden/$PROJECT_NAME:latest"
 
       - name: Sign image with Cosign
+        env:
+          PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
+          RELEASE_TAG: ${{ steps.image-setup.outputs.release_tag }}
         run: |
-          cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:$_RELEASE_TAG"
-          cosign sign --yes "ghcr.io/bitwarden/$_PROJECT_NAME:latest"
+          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG"
+          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME:latest"
 
       - name: Log out of Docker
         run: |
@@ -309,11 +401,9 @@ jobs:
 
 
   release-bitwarden-lite:
-    name: Release Bitwarden Lite
+    name: Release Bitwarden lite
     runs-on: ubuntu-24.04
-    needs:
-      - setup
-      - release
+    needs: update-versions
     env:
       _RELEASE_VERSION: ${{ inputs.release_version }}-beta # TODO: remove `-beta` after GA
     permissions:
@@ -338,7 +428,6 @@ jobs:
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Push version and latest image
-        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           skopeo --version
           skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
@@ -361,24 +450,14 @@ jobs:
         run: az acr login -n "${_AZ_REGISTRY%.azurecr.io}"
 
       - name: Pull latest project image
-        run: |
-          if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
-            docker pull "$_AZ_REGISTRY/lite:dev"
-          else
-            docker pull "$_AZ_REGISTRY/lite:beta"
-          fi
+        run: docker pull "$_AZ_REGISTRY/lite:beta"
 
       - name: Tag version and latest
         run: |
-          if [[ "${{ inputs.release_type }}" == "Dry Run" ]]; then
-            docker tag "$_AZ_REGISTRY/lite:dev" "$_AZ_REGISTRY/lite:dryrun"
-          else
-            docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
-            docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:latest"
-          fi
+          docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
+          docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:latest"
 
       - name: Push version and latest image
-        if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
           docker push "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
           docker push "$_AZ_REGISTRY/lite:latest"
@@ -394,8 +473,6 @@ jobs:
     name: Trigger workflows
     runs-on: ubuntu-24.04
     needs:
-      - setup
-      - release
       - tag-push-latest-images
       - release-bitwarden-lite
     permissions:

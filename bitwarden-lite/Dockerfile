@@ -16,12 +16,14 @@ WORKDIR /tmp
 
 # Grab last tag/release of the 'web' client
 RUN  if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    git ls-remote --tags https://github.com/bitwarden/clients.git | grep refs/tags/web | cut -d/ -f3 | sort -Vr | head -1 > tag.txt; \
+    git ls-remote --tags https://github.com/bitwarden/clients.git \
+    | grep -E 'refs/tags/web-v[0-9]{4}\.([1-9]|1[0-2])\.[0-9]+' \
+    | cut -d/ -f3 | sort -Vr | head -1 > tag.txt; \
     fi
 
 # Extract the version of the 'web' client
 RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    cat tag.txt | grep -o -E "[0-9]{4}\.[0-9]{1,2}\.[0-9]+" > version.txt; \
+    cat tag.txt | grep -o -E '[0-9]{4}\.([1-9]|1[0-2])\.[0-9]+' > version.txt; \
     fi
 
 # Download the built release artifact for the 'web' client
