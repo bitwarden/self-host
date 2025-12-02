@@ -1,4 +1,4 @@
-name: Build Bitwarden Lite
+name: Build Bitwarden lite
 
 on:
   push:
@@ -19,6 +19,10 @@ on:
         description: "Use the latest core version from version.json instead of branch"
         type: boolean
         default: false
+      use_latest_web_version:
+        description: "Use the latest web version from version.json instead of branch"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - ".github/workflows/build-bitwarden-lite.yml"
@@ -31,9 +35,56 @@ permissions:
   contents: read
 
 jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-24.04
+    outputs:
+      server_ref: ${{ steps.set-server-variables.outputs.server_ref }}
+      web_ref: ${{ steps.set-web-variables.outputs.web_ref }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set Server variables
+        id: set-server-variables
+        env:
+          SERVER_BRANCH: ${{ inputs.server_branch }}
+          USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
+        run: |
+          if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
+            # Extract coreVersion from version.json
+            CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
+            echo "Server version from version.json: $CORE_VERSION"
+            echo "server_ref=refs/tags/v$CORE_VERSION" >> "$GITHUB_OUTPUT"
+          elif [[ -z "${SERVER_BRANCH}" ]]; then
+            echo "server_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
+          else
+            echo "server_ref=refs/heads/${SERVER_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set Web variables
+        id: set-web-variables
+        env:
+          WEB_BRANCH: ${{ inputs.web_branch }}
+          USE_LATEST_WEB_VERSION: ${{ inputs.use_latest_web_version }}
+        run: |
+          if [[ "$USE_LATEST_WEB_VERSION" == "true" ]]; then
+            # Extract webVersion from version.json
+            WEB_VERSION=$(jq -r '.versions.webVersion' version.json)
+            echo "Web version from version.json: $WEB_VERSION"
+            echo "web_ref=refs/tags/web-v$WEB_VERSION" >> "$GITHUB_OUTPUT"
+          elif [[ -z "${WEB_BRANCH}" ]]; then
+            echo "web_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
+          else
+            echo "web_ref=refs/heads/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+          fi
+
   build-docker:
     name: Build Docker image
     runs-on: ubuntu-24.04
+    needs: setup
     permissions:
       id-token: write
       packages: write
@@ -44,63 +95,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Get server branch to checkout
-        id: server-branch-name
-        env:
-          SERVER_BRANCH: ${{ inputs.server_branch }}
-          USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
-        run: |
-          if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
-            # Extract coreVersion from version.json
-            CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
-            echo "Server version from version.json: $CORE_VERSION"
-            echo "server_ref=refs/tags/v$CORE_VERSION" >> "$GITHUB_OUTPUT"
-            echo "ref_type=tag" >> "$GITHUB_OUTPUT"
-          elif [[ -z "${SERVER_BRANCH}" ]]; then
-            echo "server_ref=main" >> "$GITHUB_OUTPUT"
-            echo "ref_type=branch" >> "$GITHUB_OUTPUT"
-          else
-            echo "server_ref=${SERVER_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
-            echo "ref_type=branch" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Check Branch to Publish
-        env:
-          PUBLISH_BRANCHES: "main,rc,hotfix-rc"
-          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_ref }}
-          REF_TYPE: ${{ steps.server-branch-name.outputs.ref_type }}
-        id: publish-branch-check
-        run: |
-          REF=${GITHUB_REF#refs/heads/}
-
-          IFS="," read -a publish_branches <<< "$PUBLISH_BRANCHES"
-
-          if [[ "${REF_TYPE}" == "tag" ]]; then
-            # If the build is triggered by a tag, always publish
-            echo "is_publish_branch=true" >> "$GITHUB_ENV"
-          elif [[ "${publish_branches[*]}" =~ "${REF}" && "${publish_branches[*]}" =~ "${SERVER_BRANCH}" ]]; then
-            echo "is_publish_branch=true" >> "$GITHUB_ENV"
-          else
-            echo "is_publish_branch=false" >> "$GITHUB_ENV"
-          fi
-
-      ########## Set up Docker ##########
       - name: Set up QEMU emulators
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      ########## Login to Docker registries ##########
-      - name: Log in to Azure
-        uses: bitwarden/gh-actions/azure-login@main
-        with:
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-
-      - name: Login to Azure ACR
-        run: az acr login -n bitwardenprod
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
@@ -109,40 +108,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      ########## Generate image tag and build Docker image ##########
       - name: Generate Docker image tag
         id: tag
         env:
-          SERVER_BRANCH: ${{ steps.server-branch-name.outputs.server_ref }}
-          REF_TYPE: ${{ steps.server-branch-name.outputs.ref_type }}
+          SERVER_REF: ${{ needs.setup.outputs.server_ref }}
         run: |
-          if [[ "${REF_TYPE}" == "tag" ]]; then
-            # When using a tag (core version), always use beta tag
-            IMAGE_TAG=beta
-            echo "Using beta tag for core version release"
+          if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
+              IMAGE_TAG="${BASH_REMATCH[1]}"
           else
-            # For branch-based builds, use the logic
-            IMAGE_TAG=$(echo "${SERVER_BRANCH}" | sed "s#/#-#g")  # slash safe branch name
-            if [[ "${IMAGE_TAG}" == "main" ]]; then
-              IMAGE_TAG=dev
-            elif [[ ("${IMAGE_TAG}" == "rc") || ("${IMAGE_TAG}" == "hotfix-rc") ]]; then
-              IMAGE_TAG=beta
-            fi
+              IMAGE_TAG="${SERVER_REF#refs/heads/}"
           fi
 
+          if [[ "$IMAGE_TAG" == "main" ]]; then
+            IMAGE_TAG=dev
+          elif [[ ("$IMAGE_TAG" == "rc") || ("$IMAGE_TAG" == "hotfix-rc") ]]; then
+            # This if statement can be removed upon release so that 'rc' and 'hotfix-rc' tags are generated correctly.
+            IMAGE_TAG=beta
+          fi
+
+          echo "Using $IMAGE_TAG for build"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Generate tag list
-        id: tag-list
-        env:
-          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
-          IS_PUBLISH_BRANCH: ${{ env.is_publish_branch }}
-        run: |
-          if [[ ("${IMAGE_TAG}" == "dev" || "${IMAGE_TAG}" == "beta") && "${IS_PUBLISH_BRANCH}" == "true" ]]; then
-            echo "tags=$_AZ_REGISTRY/lite:${IMAGE_TAG},ghcr.io/bitwarden/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tags=$_AZ_REGISTRY/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Get Azure Key Vault secrets
         id: get-kv-secrets
@@ -151,40 +143,45 @@ jobs:
           keyvault: gh-org-bitwarden
           secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
 
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
       - name: Generate GH App token
         uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.0
         id: app-token
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          permission-actions: read # for downloading workflow run artifacts
+          permission-contents: read # for checking out repos
 
       - name: Checkout server repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: bitwarden/server
           token: ${{ steps.app-token.outputs.token }}
-          ref: ${{ steps.server-branch-name.outputs.server_ref }}
+          ref: ${{ needs.setup.outputs.server_ref }}
           path: "server"
           persist-credentials: false
 
       - name: Download web client branch artifacts for dev builds
-        if: steps.tag.outputs.image_tag == 'dev'
+        if: needs.setup.outputs.web_ref == 'refs/heads/main'
         uses: bitwarden/gh-actions/download-artifacts@main
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           workflow: build-web.yml
           workflow_conclusion: success
-          branch: ${{ inputs.web_branch }}
+          branch: main
           repo: bitwarden/clients
           artifacts: "web-*-selfhosted-DEV.zip"
 
       - name: Set web artifact path for dev builds
-        if: steps.tag.outputs.image_tag == 'dev'
+        if: needs.setup.outputs.web_ref == 'refs/heads/main'
         id: set-web-artifact-path
         run: |
           WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
           if [[ -n "${WEB_ARTIFACT}" ]]; then
-            echo "WEB_ARTIFACT_PATH=${WEB_ARTIFACT}" >> "$GITHUB_ENV"
+            echo "path=${WEB_ARTIFACT}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push Docker image
@@ -198,32 +195,24 @@ jobs:
             linux/arm/v7,
             linux/arm64/v8
           push: true
-          tags: ${{ steps.tag-list.outputs.tags }}
+          tags: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
           build-args: |
-            WEB_ARTIFACT_PATH=${{ env.WEB_ARTIFACT_PATH }}
+            WEB_ARTIFACT_PATH=${{ steps.set-web-artifact-path.outputs.path }}
 
       - name: Install Cosign
-        if: env.is_publish_branch == 'true'
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign image with Cosign
-        if: env.is_publish_branch == 'true'
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
-          TAGS: ${{ steps.tag-list.outputs.tags }}
-        run: |
-          IFS=',' read -r -a tags_array <<< "${TAGS}"
-          images=()
-          for tag in "${tags_array[@]}"; do
-            images+=("${tag}@${DIGEST}")
-          done
-          cosign sign --yes ${images[@]}
+          IMAGE_TAG: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+        run: cosign sign --yes "${IMAGE_TAG}@${DIGEST}"
 
       - name: Scan Docker image
         id: container-scan
         uses: anchore/scan-action@f6601287cdb1efc985d6b765bbf99cb4c0ac29d8 # v7.0.0
         with:
-          image: ${{ steps.tag-list.outputs.primary_tag }}
+          image: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
           fail-build: false
           output-format: sarif
 
@@ -234,14 +223,8 @@ jobs:
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
           ref: ${{ contains(github.event_name, 'pull_request') && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
 
-      - name: Log out of Docker
-        if: env.is_publish_branch == 'true'
-        run: |
-          docker logout ghcr.io
-          docker logout "$_AZ_REGISTRY"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
+      - name: Log out of GHCR
+        run: docker logout ghcr.io
 
 
   check-failures:
@@ -254,10 +237,10 @@ jobs:
     steps:
       - name: Check if any job failed
         if: |
-          (github.ref == 'refs/heads/main'
-          || github.ref == 'refs/heads/rc'
-          || github.ref == 'refs/heads/hotfix-rc')
-          && contains(needs.*.result, 'failure')
+          (github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/rc' ||
+          github.ref == 'refs/heads/hotfix-rc') &&
+          contains(needs.*.result, 'failure')
         run: exit 1
 
       - name: Log in to Azure

@@ -8,14 +8,14 @@ body:
         Thanks for taking the time to fill out this bug report!
 
         > [!WARNING]
-        > This repository only tracks installation scripts for our self-host project. For any other Bitwarden Server issues including Bitwarden Lite, please submit your report in [bitwarden/server](https://github.com/bitwarden/server)
+        > This repository only tracks installation scripts for our self-host project. For any other Bitwarden Server issues including Bitwarden lite, please submit your report in [bitwarden/server](https://github.com/bitwarden/server)
 
         Please do not submit feature requests. The [Community Forums](https://community.bitwarden.com) has a section for submitting, voting for, and discussing product feature requests.
   - type: checkboxes
     id: self-host-scripts
     attributes:
       label: Self-host installation scripts issue
-      description: "This repository only tracks installation scripts for our self-host project, any other Bitwarden Server issues including Bitwarden Lite should be reported in [bitwarden/server](https://github.com/bitwarden/server)"
+      description: "This repository only tracks installation scripts for our self-host project, any other Bitwarden Server issues including Bitwarden lite should be reported in [bitwarden/server](https://github.com/bitwarden/server)"
       options:
         - label: "I understand this repository only tracks self-host installation scripts and any other issues should be reported in bitwarden/server"
           required: true
