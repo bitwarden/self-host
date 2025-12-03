@@ -23,6 +23,24 @@ on:
         description: "Use the latest web version from version.json instead of branch"
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      server_branch:
+        description: "Server branch name (examples: 'main', 'rc', 'feature/sm')"
+        type: string
+        default: main
+      web_branch:
+        description: "Web client branch name (examples: 'main', 'rc', 'feature/sm')"
+        type: string
+        default: main
+      use_latest_core_version:
+        description: "Use the latest core version from version.json instead of branch"
+        type: boolean
+        default: false
+      use_latest_web_version:
+        description: "Use the latest web version from version.json instead of branch"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - ".github/workflows/build-bitwarden-lite.yml"

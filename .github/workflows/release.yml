@@ -403,11 +403,27 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
 
+  build-lite-image:
+    name: Build Bitwarden lite image
+    uses: ./.github/workflows/build-bitwarden-lite.yml
+    needs: update-versions
+    permissions:
+      id-token: write
+      packages: write
+      security-events: write
+    with:
+      use_latest_core_version: true
+      use_latest_web_version: true
+    secrets: inherit
+
+
   release-bitwarden-lite:
     name: Release Bitwarden lite
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    needs: update-versions
+    needs:
+      - update-versions
+      - build-lite-image
     env:
       _CORE_VERSION: ${{ needs.update-versions.outputs.core_release_tag }}
     permissions:
