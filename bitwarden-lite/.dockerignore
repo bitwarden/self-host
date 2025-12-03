@@ -1,0 +1,53 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+
+# Documentation
+*.md
+README
+LICENSE
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts (if any local builds exist)
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Editor config
+.editorconfig
+
+# Test files
+**/test/
+**/tests/
+**/*_test.go
+**/*_test.py
+**/*.test.js
+
+# Node modules (if any exist locally)
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
