@@ -487,7 +487,7 @@ jobs:
         if: ${{ steps.changelog-changed.outputs.changes_to_commit == 'true' }}
         run: |
           git push
-          echo "✅ Updated Bitwarden lite CHANGELOG for $_CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo ":white_check_mark: Updated Bitwarden lite CHANGELOG for $_CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
 
 
   release-bitwarden-lite:
@@ -516,7 +516,7 @@ jobs:
       - name: Copy version tag to latest
         run: |
           skopeo copy --all "docker://ghcr.io/bitwarden/lite:$_CORE_VERSION" "docker://ghcr.io/bitwarden/lite:latest"
-          echo "✅ Promoted Bitwarden lite $_CORE_VERSION to latest" >> "$GITHUB_STEP_SUMMARY"
+          echo ":white_check_mark: Promoted Bitwarden lite $_CORE_VERSION to latest" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sign latest image with Cosign
         run: cosign sign --yes "ghcr.io/bitwarden/lite:latest"
