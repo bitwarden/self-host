@@ -11,7 +11,7 @@ jobs:
   cleanup-images:
     name: Delete branch container images
     if: |
-      github.event.ref != 'dev' &&
+      github.event.ref != 'main' &&
       github.event.ref != 'rc' &&
       github.event.ref != 'hotfix-rc'
     runs-on: ubuntu-24.04
