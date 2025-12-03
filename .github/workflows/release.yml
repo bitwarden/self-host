@@ -408,6 +408,7 @@ jobs:
     uses: ./.github/workflows/build-bitwarden-lite.yml
     needs: update-versions
     permissions:
+      contents: read
       id-token: write
       packages: write
       security-events: write
