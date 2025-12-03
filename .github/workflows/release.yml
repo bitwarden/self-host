@@ -397,7 +397,9 @@ jobs:
           cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME:latest"
 
       - name: Log out of Docker
-        run: docker logout ghcr.io "$_AZ_REGISTRY"
+        run: |
+          docker logout ghcr.io
+          docker logout "$_AZ_REGISTRY"
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
