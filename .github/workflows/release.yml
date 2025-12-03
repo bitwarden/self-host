@@ -380,21 +380,30 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push version and latest image
+        id: push-image
         env:
           PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
           RELEASE_TAG: ${{ steps.image-setup.outputs.release_tag }}
         run: |
-          skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
+          az acr login --name "${_AZ_REGISTRY%.azurecr.io}"
           skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:$RELEASE_TAG" "docker://ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG"
           skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:latest" "docker://ghcr.io/bitwarden/$PROJECT_NAME:latest"
+
+          # Get digests for signing
+          RELEASE_DIGEST=$(skopeo inspect "docker://ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG" --format '{{.Digest}}')
+          LATEST_DIGEST=$(skopeo inspect "docker://ghcr.io/bitwarden/$PROJECT_NAME:latest" --format '{{.Digest}}')
+
+          echo "release_digest=$RELEASE_DIGEST" >> "$GITHUB_OUTPUT"
+          echo "latest_digest=$LATEST_DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Sign image with Cosign
         env:
           PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
-          RELEASE_TAG: ${{ steps.image-setup.outputs.release_tag }}
+          RELEASE_DIGEST: ${{ steps.push-image.outputs.release_digest }}
+          LATEST_DIGEST: ${{ steps.push-image.outputs.latest_digest }}
         run: |
-          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG"
-          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME:latest"
+          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME@$RELEASE_DIGEST"
+          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME@$LATEST_DIGEST"
 
       - name: Log out of Docker
         run: |
@@ -477,12 +486,19 @@ jobs:
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Copy version tag to latest
+        id: copy-lite-image
         run: |
           skopeo copy --all "docker://ghcr.io/bitwarden/lite:$_CORE_VERSION" "docker://ghcr.io/bitwarden/lite:latest"
           echo ":white_check_mark: Promoted Bitwarden lite $_CORE_VERSION to latest" >> "$GITHUB_STEP_SUMMARY"
 
+          # Get digest for signing
+          LATEST_DIGEST=$(skopeo inspect "docker://ghcr.io/bitwarden/lite:latest" --format '{{.Digest}}')
+          echo "latest_digest=$LATEST_DIGEST" >> "$GITHUB_OUTPUT"
+
       - name: Sign latest image with Cosign
-        run: cosign sign --yes "ghcr.io/bitwarden/lite:latest"
+        env:
+          LATEST_DIGEST: ${{ steps.copy-lite-image.outputs.latest_digest }}
+        run: cosign sign --yes "ghcr.io/bitwarden/lite@$LATEST_DIGEST"
 
       - name: Log out of ghcr.io
         run: docker logout ghcr.io
