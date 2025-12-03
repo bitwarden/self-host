@@ -10,6 +10,10 @@ on:
 
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -17,6 +21,7 @@ jobs:
   build-image:
     name: Build Image
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     permissions:
       contents: read
       id-token: write
@@ -46,9 +51,11 @@ jobs:
       - name: Set version from version.json
         id: set-version
         run: |
-          VERSION=$(grep '^ *"coreVersion":' version.json \
-            | awk -F\: '{ print $2 }' \
-            | sed -e 's/,$//' -e 's/^"//' -e 's/"$//')
+          VERSION=$(jq -r '.versions.coreVersion' version.json)
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Failed to extract coreVersion from version.json"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Hashicorp Packer

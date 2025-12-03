@@ -28,6 +28,10 @@ on:
       - ".github/workflows/build-bitwarden-lite.yml"
       - "bitwarden-lite/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -81,6 +85,7 @@ jobs:
   build-docker:
     name: Build Docker image
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     needs: setup
     permissions:
       id-token: write
@@ -122,6 +127,11 @@ jobs:
 
           if [[ "$IMAGE_TAG" == "main" ]]; then
             IMAGE_TAG=dev
+          fi
+
+          if [[ -z "$IMAGE_TAG" ]]; then
+            echo "ERROR: Failed to generate valid IMAGE_TAG from SERVER_REF: $SERVER_REF"
+            exit 1
           fi
 
           echo "Using $IMAGE_TAG for build"
@@ -178,9 +188,11 @@ jobs:
         id: set-web-artifact-path
         run: |
           WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
-          if [[ -n "${WEB_ARTIFACT}" ]]; then
-            echo "path=${WEB_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          if [[ -z "${WEB_ARTIFACT}" ]]; then
+            echo "ERROR: No web artifact found for dev build"
+            exit 1
           fi
+          echo "path=${WEB_ARTIFACT}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         id: build-docker

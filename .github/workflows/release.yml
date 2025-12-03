@@ -11,6 +11,10 @@ on:
 env:
   _AZ_REGISTRY: bitwardenprod.azurecr.io
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -306,8 +310,9 @@ jobs:
 
 
   tag-push-latest-images:
-    name: Tag and push ${{ matrix.project_name }} image with release version and latest
+    name: Release ${{ matrix.project_name }} image
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     needs:
       - update-versions
       - release-github
@@ -315,7 +320,7 @@ jobs:
       id-token: write
       packages: write
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - project_name: Admin
@@ -379,7 +384,6 @@ jobs:
           PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
           RELEASE_TAG: ${{ steps.image-setup.outputs.release_tag }}
         run: |
-          skopeo --version
           skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
           skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:$RELEASE_TAG" "docker://ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG"
           skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:latest" "docker://ghcr.io/bitwarden/$PROJECT_NAME:latest"
@@ -393,23 +397,21 @@ jobs:
           cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME:latest"
 
       - name: Log out of Docker
-        run: |
-          docker logout ghcr.io
-          docker logout "$_AZ_REGISTRY"
+        run: docker logout ghcr.io "$_AZ_REGISTRY"
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
 
 
-  release-bitwarden-lite:
-    name: Release Bitwarden lite
+  update-lite-changelog:
+    name: Update Bitwarden lite CHANGELOG
     runs-on: ubuntu-24.04
     needs: update-versions
     env:
-      _RELEASE_VERSION: ${{ inputs.release_version }}-beta # TODO: remove `-beta` after GA
+      _CORE_VERSION: ${{ needs.update-versions.outputs.core_release_tag }}
     permissions:
+      contents: write
       id-token: write
-      packages: write
     steps:
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -418,6 +420,89 @@ jobs:
           tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
+      - name: Get Azure Key Vault secrets
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: gh-org-bitwarden
+          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.0
+        id: app-token
+        with:
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          permission-contents: write # for pushing commits
+
+      - name: Checkout Branch
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Update CHANGELOG.md
+        run: |
+          RELEASE_DATE=$(date +%Y-%m-%d)
+
+          # Create temporary file with new content
+          cat > /tmp/new_entry.txt << EOF
+
+          ## [$_CORE_VERSION] - $RELEASE_DATE
+
+          ### Release
+
+          - Bitwarden lite $_CORE_VERSION release, aligned with Bitwarden Server core version $_CORE_VERSION
+          EOF
+
+          # Insert new release entry after the ## [Unreleased] line
+          sed -i "/## \[Unreleased\]/r /tmp/new_entry.txt" bitwarden-lite/CHANGELOG.md
+          rm /tmp/new_entry.txt
+
+      - name: Check if changelog changed
+        id: changelog-changed
+        run: |
+          if [ -n "$(git status --porcelain bitwarden-lite/CHANGELOG.md)" ]; then
+            echo "changes_to_commit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes_to_commit=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to commit!";
+          fi
+
+      - name: Configure Git
+        if: ${{ steps.changelog-changed.outputs.changes_to_commit == 'true' }}
+        run: |
+          git config --local user.email "178206702+bw-ghapp[bot]@users.noreply.github.com"
+          git config --local user.name "bw-ghapp[bot]"
+
+      - name: Commit CHANGELOG.md
+        if: ${{ steps.changelog-changed.outputs.changes_to_commit == 'true' }}
+        run: git commit -m "Update Bitwarden lite CHANGELOG for $_CORE_VERSION" bitwarden-lite/CHANGELOG.md
+
+      - name: Push changes
+        if: ${{ steps.changelog-changed.outputs.changes_to_commit == 'true' }}
+        run: |
+          git push
+          echo "✅ Updated Bitwarden lite CHANGELOG for $_CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+
+  release-bitwarden-lite:
+    name: Release Bitwarden lite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs:
+      - update-versions
+      - update-lite-changelog
+    env:
+      _CORE_VERSION: ${{ needs.update-versions.outputs.core_release_tag }}
+    permissions:
+      id-token: write
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
@@ -428,46 +513,16 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
-      - name: Push version and latest image
+      - name: Copy version tag to latest
         run: |
-          skopeo --version
-          skopeo login "$_AZ_REGISTRY" -u 00000000-0000-0000-0000-000000000000 -p "$(az acr login --expose-token --name "${_AZ_REGISTRY%.azurecr.io}" | jq -r .accessToken)"
-          skopeo copy --all "docker://$_AZ_REGISTRY/lite:beta" "docker://ghcr.io/bitwarden/lite:$_RELEASE_VERSION"
-          skopeo copy --all "docker://$_AZ_REGISTRY/lite:beta" "docker://ghcr.io/bitwarden/lite:beta" # TODO: Delete after GA
-          # skopeo copy --all "docker://$_AZ_REGISTRY/lite:beta" "docker://ghcr.io/bitwarden/lite:latest" # TODO: uncomment after GA
+          skopeo copy --all "docker://ghcr.io/bitwarden/lite:$_CORE_VERSION" "docker://ghcr.io/bitwarden/lite:latest"
+          echo "✅ Promoted Bitwarden lite $_CORE_VERSION to latest" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Sign image with Cosign
-        run: |
-          cosign sign --yes "ghcr.io/bitwarden/lite:$_RELEASE_VERSION"
-          cosign sign --yes "ghcr.io/bitwarden/lite:latest"
+      - name: Sign latest image with Cosign
+        run: cosign sign --yes "ghcr.io/bitwarden/lite:latest"
 
-      - name: Log out of skopeo and ghcr.io
-        run: |
-          skopeo logout --all
-          docker logout ghcr.io
-
-      ########## ACR PROD ##########
-      - name: Login to Azure ACR
-        run: az acr login -n "${_AZ_REGISTRY%.azurecr.io}"
-
-      - name: Pull latest project image
-        run: docker pull "$_AZ_REGISTRY/lite:beta"
-
-      - name: Tag version and latest
-        run: |
-          docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
-          docker tag "$_AZ_REGISTRY/lite:beta" "$_AZ_REGISTRY/lite:latest"
-
-      - name: Push version and latest image
-        run: |
-          docker push "$_AZ_REGISTRY/lite:$_RELEASE_VERSION"
-          docker push "$_AZ_REGISTRY/lite:latest"
-
-      - name: Log out of Docker
-        run: docker logout "$_AZ_REGISTRY"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
+      - name: Log out of ghcr.io
+        run: docker logout ghcr.io
 
 
   trigger-workflows:
