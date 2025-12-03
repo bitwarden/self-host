@@ -28,9 +28,6 @@ on:
       - ".github/workflows/build-bitwarden-lite.yml"
       - "bitwarden-lite/**"
 
-env:
-  _AZ_REGISTRY: bitwardenprod.azurecr.io
-
 permissions:
   contents: read
 
@@ -116,14 +113,15 @@ jobs:
           if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
               IMAGE_TAG="${BASH_REMATCH[1]}"
           else
-              IMAGE_TAG="${SERVER_REF#refs/heads/}"
+              IMAGE_TAG=$(echo "${SERVER_REF#refs/heads/}" | \
+              tr '[:upper:]' '[:lower:]' | \
+              sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^-+|-+$//g' | \
+              cut -c1-128 | \
+              sed -E 's/[.-]$//')
           fi
 
           if [[ "$IMAGE_TAG" == "main" ]]; then
             IMAGE_TAG=dev
-          elif [[ ("$IMAGE_TAG" == "rc") || ("$IMAGE_TAG" == "hotfix-rc") ]]; then
-            # This if statement can be removed upon release so that 'rc' and 'hotfix-rc' tags are generated correctly.
-            IMAGE_TAG=beta
           fi
 
           echo "Using $IMAGE_TAG for build"
@@ -205,8 +203,8 @@ jobs:
       - name: Sign image with Cosign
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
-          IMAGE_TAG: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
-        run: cosign sign --yes "${IMAGE_TAG}@${DIGEST}"
+          IMAGE: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
       - name: Scan Docker image
         id: container-scan
@@ -225,48 +223,3 @@ jobs:
 
       - name: Log out of GHCR
         run: docker logout ghcr.io
-
-
-  check-failures:
-    name: Check for failures
-    if: always()
-    runs-on: ubuntu-24.04
-    needs: build-docker
-    permissions:
-      id-token: write
-    steps:
-      - name: Check if any job failed
-        if: |
-          (github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/rc' ||
-          github.ref == 'refs/heads/hotfix-rc') &&
-          contains(needs.*.result, 'failure')
-        run: exit 1
-
-      - name: Log in to Azure
-        if: failure()
-        uses: bitwarden/gh-actions/azure-login@main
-        with:
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-
-      - name: Retrieve secrets
-        id: retrieve-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        if: failure()
-        with:
-          keyvault: "bitwarden-ci"
-          secrets: "devops-alerts-slack-webhook-url"
-
-      - name: Log out from Azure
-        if: failure()
-        uses: bitwarden/gh-actions/azure-logout@main
-
-      - name: Notify Slack on failure
-        uses: act10ns/slack@44541246747a30eb3102d87f7a4cc5471b0ffb7d # v2.1.0
-        if: failure()
-        env:
-          SLACK_WEBHOOK_URL: ${{ steps.retrieve-secrets.outputs.devops-alerts-slack-webhook-url }}
-        with:
-          status: ${{ job.status }}

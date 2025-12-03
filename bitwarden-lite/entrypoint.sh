@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 # Set up user group
 PGID="${PGID:-1000}"
@@ -65,8 +66,10 @@ cp /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
 
 # Generate SSL certificates
 if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
-  TMP_OPENSSL_CONF="/tmp/openssl_san.cnf"
+  TMP_OPENSSL_CONF="/tmp/openssl_san.cnf.$$"
+  umask 0077
   cat /usr/lib/ssl/openssl.cnf > "$TMP_OPENSSL_CONF"
+  umask 0022
   printf "\n[SAN]\nsubjectAltName=DNS:${BW_DOMAIN:-localhost}\nbasicConstraints=CA:true\n" >> "$TMP_OPENSSL_CONF"
   openssl req \
   -x509 \
@@ -89,14 +92,14 @@ fi
 /usr/local/bin/hbs
 
 # Enable/Disable services
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ADMIN}/" /etc/supervisor.d/admin.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_API}/" /etc/supervisor.d/api.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_EVENTS}/" /etc/supervisor.d/events.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ICONS}/" /etc/supervisor.d/icons.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_IDENTITY}/" /etc/supervisor.d/identity.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_NOTIFICATIONS}/" /etc/supervisor.d/notifications.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SCIM}/" /etc/supervisor.d/scim.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SSO}/" /etc/supervisor.d/sso.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_ADMIN}|" /etc/supervisor.d/admin.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_API}|" /etc/supervisor.d/api.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_EVENTS}|" /etc/supervisor.d/events.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_ICONS}|" /etc/supervisor.d/icons.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_IDENTITY}|" /etc/supervisor.d/identity.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_NOTIFICATIONS}|" /etc/supervisor.d/notifications.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_SCIM}|" /etc/supervisor.d/scim.ini
+sed -i "s|autostart=true|autostart=${BW_ENABLE_SSO}|" /etc/supervisor.d/sso.ini
 
 chown -R $PUID:$PGID \
     /app \
