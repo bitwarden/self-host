@@ -2,18 +2,14 @@
 
 services:
   bitwarden:
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
     depends_on:
       - db
-    env_file:
-      - settings.env
-    image: ${REGISTRY:-ghcr.io/bitwarden}/lite:${TAG:-beta}
-    restart: always
-    ports:
-      - "80:8080"
-      - "443:8443"
-    volumes:
-      - bitwarden:/etc/bitwarden
-      - logs:/var/log/bitwarden
     deploy:
       resources:
         limits:
@@ -22,28 +18,32 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    env_file:
+      - settings.env
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 60s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/alive"]
+      timeout: 3s
+    image: ${REGISTRY:-ghcr.io/bitwarden}/lite:${TAG:-beta}
+    ports:
+      - "80:8080"
+      - "443:8443"
+    restart: always
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/alive"]
-      interval: 30s
-      timeout: 3s
-      start_period: 60s
-      retries: 3
+    volumes:
+      - bitwarden:/etc/bitwarden
+      - logs:/var/log/bitwarden
 
   # MariaDB Example
   db:
     environment:
-      MARIADB_USER: "bitwarden"
-      MARIADB_PASSWORD: "super_strong_password"
       MARIADB_DATABASE: "bitwarden_vault"
+      MARIADB_PASSWORD: "super_strong_password"
       MARIADB_RANDOM_ROOT_PASSWORD: "true"
+      MARIADB_USER: "bitwarden"
     image: mariadb:10
     restart: always
     volumes:
@@ -52,9 +52,9 @@ services:
   # PostgreSQL Example
   # db:
   #   environment:
-  #     POSTGRES_USER: "bitwarden"
-  #     POSTGRES_PASSWORD: "super_strong_password"
   #     POSTGRES_DB: "bitwarden_vault"
+  #     POSTGRES_PASSWORD: "super_strong_password"
+  #     POSTGRES_USER: "bitwarden"
   #   image: postgres:14
   #   restart: always
   #   volumes:
@@ -64,8 +64,8 @@ services:
   # Docs: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-deployment
   # db:
   #   environment:
-  #     MSSQL_SA_PASSWORD: "super_strong_password"
   #     ACCEPT_EULA: Y
+  #     MSSQL_SA_PASSWORD: "super_strong_password"
   #   image: mcr.microsoft.com/mssql/server:2022-latest
   #   restart: always
   #   volumes:
@@ -73,5 +73,5 @@ services:
 
 volumes:
   bitwarden:
-  logs:
   data:
+  logs:
