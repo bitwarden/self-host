@@ -281,7 +281,7 @@ function uninstall() {
         exit 1
     fi
 
-    echo -e -n "${RED}(!) Would you like to purge all local Bitwarden container images? (y/n): ${NC}"
+    echo -e -n "${RED}(!) Would you like to purge all local Bitwarden container images (this will not remove third-party images such as certbot)? (y/n): ${NC}"
     read PURGE_ACTION
     if [ "$PURGE_ACTION" == "y" ]
     then
