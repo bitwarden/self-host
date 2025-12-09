@@ -163,15 +163,7 @@ function createDir() {
 }
 
 function dockerPrune() {
-    if [ "$1" == 'all' ]
-    then
-        docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
-    else
-        for image in $(docker image ls --format "{{.Repository}}:{{.Tag}}" --filter="label=com.bitwarden.product=bitwarden" | grep -v '/bitwarden/setup'); do 
-            docker image rm "$image"
-        done
-    fi
-
+    docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
 }
 
 function updateLetsEncrypt() {
@@ -285,7 +277,7 @@ function uninstall() {
     read PURGE_ACTION
     if [ "$PURGE_ACTION" == "y" ]
     then
-        dockerPrune all
+        dockerPrune
         echo -e -n "${CYAN}Bitwarden uninstall complete! ${NC}"
     fi
 }

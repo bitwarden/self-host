@@ -140,15 +140,8 @@ function Create-Dir($str) {
     }
 }
 
-function Docker-Prune([switch] $all) {
-    if ($all) {
+function Docker-Prune {
         docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
-    }
-    else {
-        docker image ls --format "{{.Repository}}:{{.Tag}}" --filter="label=com.bitwarden.product=bitwarden" | 
-            Where-Object { $_ -notmatch '/bitwarden/setup' } | 
-            ForEach-Object { docker image rm $_ }
-    }
 }
 
 function Update-Lets-Encrypt {
@@ -226,7 +219,7 @@ function Uninstall() {
         $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images (this will not remove third-party images such as certbot)? (y/n)" )
 
         if ($purgeAction -eq "y") {
-            Docker-Prune -all
+            Docker-Prune
         }
 }
 
