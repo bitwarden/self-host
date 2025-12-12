@@ -87,7 +87,7 @@ jobs:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
           permission-contents: write # for pushing commits
-          
+
       - name: Checkout Branch
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -102,13 +102,13 @@ jobs:
           repository: bitwarden/server
           trim: true
 
-      - name: Update Core version 
+      - name: Update Core version
         id: update-core-version
         env:
           NEW_VERSION: ${{ steps.get-core.outputs.version }}
         run: |
           OLD_VERSION=$(jq -r '.versions.coreVersion' version.json)
-          
+
           sed -i -e "/^\s*COREVERSION\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.sh
           sed -i -e "/^\s*\$coreVersion\s*=\s*/s/[0-9]\+.[0-9]\+.[0-9]\+/$NEW_VERSION/" bitwarden.ps1
           sed -i -e '/"coreVersion":/ s/"coreVersion":[^,]*/"coreVersion":"'$NEW_VERSION'"/' version.json
@@ -417,13 +417,16 @@ jobs:
   build-lite-image:
     name: Build Bitwarden lite image
     uses: ./.github/workflows/build-bitwarden-lite.yml
-    needs: update-versions
+    needs:
+      - update-versions
+      - release-github
     permissions:
       contents: read
       id-token: write
       packages: write
       security-events: write
     with:
+      repo_ref: "v${{ inputs.release_version }}"
       use_latest_core_version: true
       use_latest_web_version: true
     secrets: inherit
@@ -576,6 +579,6 @@ jobs:
               owner: 'bitwarden',
               repo: 'self-host',
               workflow_id: 'release-digital-ocean.yml',
-              ref: 'main',
+              ref: 'v${{ inputs.release_version_}}',
               inputs: {}
             });
