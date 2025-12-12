@@ -80,7 +80,7 @@ jobs:
           elif [[ -z "${SERVER_BRANCH}" ]]; then
             echo "server_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
           else
-            echo "server_ref=refs/heads/${SERVER_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+            echo "server_ref=refs/tags/${SERVER_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set Web variables
@@ -97,7 +97,7 @@ jobs:
           elif [[ -z "${WEB_BRANCH}" ]]; then
             echo "web_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
           else
-            echo "web_ref=refs/heads/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+            echo "web_ref=refs/tags/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
           fi
 
   build-docker:
