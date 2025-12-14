@@ -82,13 +82,14 @@ RUN mkdir -p \
     /etc/bitwarden/logs \
     /etc/supervisor \
     /etc/supervisor.d \
-    /var/log/bitwarden \
-    /var/log/nginx/logs \
-    /etc/nginx/http.d \
-    /var/run/nginx \
-    /var/lib/nginx/tmp \
-    /app \
-    && touch /var/run/nginx/nginx.pid
+    /app/Identity \
+    /app/Sso \
+    /app/Web
+
+# Create soft links for files generated in the entrypoint
+RUN ln -s /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
+RUN ln -s /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
+RUN ln -s /etc/bitwarden/app-id.json /app/Web/app-id.json
 
 # Copy compiled apps from server images
 WORKDIR /app
@@ -137,6 +138,7 @@ RUN chmod +x /usr/local/bin/hbs
 COPY bitwarden-lite/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+EXPOSE 8080 8443
 VOLUME ["/etc/bitwarden"]
 
 WORKDIR /app
