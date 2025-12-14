@@ -1,13 +1,13 @@
 #!/bin/sh
 
-if [[ "$(id -u)" == "0" ]]; then
+if [ "$(id -u)" = "0" ]; then
   # Set up user group
   PGID="${PGID:-911}"
-  addgroup -g $PGID bitwarden
+  addgroup -g "$PGID" bitwarden
 
   # Set up user
   PUID="${PUID:-911}"
-  adduser -D -H -u $PUID -G bitwarden bitwarden
+  adduser -D -H -u "$PUID" -G bitwarden bitwarden
 fi
 
 # Translate environment variables for application settings
@@ -20,23 +20,24 @@ INTERNAL_IDENTITY_KEY=$(openssl rand -hex 30)
 OIDC_IDENTITY_CLIENT_KEY=$(openssl rand -hex 30)
 DUO_AKEY=$(openssl rand -hex 30)
 
-export globalSettings__baseServiceUri__vault=${globalSettings__baseServiceUri__vault:-$VAULT_SERVICE_URI}
-export globalSettings__installation__id=$BW_INSTALLATION_ID
-export globalSettings__installation__key=$BW_INSTALLATION_KEY
-export globalSettings__internalIdentityKey=${globalSettings__internalIdentityKey:-$INTERNAL_IDENTITY_KEY}
-export globalSettings__oidcIdentityClientKey=${globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}
-export globalSettings__duo__aKey=${globalSettings__duo__aKey:-$DUO_AKEY}
+export globalSettings__baseServiceUri__vault="${globalSettings__baseServiceUri__vault:-$VAULT_SERVICE_URI}"
+export globalSettings__installation__id="$BW_INSTALLATION_ID"
+export globalSettings__installation__key="$BW_INSTALLATION_KEY"
+export globalSettings__internalIdentityKey="${globalSettings__internalIdentityKey:-$INTERNAL_IDENTITY_KEY}"
+export globalSettings__oidcIdentityClientKey="{globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}"
+export globalSettings__duo__aKey="${globalSettings__duo__aKey:-$DUO_AKEY}"
+export globalSettings__identityServer__certificatePassword="${globalSettings__identityServer__certificatePassword:-$IDENTITY_SERVER_CERTIFICATE_PASSWORD}"
 
-export globalSettings__databaseProvider=$BW_DB_PROVIDER
-export globalSettings__mysql__connectionString=${globalSettings__mysql__connectionString:-$MYSQL_CONNECTION_STRING}
-export globalSettings__postgreSql__connectionString=${globalSettings__postgreSql__connectionString:-$POSTGRESQL_CONNECTION_STRING}
-export globalSettings__sqlServer__connectionString=${globalSettings__sqlServer__connectionString:-$SQLSERVER_CONNECTION_STRING}
-export globalSettings__sqlite__connectionString=${globalSettings__sqlite__connectionString:-$SQLITE_CONNECTION_STRING}
+export globalSettings__databaseProvider="$BW_DB_PROVIDER"
+export globalSettings__mysql__connectionString="${globalSettings__mysql__connectionString:-$MYSQL_CONNECTION_STRING}"
+export globalSettings__postgreSql__connectionString="${globalSettings__postgreSql__connectionString:-$POSTGRESQL_CONNECTION_STRING}"
+export globalSettings__sqlServer__connectionString="${globalSettings__sqlServer__connectionString:-$SQLSERVER_CONNECTION_STRING}"
+export globalSettings__sqlite__connectionString="${globalSettings__sqlite__connectionString:-$SQLITE_CONNECTION_STRING}"
 
 if [ "$BW_ENABLE_SSL" = "true" ]; then
-  export globalSettings__baseServiceUri__internalVault=https://localhost:${BW_PORT_HTTPS:-8443}
+  export globalSettings__baseServiceUri__internalVault="https://localhost:${BW_PORT_HTTPS:-8443}"
 else
-  export globalSettings__baseServiceUri__internalVault=http://localhost:${BW_PORT_HTTP:-8080}
+  export globalSettings__baseServiceUri__internalVault="http://localhost:${BW_PORT_HTTP:-8080}"
 fi
 
 # Generate Identity certificate
@@ -64,10 +65,10 @@ if [ ! -f /etc/bitwarden/identity.pfx ]; then
 fi
 
 # Generate SSL certificates
-if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
+if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/"${BW_SSL_KEY:-ssl.key}" ]; then
   TMP_OPENSSL_CONF="/tmp/openssl_san.cnf"
   cat /usr/lib/ssl/openssl.cnf > "$TMP_OPENSSL_CONF"
-  printf "\n[SAN]\nsubjectAltName=DNS:${BW_DOMAIN:-localhost}\nbasicConstraints=CA:true\n" >> "$TMP_OPENSSL_CONF"
+  printf "\n[SAN]\nsubjectAltName=DNS:%s\nbasicConstraints=CA:true\n" "${BW_DOMAIN:-localhost}" >> "$TMP_OPENSSL_CONF"
   openssl req \
   -x509 \
   -newkey rsa:4096 \
@@ -94,12 +95,12 @@ mkdir -p /tmp/bitwarden
 
 /usr/local/bin/hbs
 
-if [[ "$(id -u)" == 0 ]]; then
+if [ "$(id -u)" = "0" ]; then
   find /etc/bitwarden ! -xtype l \( ! -gid "$PGID" -o ! -uid "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
-  exec su-exec $PUID:$PGID /usr/bin/supervisord
+  exec su-exec "$PUID:$PGID" /usr/bin/supervisord
 else
   FILES="$(find /etc/bitwarden ! -xtype l \( ! -gid "$(id -g)" -o ! -uid "$(id -u)" \))"
-  if [[ -n "$FILES" ]]; then
+  if [ -n "$FILES" ]; then
     echo "The following files are not owned by the running user and may cause errors:" >&2
     echo "$FILES" >&2
   fi
