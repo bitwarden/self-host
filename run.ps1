@@ -12,7 +12,8 @@ param (
     [switch] $uninstall,
     [switch] $renewcert,
     [switch] $updatedb,
-    [switch] $update
+    [switch] $update,
+    [switch] $rebuild
 )
 
 # Setup
@@ -69,6 +70,8 @@ function Install() {
                 "certonly{0} --standalone --noninteractive --agree-tos --preferred-challenges http " + `
                 "--email ${email} -d ${domain} --logs-dir /etc/letsencrypt/logs"
             Invoke-Expression ($certbotExp -f $qFlag)
+
+            Cleanup-Certbot
         }
     }
 
@@ -141,8 +144,7 @@ function Create-Dir($str) {
 }
 
 function Docker-Prune {
-    docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden" `
-        --filter="label!=com.bitwarden.project=setup"
+    docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
 }
 
 function Update-Lets-Encrypt {
@@ -152,6 +154,8 @@ function Update-Lets-Encrypt {
             "-v ${outputDir}/letsencrypt:/etc/letsencrypt/ certbot/certbot " + `
             "renew{0} --logs-dir /etc/letsencrypt/logs" -f $qFlag
         Invoke-Expression $certbotExp
+
+        Cleanup-Certbot
     }
 }
 
@@ -162,6 +166,8 @@ function Force-Update-Lets-Encrypt {
             "-v ${outputDir}/letsencrypt:/etc/letsencrypt/ certbot/certbot " + `
             "renew{0} --logs-dir /etc/letsencrypt/logs --force-renew" -f $qFlag
         Invoke-Expression $certbotExp
+
+        Cleanup-Certbot
     }
 }
 
@@ -204,7 +210,6 @@ function Uninstall() {
         $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/n)" )
     }
 
-
     if ($uninstallAction -eq "y") {
         Write-Host "uninstalling Bitwarden..."
         Docker-Compose-Down
@@ -217,11 +222,13 @@ function Uninstall() {
     }
 
     Write-Host "(!) " -f red -nonewline
-        $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/n)" )
+    $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/n)" )
 
-        if ($purgeAction -eq "y") {
-            Docker-Prune
-        }
+    if ($purgeAction -eq "y") {
+        Docker-Prune
+    }
+    
+    Cleanup-Certbot
 }
 
 function Print-Environment {
@@ -247,7 +254,6 @@ function Cert-Restart {
     Print-Environment
 }
 
-
 function Pull-Setup {
     Invoke-Expression ("docker pull{0} ghcr.io/bitwarden/setup:${coreVersion}" -f "") #TODO: qFlag
 }
@@ -257,6 +263,18 @@ function Write-Line($str) {
         Write-Host $str
     }
 }
+
+function Cleanup-Certbot {
+    # Check if the certbot image is being used by any containers
+    if ([string]::IsNullOrEmpty((docker ps -a --filter ancestor=certbot/certbot --quiet))) {
+        Write-Host "(!) " -f red -nonewline
+        $response = $( Read-Host "The [certbot/certbot] container image used by this script is no longer associated with any containers. Would you like to purge it? (y/N)" )
+        
+        if ($response.ToLower() -eq 'y') {
+            docker image rm certbot/certbot
+        }
+    }
+} 
 
 # Commands
 
