@@ -12,7 +12,8 @@ param (
     [switch] $uninstall,
     [switch] $renewcert,
     [switch] $updatedb,
-    [switch] $update
+    [switch] $update,
+    [switch] $rebuild
 )
 
 # Setup
@@ -143,7 +144,7 @@ function Create-Dir($str) {
 }
 
 function Docker-Prune {
-        docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
+    docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
 }
 
 function Update-Lets-Encrypt {
@@ -252,7 +253,6 @@ function Cert-Restart {
     Docker-Compose-Up
     Print-Environment
 }
-
 
 function Pull-Setup {
     Invoke-Expression ("docker pull{0} ghcr.io/bitwarden/setup:${coreVersion}" -f "") #TODO: qFlag
