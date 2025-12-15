@@ -173,6 +173,13 @@ jobs:
 
           echo "tag=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Update docker-compose.yml with new version
+        env:
+          _CORE_VERSION: ${{ steps.update-core-version.outputs.tag }}
+        run: |
+          sed -i -e "s|lite:\${TAG:-[^}]*}|lite:\${TAG:-$_CORE_VERSION}|" bitwarden-lite/docker-compose.yml
+          echo ":pencil: Updated docker-compose.yml TAG to $_CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Check if version changed
         id: version-changed
         run: |
@@ -509,11 +516,6 @@ jobs:
 
       - name: Log out of ghcr.io
         run: docker logout ghcr.io
-
-      - name: Update docker-compose.yml with new version
-        run: |
-          sed -i -e "s|lite:\${TAG:-[^}]*}|lite:\${TAG:-$_CORE_VERSION}|" bitwarden-lite/docker-compose.yml
-          echo ":pencil: Updated docker-compose.yml TAG to $_CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check if version changed
         id: version-changed
