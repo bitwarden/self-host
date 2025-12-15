@@ -56,6 +56,7 @@ jobs:
       contents: write
       id-token: write
     outputs:
+      commit_hash: ${{ steps.push.outputs.commit_hash }}
       core_release_tag: ${{ steps.update-core-version.outputs.tag }}
       core_version_changed: ${{ steps.update-core-version.outputs.changed }}
       web_release_tag: ${{ steps.update-web-version.outputs.tag }}
@@ -194,7 +195,10 @@ jobs:
 
       - name: Push changes
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'true' }}
-        run: git push
+        id: push
+        run: |
+          git push
+          echo "commit_hash=$(git log -1 --format='%H')" >> "$GITHUB_OUTPUT"
 
 
   release-github:
@@ -416,7 +420,7 @@ jobs:
 
   build-lite-image:
     name: Build Bitwarden lite image
-    uses: ./.github/workflows/build-bitwarden-lite.yml
+    uses: bitwarden/self-host/.github/workflows/build-bitwarden-lite.yml@${{ needs.update-versions.outputs.commit_hash }}
     needs: update-versions
     permissions:
       contents: read
