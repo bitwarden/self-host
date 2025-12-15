@@ -7,7 +7,7 @@ on:
       - ".github/workflows/build-bitwarden-lite.yml"
   workflow_dispatch:
     inputs:
-      repo_ref:
+      self_host_repo_ref:
         description: "Self-host ref to use for checkout (Default: current ref)"
         type: string
         required: false
@@ -29,7 +29,7 @@ on:
         default: false
   workflow_call:
     inputs:
-      repo_ref:
+      self_host_repo_ref:
         description: "Self-host ref to use for checkout (Default: current ref)"
         type: string
         required: false
@@ -72,7 +72,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.repo_ref || github.ref }}
+          ref: ${{ inputs.self_host_repo_ref || github.ref }}
           persist-credentials: false
 
       - name: Set Server variables
@@ -122,7 +122,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.repo_ref || github.ref }}
+          ref: ${{ inputs.self_host_repo_ref || github.ref }}
           persist-credentials: false
 
       - name: Set up QEMU emulators

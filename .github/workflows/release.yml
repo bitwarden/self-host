@@ -62,6 +62,7 @@ jobs:
       web_version_changed: ${{ steps.update-web-version.outputs.changed }}
       key_connector_release_tag: ${{ steps.update-key-connector-version.outputs.tag }}
       key_connector_version_changed: ${{ steps.update-key-connector-version.outputs.changed }}
+      updated_version_commit_hash: ${{ steps.push-changes.outputs.commit_hash }}
     steps:
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -193,9 +194,11 @@ jobs:
         run: git commit -m "Updated core, web, and key-connector versions" -a
 
       - name: Push changes
+        id: push-changes
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'true' }}
-        run: git push
-
+        run: |
+          git push
+          echo "commit_hash=$(git log -1 --format='%H')" >> "$GITHUB_OUTPUT"
 
   release-github:
     name: Create GitHub Release
@@ -261,13 +264,16 @@ jobs:
           name: "Version ${{ inputs.release_version }}"
           body: ${{ steps.prepare-release-notes.outputs.RELEASE_NOTES }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          commit: ${{ needs.self-host-version-check.outputs.latest_version }}
           draft: false
 
 
   release-s3:
     name: Upload version.json
     runs-on: ubuntu-24.04
-    needs: release-github
+    needs:
+      - update-versions
+      - release-github
     permissions:
       contents: read
       id-token: write
@@ -276,7 +282,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
-          ref: main
+          ref: ${{ needs.update-versions.outputs.updated_version_commit_hash }}
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -417,16 +423,14 @@ jobs:
   build-lite-image:
     name: Build Bitwarden lite image
     uses: ./.github/workflows/build-bitwarden-lite.yml
-    needs:
-      - update-versions
-      - release-github
+    needs: update-versions
     permissions:
       contents: read
       id-token: write
       packages: write
       security-events: write
     with:
-      repo_ref: "v${{ inputs.release_version }}"
+      self_host_repo_ref: ${{ needs.update-versions.outputs.updated_version_commit_hash }}
       use_latest_core_version: true
       use_latest_web_version: true
     secrets: inherit
