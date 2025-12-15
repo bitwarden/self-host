@@ -175,10 +175,10 @@ jobs:
 
       - name: Update docker-compose.yml with new version
         env:
-          _CORE_VERSION: ${{ steps.update-core-version.outputs.tag }}
+          CORE_VERSION: ${{ steps.update-core-version.outputs.tag }}
         run: |
-          sed -i -e "s|lite:\${TAG:-[^}]*}|lite:\${TAG:-$_CORE_VERSION}|" bitwarden-lite/docker-compose.yml
-          echo ":pencil: Updated docker-compose.yml TAG to $_CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          sed -i -e "s|lite:\${TAG:-[^}]*}|lite:\${TAG:-$CORE_VERSION}|" bitwarden-lite/docker-compose.yml
+          echo ":pencil: Updated docker-compose.yml TAG to $CORE_VERSION" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check if version changed
         id: version-changed
