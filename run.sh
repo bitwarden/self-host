@@ -91,7 +91,6 @@ function install() {
                 certonly --standalone --noninteractive  --agree-tos --preferred-challenges http \
                 --email $EMAIL -d $DOMAIN --logs-dir /etc/letsencrypt/logs
             
-            # check if the certbot image should be removed from the system
             certbotCleanup
         fi
     fi
@@ -178,7 +177,6 @@ function updateLetsEncrypt() {
             -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
             renew --logs-dir /etc/letsencrypt/logs
         
-        # check if the certbot image should be removed from the system
         certbotCleanup
     fi
 }
@@ -191,7 +189,6 @@ function forceUpdateLetsEncrypt() {
             -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
             renew --logs-dir /etc/letsencrypt/logs --force-renew
 
-        # check if the certbot image should be removed from the system
         certbotCleanup
     fi
 }
@@ -288,10 +285,10 @@ function uninstall() {
     if [ "$PURGE_ACTION" == "y" ]
     then
         dockerPrune
-        certbotCleanup
-
         echo -e -n "${CYAN}Bitwarden uninstall complete! ${NC}"
     fi
+
+    certbotCleanup
 }
 
 function printEnvironment() {
@@ -322,15 +319,13 @@ function pullSetup() {
 }
 
 function certbotCleanup() {
-    # check if the certbot image is being used by any containers
+    # Check if the certbot image is being used by any containers
     if [[ -z $(docker ps -a --filter ancestor=certbot/certbot --quiet) ]]
     then
-        # prompt the user
         echo -e -n "${RED}(!) The [certbot/certbot] container image used by this script is no longer associated with any containers. Would you like to purge it? (y/N): ${NC}"
         read RESPONSE
         RESPONSE=$(echo "$RESPONSE" | tr '[:upper:]' '[:lower:]')
         
-        # remove the image if that's what the user chooses
         if [[ $RESPONSE == 'y' ]]
         then
             docker image rm certbot/certbot
