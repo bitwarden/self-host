@@ -221,7 +221,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: main
+          ref: ${{ needs.self-host-version-check.outputs.latest_version }}
 
       - name: Prepare release notes
         id: prepare-release-notes
