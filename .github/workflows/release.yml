@@ -23,8 +23,6 @@ jobs:
     name: Check Self-Host Version Input
     if: github.ref_name == 'main'
     runs-on: ubuntu-24.04
-    outputs:
-      latest_version: ${{ steps.get-self-host.outputs.version }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -221,7 +219,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ needs.self-host-version-check.outputs.latest_version }}
+          ref: ${{ needs.update-versions.outputs.updated_version_commit_hash }}
 
       - name: Prepare release notes
         id: prepare-release-notes
@@ -271,7 +269,7 @@ jobs:
           name: "Version ${{ inputs.release_version }}"
           body: ${{ steps.prepare-release-notes.outputs.RELEASE_NOTES }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit: ${{ needs.self-host-version-check.outputs.latest_version }}
+          commit: ${{ needs.update-versions.outputs.updated_version_commit_hash }}
           draft: false
 
 
