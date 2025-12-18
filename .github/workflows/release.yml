@@ -341,11 +341,11 @@ jobs:
           - project_name: attachments
           - project_name: billing
           - project_name: events
-          - project_name: eventsProcessor
+          - project_name: eventsprocessor
           - project_name: icons
           - project_name: identity
-          - project_name: msSql
-          - project_name: msSqlMigratorUtility
+          - project_name: mssql
+          - project_name: mssqlmigratorutility
           - project_name: nginx
           - project_name: notifications
           - project_name: scim
