@@ -9,7 +9,7 @@ on:
         required: true
 
 env:
-  _AZ_REGISTRY: bitwardenprod.azurecr.io
+  _REGISTRY: ghcr.io/bitwarden
 
 concurrency:
   group: ${{ github.workflow }}
@@ -40,8 +40,8 @@ jobs:
           RELEASE_VERSION: ${{ inputs.release_version }}
           PREVIOUS_RELEASE_VERSION: ${{ steps.get-self-host.outputs.version }}
         run: |
-          if [ "$RELEASE_VERSION" == "$PREVIOUS_RELEASE_VERSION" ]; then
-            echo "[!] Already released v$RELEASE_VERSION. Please bump version to continue"
+          if [ "${RELEASE_VERSION}" == "${PREVIOUS_RELEASE_VERSION}" ]; then
+            echo "[!] Already released v${RELEASE_VERSION}. Please bump the version to continue."
             exit 1
           fi
 
@@ -327,6 +327,8 @@ jobs:
     needs:
       - update-versions
       - release-github
+    env:
+      _PROJECT_NAME: ${{ matrix.project_name }}
     permissions:
       id-token: write
       packages: write
@@ -334,55 +336,40 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - project_name: Admin
-          - project_name: Api
-          - project_name: Attachments
-          - project_name: Events
-          - project_name: Icons
-          - project_name: Identity
-          - project_name: MsSql
-          - project_name: MsSqlMigratorUtility
-          - project_name: Nginx
-          - project_name: Notifications
-          - project_name: Scim
-          - project_name: Server
-          - project_name: Setup
-          - project_name: Sso
-          - project_name: Web
+          - project_name: admin
+          - project_name: api
+          - project_name: attachments
+          - project_name: billing
+          - project_name: events
+          - project_name: eventsProcessor
+          - project_name: icons
+          - project_name: identity
+          - project_name: msSql
+          - project_name: msSqlMigratorUtility
+          - project_name: nginx
+          - project_name: notifications
+          - project_name: scim
+          - project_name: setup
+          - project_name: sso
+          - project_name: web
     steps:
       - name: Checkout repo
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
-
-      - name: Log in to Azure
-        uses: bitwarden/gh-actions/azure-login@main
-        with:
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-
-      - name: Setup project name and release tag
+      - name: Set up release tag
         id: image-setup
         env:
           CORE_RELEASE_TAG: ${{ needs.update-versions.outputs.core_release_tag }}
           WEB_RELEASE_TAG: ${{ needs.update-versions.outputs.web_release_tag }}
         run: |
-          PROJECT_NAME=$(echo "${{ matrix.project_name }}" | awk '{print tolower($0)}')
-          echo "Matrix name: ${{ matrix.project_name }}"
-          echo "PROJECT_NAME: $PROJECT_NAME"
-          echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
-
-          if [[ "$PROJECT_NAME" == "web" ]]; then
+          if [[ "${_PROJECT_NAME}" == "web" ]]; then
             echo "release_tag=$WEB_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           else
             echo "release_tag=$CORE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
           fi
 
-      ### ghcr.io section
       - name: Login to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
@@ -390,39 +377,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push version and latest image
+      - name: Push latest image
         id: push-image
         env:
-          PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
           RELEASE_TAG: ${{ steps.image-setup.outputs.release_tag }}
         run: |
-          az acr login --name "${_AZ_REGISTRY%.azurecr.io}"
-          skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:$RELEASE_TAG" "docker://ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG"
-          skopeo copy --all "docker://$_AZ_REGISTRY/$PROJECT_NAME:latest" "docker://ghcr.io/bitwarden/$PROJECT_NAME:latest"
+          skopeo copy --all "docker://${_REGISTRY}/${_PROJECT_NAME}:${RELEASE_TAG}" "docker://${_REGISTRY}/${_PROJECT_NAME}:latest"
 
           # Get digests for signing
-          RELEASE_DIGEST=$(skopeo inspect "docker://ghcr.io/bitwarden/$PROJECT_NAME:$RELEASE_TAG" --format '{{.Digest}}')
-          LATEST_DIGEST=$(skopeo inspect "docker://ghcr.io/bitwarden/$PROJECT_NAME:latest" --format '{{.Digest}}')
-
-          echo "release_digest=$RELEASE_DIGEST" >> "$GITHUB_OUTPUT"
+          LATEST_DIGEST=$(skopeo inspect "docker://${_REGISTRY}/${_PROJECT_NAME}:latest" --format '{{.Digest}}')
           echo "latest_digest=$LATEST_DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign image with Cosign
         env:
-          PROJECT_NAME: ${{ steps.image-setup.outputs.project_name }}
-          RELEASE_DIGEST: ${{ steps.push-image.outputs.release_digest }}
           LATEST_DIGEST: ${{ steps.push-image.outputs.latest_digest }}
-        run: |
-          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME@$RELEASE_DIGEST"
-          cosign sign --yes "ghcr.io/bitwarden/$PROJECT_NAME@$LATEST_DIGEST"
+        run: cosign sign --yes "${_REGISTRY}/${_PROJECT_NAME}@$LATEST_DIGEST"
 
-      - name: Log out of Docker
-        run: |
-          docker logout ghcr.io
-          docker logout "$_AZ_REGISTRY"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
+      - name: Log out of GHCR
+        run: docker logout ghcr.io
 
 
   build-lite-image:
@@ -467,17 +442,17 @@ jobs:
       - name: Copy version tag to latest
         id: copy-lite-image
         run: |
-          skopeo copy --all "docker://ghcr.io/bitwarden/lite:$_CORE_VERSION" "docker://ghcr.io/bitwarden/lite:latest"
+          skopeo copy --all "docker://${_REGISTRY}/lite:$_CORE_VERSION" "docker://${_REGISTRY}/lite:latest"
           echo ":white_check_mark: Promoted Bitwarden lite $_CORE_VERSION to latest" >> "$GITHUB_STEP_SUMMARY"
 
           # Get digest for signing
-          LATEST_DIGEST=$(skopeo inspect "docker://ghcr.io/bitwarden/lite:latest" --format '{{.Digest}}')
+          LATEST_DIGEST=$(skopeo inspect "docker://${_REGISTRY}/lite:latest" --format '{{.Digest}}')
           echo "latest_digest=$LATEST_DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Sign latest image with Cosign
         env:
           LATEST_DIGEST: ${{ steps.copy-lite-image.outputs.latest_digest }}
-        run: cosign sign --yes "ghcr.io/bitwarden/lite@$LATEST_DIGEST"
+        run: cosign sign --yes "${_REGISTRY}/lite@$LATEST_DIGEST"
 
       - name: Log out of ghcr.io
         run: docker logout ghcr.io
