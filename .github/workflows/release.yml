@@ -321,14 +321,14 @@ jobs:
 
 
   tag-push-latest-images:
-    name: Release ${{ matrix.project_name }} image
+    name: Release ${{ matrix.image_name }} image
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs:
       - update-versions
       - release-github
     env:
-      _PROJECT_NAME: ${{ matrix.project_name }}
+      _PROJECT_NAME: ${{ matrix.image_name }}
     permissions:
       id-token: write
       packages: write
@@ -336,22 +336,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - project_name: admin
-          - project_name: api
-          - project_name: attachments
-          - project_name: billing
-          - project_name: events
-          - project_name: eventsprocessor
-          - project_name: icons
-          - project_name: identity
-          - project_name: mssql
-          - project_name: mssqlmigratorutility
-          - project_name: nginx
-          - project_name: notifications
-          - project_name: scim
-          - project_name: setup
-          - project_name: sso
-          - project_name: web
+          - image_name: admin
+          - image_name: api
+          - image_name: attachments
+          - image_name: billing
+          - image_name: events
+          - image_name: eventsprocessor
+          - image_name: icons
+          - image_name: identity
+          - image_name: mssql
+          - image_name: mssqlmigratorutility
+          - image_name: nginx
+          - image_name: notifications
+          - image_name: scim
+          - image_name: setup
+          - image_name: sso
+          - image_name: web
     steps:
       - name: Checkout repo
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
