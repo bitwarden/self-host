@@ -242,17 +242,17 @@ RUN mkdir -p /app/Identity
 RUN mkdir -p /app/Sso
 RUN mkdir -p /app/Web
 
-# Create soft links for files generated in the entrypoint
-RUN ln -s /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
-RUN ln -s /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
-RUN ln -s /etc/bitwarden/app-id.json /app/Web/app-id.json
-
 # Copy all apps from dotnet-build stage
 WORKDIR /app
 COPY --from=dotnet-build /app ./
 
 # Copy Web files from web-setup stage
 COPY --from=web-setup /tmp/build /app/Web
+
+# Create soft links for files generated in the entrypoint
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
+RUN ln -sf /etc/bitwarden/Web/app-id.json /app/Web/app-id.json
 
 # Set up supervisord
 COPY bitwarden-lite/supervisord/*.ini /etc/supervisor.d/

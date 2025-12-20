@@ -88,18 +88,19 @@ fi
 /bin/sh -c "/logrotate.sh loop >/dev/null 2>&1 &"
 
 # Create necessary directories
-mkdir -p /etc/bitwarden/logs/supervisord
 mkdir -p /etc/bitwarden/logs/nginx
+mkdir -p /etc/bitwarden/logs/supervisord
 mkdir -p /etc/bitwarden/nginx
+mkdir -p /etc/bitwarden/Web
 mkdir -p /tmp/bitwarden
 
 /usr/local/bin/hbs
 
 if [ "$(id -u)" = "0" ]; then
-  find /etc/bitwarden ! -xtype l \( ! -gid "$PGID" -o ! -uid "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
+  find /etc/bitwarden -follow ! -type l \( ! -group "$PGID" -o ! -user "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
   exec su-exec "$PUID:$PGID" /usr/bin/supervisord
 else
-  FILES="$(find /etc/bitwarden ! -xtype l \( ! -gid "$(id -g)" -o ! -uid "$(id -u)" \))"
+  FILES="$(find /etc/bitwarden -follow ! -type l \( ! -group "$(id -g)" -o ! -user "$(id -u)" \))"
   if [ -n "$FILES" ]; then
     echo "The following files are not owned by the running user and may cause errors:" >&2
     echo "$FILES" >&2
