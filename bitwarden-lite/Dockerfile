@@ -86,11 +86,6 @@ RUN mkdir -p \
     /app/Sso \
     /app/Web
 
-# Create soft links for files generated in the entrypoint
-RUN ln -s /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
-RUN ln -s /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
-RUN ln -s /etc/bitwarden/app-id.json /app/Web/app-id.json
-
 # Copy compiled apps from server images
 WORKDIR /app
 COPY --from=admin-app /app /app/Admin
@@ -104,6 +99,11 @@ COPY --from=sso-app /app /app/Sso
 
 # Copy Web files from web-app stage
 COPY --from=web-app /app /app/Web
+
+# Create soft links for files generated in the entrypoint
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
+RUN ln -sf /etc/bitwarden/Web/app-id.json /app/Web/app-id.json
 
 # Set up supervisord
 COPY bitwarden-lite/supervisord/*.ini /etc/supervisor.d/
