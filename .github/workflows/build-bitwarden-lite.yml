@@ -263,3 +263,16 @@ jobs:
 
       - name: Log out of GHCR
         run: docker logout ghcr.io
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ inputs.self_host_repo_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Run shellcheck
+        run: shellcheck bitwarden-lite/*.sh
