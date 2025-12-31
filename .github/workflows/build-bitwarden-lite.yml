@@ -109,6 +109,28 @@ jobs:
             echo "web_ref=refs/heads/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Run ShellCheck
+        env:
+          SHELLCHECK_VERSION: 0.11.0
+        run: |
+          INSTALLED_VERSION=$("$(which shellcheck)" --version | awk '/^version:/ {print $2}')
+          DESIRED_VERSION="$SHELLCHECK_VERSION"
+
+          if [ "$INSTALLED_VERSION" != "$DESIRED_VERSION" ]; then
+            echo "Installing desired shellcheck version: ${DESIRED_VERSION}"
+            wget https://github.com/koalaman/shellcheck/releases/download/v${DESIRED_VERSION}/shellcheck-v${DESIRED_VERSION}.linux.x86_64.tar.xz
+            tar -xf shellcheck-v${DESIRED_VERSION}.linux.x86_64.tar.xz
+            sudo cp shellcheck-v${DESIRED_VERSION}/shellcheck /usr/bin/
+            INSTALLED_VERSION=$("$(which shellcheck)" --version | awk '/^version:/ {print $2}')
+          fi
+          echo "Installed shellcheck version: ${INSTALLED_VERSION}"
+          echo ""
+          echo "ShellCheck:"
+          shellcheck --severity=warning --shell=sh --format=gcc bitwarden-lite/*.sh
+          while read -r RESULT; do
+            echo "- ${RESULT}"
+          done < <(shellcheck --severity=warning --shell=sh --format=gcc bitwarden-lite/*.sh)
+
   build-docker:
     name: Build Docker image
     runs-on: ubuntu-24.04
