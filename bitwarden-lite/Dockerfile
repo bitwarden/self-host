@@ -2,7 +2,7 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS web-setup
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS web-setup
 ARG WEB_ARTIFACT_PATH
 
 # Add packages
