@@ -322,6 +322,11 @@ function certbotCleanup() {
     # Check if the certbot image is being used by any containers
     if [[ -z $(docker ps -a --filter ancestor=certbot/certbot --quiet) ]]
     then
+        # Non-interactive execution (systemd/cron): do not prompt; keep image.
+        if ! [ -t 0 ]; then
+            return 0
+        fi
+        
         echo -e -n "${RED}(!) The [certbot/certbot] container image used by this script is no longer associated with any containers. Would you like to purge it? (y/N): ${NC}"
         read RESPONSE
         RESPONSE=$(echo "$RESPONSE" | tr '[:upper:]' '[:lower:]')
