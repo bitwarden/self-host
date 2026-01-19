@@ -6,7 +6,7 @@ services:
       - db
     env_file:
       - settings.env
-    image: ${REGISTRY:-ghcr.io/bitwarden}/lite:${TAG:-2025.12.0}
+    image: ${REGISTRY:-ghcr.io/bitwarden}/lite:${TAG:-2025.12.2}
     user: 999:999
     tmpfs: /tmp:rw,noexec,nosuid,nodev,size=512m
     read_only: true
