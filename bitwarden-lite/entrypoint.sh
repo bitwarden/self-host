@@ -24,7 +24,7 @@ export globalSettings__baseServiceUri__vault="${globalSettings__baseServiceUri__
 export globalSettings__installation__id="$BW_INSTALLATION_ID"
 export globalSettings__installation__key="$BW_INSTALLATION_KEY"
 export globalSettings__internalIdentityKey="${globalSettings__internalIdentityKey:-$INTERNAL_IDENTITY_KEY}"
-export globalSettings__oidcIdentityClientKey="{globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}"
+export globalSettings__oidcIdentityClientKey="${globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}"
 export globalSettings__duo__aKey="${globalSettings__duo__aKey:-$DUO_AKEY}"
 export globalSettings__identityServer__certificatePassword="${globalSettings__identityServer__certificatePassword:-$IDENTITY_SERVER_CERTIFICATE_PASSWORD}"
 
