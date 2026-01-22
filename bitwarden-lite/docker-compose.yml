@@ -56,4 +56,5 @@ services:
   #     - data:/var/opt/mssql
 
 volumes:
+  bitwarden:
   data:
