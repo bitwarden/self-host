@@ -1,12 +1,14 @@
 #!/bin/sh
 
-# Set up user group
-PGID="${PGID:-1000}"
-addgroup -g $PGID bitwarden
+if [ "$(id -u)" = "0" ]; then
+  # Set up user group
+  PGID="${PGID:-911}"
+  addgroup -g "$PGID" bitwarden
 
-# Set up user
-PUID="${PUID:-1000}"
-adduser -D -H -u $PUID -G bitwarden bitwarden
+  # Set up user
+  PUID="${PUID:-911}"
+  adduser -D -H -u "$PUID" -G bitwarden bitwarden
+fi
 
 # Translate environment variables for application settings
 VAULT_SERVICE_URI=https://${BW_DOMAIN:-localhost}
@@ -18,23 +20,24 @@ INTERNAL_IDENTITY_KEY=$(openssl rand -hex 30)
 OIDC_IDENTITY_CLIENT_KEY=$(openssl rand -hex 30)
 DUO_AKEY=$(openssl rand -hex 30)
 
-export globalSettings__baseServiceUri__vault=${globalSettings__baseServiceUri__vault:-$VAULT_SERVICE_URI}
-export globalSettings__installation__id=$BW_INSTALLATION_ID
-export globalSettings__installation__key=$BW_INSTALLATION_KEY
-export globalSettings__internalIdentityKey=${globalSettings__internalIdentityKey:-$INTERNAL_IDENTITY_KEY}
-export globalSettings__oidcIdentityClientKey=${globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}
-export globalSettings__duo__aKey=${globalSettings__duo__aKey:-$DUO_AKEY}
+export globalSettings__baseServiceUri__vault="${globalSettings__baseServiceUri__vault:-$VAULT_SERVICE_URI}"
+export globalSettings__installation__id="$BW_INSTALLATION_ID"
+export globalSettings__installation__key="$BW_INSTALLATION_KEY"
+export globalSettings__internalIdentityKey="${globalSettings__internalIdentityKey:-$INTERNAL_IDENTITY_KEY}"
+export globalSettings__oidcIdentityClientKey="${globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}"
+export globalSettings__duo__aKey="${globalSettings__duo__aKey:-$DUO_AKEY}"
+export globalSettings__identityServer__certificatePassword="${globalSettings__identityServer__certificatePassword:-$IDENTITY_SERVER_CERTIFICATE_PASSWORD}"
 
-export globalSettings__databaseProvider=$BW_DB_PROVIDER
-export globalSettings__mysql__connectionString=${globalSettings__mysql__connectionString:-$MYSQL_CONNECTION_STRING}
-export globalSettings__postgreSql__connectionString=${globalSettings__postgreSql__connectionString:-$POSTGRESQL_CONNECTION_STRING}
-export globalSettings__sqlServer__connectionString=${globalSettings__sqlServer__connectionString:-$SQLSERVER_CONNECTION_STRING}
-export globalSettings__sqlite__connectionString=${globalSettings__sqlite__connectionString:-$SQLITE_CONNECTION_STRING}
+export globalSettings__databaseProvider="$BW_DB_PROVIDER"
+export globalSettings__mysql__connectionString="${globalSettings__mysql__connectionString:-$MYSQL_CONNECTION_STRING}"
+export globalSettings__postgreSql__connectionString="${globalSettings__postgreSql__connectionString:-$POSTGRESQL_CONNECTION_STRING}"
+export globalSettings__sqlServer__connectionString="${globalSettings__sqlServer__connectionString:-$SQLSERVER_CONNECTION_STRING}"
+export globalSettings__sqlite__connectionString="${globalSettings__sqlite__connectionString:-$SQLITE_CONNECTION_STRING}"
 
 if [ "$BW_ENABLE_SSL" = "true" ]; then
-  export globalSettings__baseServiceUri__internalVault=https://localhost:${BW_PORT_HTTPS:-8443}
+  export globalSettings__baseServiceUri__internalVault="https://localhost:${BW_PORT_HTTPS:-8443}"
 else
-  export globalSettings__baseServiceUri__internalVault=http://localhost:${BW_PORT_HTTP:-8080}
+  export globalSettings__baseServiceUri__internalVault="http://localhost:${BW_PORT_HTTP:-8080}"
 fi
 
 # Generate Identity certificate
@@ -49,33 +52,31 @@ if [ ! -f /etc/bitwarden/identity.pfx ]; then
   -subj "/CN=Bitwarden IdentityServer" \
   -days 36500
   
+  # identity.pfx is soft linked to the necessary locations in the Dockerfile
   openssl pkcs12 \
   -export \
   -out /etc/bitwarden/identity.pfx \
   -inkey /etc/bitwarden/identity.key \
   -in /etc/bitwarden/identity.crt \
-  -passout pass:$globalSettings__identityServer__certificatePassword
+  -passout "pass:$globalSettings__identityServer__certificatePassword"
   
   rm /etc/bitwarden/identity.crt
   rm /etc/bitwarden/identity.key
 fi
 
-cp /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
-cp /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
-
 # Generate SSL certificates
-if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key} ]; then
+if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/"${BW_SSL_KEY:-ssl.key}" ]; then
   TMP_OPENSSL_CONF="/tmp/openssl_san.cnf"
   cat /usr/lib/ssl/openssl.cnf > "$TMP_OPENSSL_CONF"
-  printf "\n[SAN]\nsubjectAltName=DNS:${BW_DOMAIN:-localhost}\nbasicConstraints=CA:true\n" >> "$TMP_OPENSSL_CONF"
+  printf "\n[SAN]\nsubjectAltName=DNS:%s\nbasicConstraints=CA:true\n" "${BW_DOMAIN:-localhost}" >> "$TMP_OPENSSL_CONF"
   openssl req \
   -x509 \
   -newkey rsa:4096 \
   -sha256 \
   -nodes \
   -days 36500 \
-  -keyout /etc/bitwarden/${BW_SSL_KEY:-ssl.key} \
-  -out /etc/bitwarden/${BW_SSL_CERT:-ssl.crt} \
+  -keyout /etc/bitwarden/"${BW_SSL_KEY:-ssl.key}" \
+  -out /etc/bitwarden/"${BW_SSL_CERT:-ssl.crt}" \
   -reqexts SAN \
   -extensions SAN \
   -config "$TMP_OPENSSL_CONF" \
@@ -86,31 +87,24 @@ fi
 # Launch a loop to rotate nginx logs on a daily basis
 /bin/sh -c "/logrotate.sh loop >/dev/null 2>&1 &"
 
+# Create necessary directories
+mkdir -p /etc/bitwarden/logs/nginx
+mkdir -p /etc/bitwarden/logs/supervisord
+mkdir -p /etc/bitwarden/nginx
+mkdir -p /etc/bitwarden/Web
+mkdir -p /tmp/bitwarden
+
 /usr/local/bin/hbs
 
-# Enable/Disable services
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ADMIN}/" /etc/supervisor.d/admin.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_API}/" /etc/supervisor.d/api.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_EVENTS}/" /etc/supervisor.d/events.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_ICONS}/" /etc/supervisor.d/icons.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_IDENTITY}/" /etc/supervisor.d/identity.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_NOTIFICATIONS}/" /etc/supervisor.d/notifications.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SCIM}/" /etc/supervisor.d/scim.ini
-sed -i "s/autostart=true/autostart=${BW_ENABLE_SSO}/" /etc/supervisor.d/sso.ini
-
-chown -R $PUID:$PGID \
-    /app \
-    /etc/bitwarden \
-    /etc/nginx/http.d \
-    /etc/supervisor \
-    /etc/supervisor.d \
-    /var/lib/nginx \
-    /var/log \
-    /var/run/nginx \
-    /run
-
-if command -v su-exec >/dev/null 2>&1; then
-  exec su-exec $PUID:$PGID /usr/bin/supervisord
+if [ "$(id -u)" = "0" ]; then
+  find /etc/bitwarden -follow ! -type l \( ! -group "$PGID" -o ! -user "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
+  exec su-exec "$PUID:$PGID" /usr/bin/supervisord
 else
+  FILES="$(find /etc/bitwarden -follow ! -type l \( ! -group "$(id -g)" -o ! -user "$(id -u)" \))"
+  if [ -n "$FILES" ]; then
+    echo "The following files are not owned by the running user and may cause errors:" >&2
+    echo "$FILES" >&2
+  fi
+
   exec /usr/bin/supervisord
 fi
