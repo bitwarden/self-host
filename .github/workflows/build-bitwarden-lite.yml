@@ -106,9 +106,7 @@ jobs:
           elif [[ -z "${WEB_BRANCH}" ]]; then
             echo "web_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
           else
-            # Strip refs/heads/ prefix if present
-            CLEAN_BRANCH="${WEB_BRANCH#refs/heads/}"
-            echo "web_ref=refs/heads/${CLEAN_BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "web_ref=refs/heads/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
           fi
 
   build-docker:
