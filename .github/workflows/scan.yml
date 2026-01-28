@@ -2,60 +2,50 @@ name: Scan
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches-ignore:
+      - main
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches:
+      - "main"
 
 permissions: {}
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-24.04
+  check-run:
+    name: Check PR run
+    uses: bitwarden/gh-actions/.github/workflows/check-run.yml@main
     permissions:
+      contents: read
+
+  sast:
+    name: Checkmarx
+    uses: bitwarden/gh-actions/.github/workflows/_checkmarx.yml@main
+    needs: check-run
+    secrets:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
       id-token: write
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          persist-credentials: false
 
-      - name: Log in to Azure
-        uses: bitwarden/gh-actions/azure-login@main
-        with:
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-
-      - name: Get Azure Key Vault secrets
-        id: get-kv-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        with:
-          keyvault: gh-org-bitwarden
-          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
-
-      - name: Generate GH App token
-        uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.0
-        id: app-token
-        with:
-          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
-          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
-          permission-actions: read # for downloading workflow run artifacts
-          permission-contents: read # for checking out repos
-
-      - name: Test download
-        uses: bitwarden/gh-actions/download-artifacts@main
-        with:
-          github_token: ${{ steps.app-token.outputs.token }}
-          workflow: build-web.yml
-          workflow_conclusion: success
-          branch: refs/heads/billing/pm-29602/update-cart-summary
-          repo: bitwarden/clients
-          artifacts: "web-*-selfhosted-DEV.zip"
-          if_no_artifact_found: fail
-
-      - name: List files
-        run: |
-          ls -alh
-          echo "**********"
-          find . -name "web-*-selfhosted-DEV.zip"
+  quality:
+    name: Sonar
+    uses: bitwarden/gh-actions/.github/workflows/_sonar.yml@main
+    needs: check-run
+    secrets:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
