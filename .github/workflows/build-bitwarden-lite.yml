@@ -225,10 +225,12 @@ jobs:
       - name: Set web artifact path for dev builds
         if: needs.setup.outputs.use_web_release == 'false'
         id: set-web-artifact-path
+        env:
+          WEB_BRANCH_NAME: ${{ needs.setup.outputs.web_branch_name }}
         run: |
           WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
           if [[ -z "${WEB_ARTIFACT}" ]]; then
-            echo "ERROR: No web artifact found for branch: ${{ needs.setup.outputs.web_branch_name }}"
+            echo "ERROR: No web artifact found for branch: ${WEB_BRANCH_NAME}"
             echo "Make sure the build-web.yml workflow has completed successfully for this branch"
             exit 1
           fi
@@ -236,10 +238,13 @@ jobs:
           echo "Found web artifact: ${WEB_ARTIFACT}"
 
       - name: Log build configuration
+        env:
+          SERVER_REF: ${{ needs.setup.outputs.server_ref }}
+          WEB_REF: ${{ needs.setup.outputs.web_ref }}
         run: |
           echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- Server: ${{ needs.setup.outputs.server_ref }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Web: ${{ needs.setup.outputs.web_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Server: ${SERVER_REF}" >> $GITHUB_STEP_SUMMARY
+          echo "- Web: ${WEB_REF}" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
         id: build-docker
