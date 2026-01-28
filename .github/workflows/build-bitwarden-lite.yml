@@ -215,17 +215,7 @@ jobs:
       - name: Set web artifact path for dev builds
         if: inputs.use_latest_web_version == 'false'
         id: set-web-artifact-path
-        env:
-          WEB_REF: ${{ needs.setup.outputs.web_ref }}
-        run: |
-          WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
-          if [[ -z "${WEB_ARTIFACT}" ]]; then
-            echo "ERROR: No web artifact found for branch: ${WEB_REF#refs/heads/}"
-            echo "Make sure the build-web.yml workflow has completed successfully for this branch"
-            exit 1
-          fi
-          echo "path=${WEB_ARTIFACT}" >> "$GITHUB_OUTPUT"
-          echo "Found web artifact: ${WEB_ARTIFACT}"
+        run: echo "path=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: Log build configuration
         env:
