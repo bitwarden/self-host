@@ -68,6 +68,8 @@ jobs:
     outputs:
       server_ref: ${{ steps.set-server-variables.outputs.server_ref }}
       web_ref: ${{ steps.set-web-variables.outputs.web_ref }}
+      web_branch_name: ${{ steps.set-web-variables.outputs.web_branch_name }}
+      use_web_release: ${{ steps.set-web-variables.outputs.use_web_release }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -103,10 +105,18 @@ jobs:
             WEB_VERSION=$(jq -r '.versions.webVersion' version.json)
             echo "Web version from version.json: $WEB_VERSION"
             echo "web_ref=refs/tags/web-v$WEB_VERSION" >> "$GITHUB_OUTPUT"
+            echo "web_branch_name=" >> "$GITHUB_OUTPUT"
+            echo "use_web_release=true" >> "$GITHUB_OUTPUT"
           elif [[ -z "${WEB_BRANCH}" ]]; then
             echo "web_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
+            echo "web_branch_name=main" >> "$GITHUB_OUTPUT"
+            echo "use_web_release=false" >> "$GITHUB_OUTPUT"
           else
-            echo "web_ref=refs/heads/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+            # Strip refs/heads/ prefix if present
+            CLEAN_BRANCH="${WEB_BRANCH#refs/heads/}"
+            echo "web_ref=refs/heads/${CLEAN_BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "web_branch_name=${CLEAN_BRANCH}" >> "$GITHUB_OUTPUT"
+            echo "use_web_release=false" >> "$GITHUB_OUTPUT"
           fi
 
   build-docker:
@@ -201,26 +211,35 @@ jobs:
           persist-credentials: false
 
       - name: Download web client branch artifacts for dev builds
-        if: needs.setup.outputs.web_ref == 'refs/heads/main'
+        if: needs.setup.outputs.use_web_release == 'false'
         uses: bitwarden/gh-actions/download-artifacts@main
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           workflow: build-web.yml
           workflow_conclusion: success
-          branch: main
+          branch: ${{ needs.setup.outputs.web_branch_name }}
           repo: bitwarden/clients
           artifacts: "web-*-selfhosted-DEV.zip"
+          if_no_artifact_found: fail
 
       - name: Set web artifact path for dev builds
-        if: needs.setup.outputs.web_ref == 'refs/heads/main'
+        if: needs.setup.outputs.use_web_release == 'false'
         id: set-web-artifact-path
         run: |
           WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
           if [[ -z "${WEB_ARTIFACT}" ]]; then
-            echo "ERROR: No web artifact found for dev build"
+            echo "ERROR: No web artifact found for branch: ${{ needs.setup.outputs.web_branch_name }}"
+            echo "Make sure the build-web.yml workflow has completed successfully for this branch"
             exit 1
           fi
           echo "path=${WEB_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "Found web artifact: ${WEB_ARTIFACT}"
+
+      - name: Log build configuration
+        run: |
+          echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Server: ${{ needs.setup.outputs.server_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Web: ${{ needs.setup.outputs.web_ref }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
         id: build-docker
