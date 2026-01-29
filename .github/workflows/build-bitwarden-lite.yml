@@ -201,7 +201,7 @@ jobs:
           persist-credentials: false
 
       - name: Download web client branch artifacts for dev builds
-        if: ${{ !inputs.use_latest_web_version}}
+        if: ${{ !inputs.use_latest_web_version }}
         uses: bitwarden/gh-actions/download-artifacts@main
         with:
           github_token: ${{ steps.app-token.outputs.token }}
