@@ -7,13 +7,19 @@ services:
     env_file:
       - settings.env
     image: ${REGISTRY:-ghcr.io/bitwarden}/lite:${TAG:-2026.1.0}
+    user: 999:999
+    tmpfs: /tmp:rw,noexec,nosuid,nodev,size=512m
+    read_only: true
+    security_opt:
+      - no-new-privileges
     restart: always
     ports:
       - "80:8080"
       - "443:8443"
     volumes:
+      # The user specified above must have permissions
+      # for the bind mount on the host
       - bitwarden:/etc/bitwarden
-      - logs:/var/log/bitwarden
 
   # MariaDB Example
   db:
@@ -51,5 +57,4 @@ services:
 
 volumes:
   bitwarden:
-  logs:
   data:
