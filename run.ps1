@@ -55,10 +55,6 @@ function Install() {
         echo ""
 
         if ($letsEncrypt -eq "y") {
-            Write-Host "(!) " -f cyan -nonewline
-            [string]$email = $( Read-Host ("Enter your email address (Let's Encrypt will send you certificate " +
-                    "expiration reminders)") )
-            echo ""
 
             $letsEncryptPath = "${outputDir}/letsencrypt"
             if (!(Test-Path -Path $letsEncryptPath )) {
@@ -68,7 +64,7 @@ function Install() {
             $certbotExp = "docker run -it --rm --name certbot -p ${certbotHttpsPort}:443 -p ${certbotHttpPort}:80 " + `
                 "-v ${outputDir}/letsencrypt:/etc/letsencrypt/ certbot/certbot " + `
                 "certonly{0} --standalone --noninteractive --agree-tos --preferred-challenges http " + `
-                "--email ${email} -d ${domain} --logs-dir /etc/letsencrypt/logs"
+                "-d ${domain} --logs-dir /etc/letsencrypt/logs"
             Invoke-Expression ($certbotExp -f $qFlag)
 
             Cleanup-Certbot
@@ -227,7 +223,7 @@ function Uninstall() {
     if ($purgeAction -eq "y") {
         Docker-Prune
     }
-    
+
     Cleanup-Certbot
 }
 
@@ -269,12 +265,12 @@ function Cleanup-Certbot {
     if ([string]::IsNullOrEmpty((docker ps -a --filter ancestor=certbot/certbot --quiet))) {
         Write-Host "(!) " -f red -nonewline
         $response = $( Read-Host "The [certbot/certbot] container image used by this script is no longer associated with any containers. Would you like to purge it? (y/N)" )
-        
+
         if ($response.ToLower() -eq 'y') {
             docker image rm certbot/certbot
         }
     }
-} 
+}
 
 # Commands
 
