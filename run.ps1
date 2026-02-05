@@ -66,8 +66,6 @@ function Install() {
                 "certonly{0} --standalone --noninteractive --agree-tos --preferred-challenges http " + `
                 "-d ${domain} --logs-dir /etc/letsencrypt/logs"
             Invoke-Expression ($certbotExp -f $qFlag)
-
-            Cleanup-Certbot
         }
     }
 
@@ -150,8 +148,6 @@ function Update-Lets-Encrypt {
             "-v ${outputDir}/letsencrypt:/etc/letsencrypt/ certbot/certbot " + `
             "renew{0} --logs-dir /etc/letsencrypt/logs" -f $qFlag
         Invoke-Expression $certbotExp
-
-        Cleanup-Certbot
     }
 }
 
@@ -162,8 +158,6 @@ function Force-Update-Lets-Encrypt {
             "-v ${outputDir}/letsencrypt:/etc/letsencrypt/ certbot/certbot " + `
             "renew{0} --logs-dir /etc/letsencrypt/logs --force-renew" -f $qFlag
         Invoke-Expression $certbotExp
-
-        Cleanup-Certbot
     }
 }
 
@@ -223,8 +217,6 @@ function Uninstall() {
     if ($purgeAction -eq "y") {
         Docker-Prune
     }
-
-    Cleanup-Certbot
 }
 
 function Print-Environment {
@@ -257,18 +249,6 @@ function Pull-Setup {
 function Write-Line($str) {
     if ($env:BITWARDEN_QUIET -ne "true") {
         Write-Host $str
-    }
-}
-
-function Cleanup-Certbot {
-    # Check if the certbot image is being used by any containers
-    if ([string]::IsNullOrEmpty((docker ps -a --filter ancestor=certbot/certbot --quiet))) {
-        Write-Host "(!) " -f red -nonewline
-        $response = $( Read-Host "The [certbot/certbot] container image used by this script is no longer associated with any containers. Would you like to purge it? (y/N)" )
-
-        if ($response.ToLower() -eq 'y') {
-            docker image rm certbot/certbot
-        }
     }
 }
 
