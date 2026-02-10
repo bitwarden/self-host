@@ -89,6 +89,7 @@ COPY server/bitwarden_license/src/Commercial.Core/*.csproj ./bitwarden_license/s
 COPY server/bitwarden_license/src/Commercial.Infrastructure.EntityFramework/*.csproj ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
 COPY server/Directory.Build.props .
 COPY server/.editorconfig .
+COPY server/global.json .
 
 # Restore Admin project dependencies and tools
 WORKDIR /source/src/Admin
