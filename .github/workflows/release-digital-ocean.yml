@@ -117,11 +117,13 @@ jobs:
 
       - name: Add build summary
         if: success()
+        env:
+          VERSION: ${{ steps.set-version.outputs.version }}
         working-directory: ./DigitalOceanMarketplace
         run: |
           echo "## :rocket: Digital Ocean Image Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.set-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Get artifact details from manifest
