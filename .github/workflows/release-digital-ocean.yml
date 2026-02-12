@@ -72,10 +72,69 @@ jobs:
           packer build marketplace-image.pkr.hcl
 
       - name: Install doctl
-        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
         uses: digitalocean/action-doctl@135ac0aa0eed4437d547c6f12c364d3006b42824 # v2.5.1
         with:
           token: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
+
+      - name: Cleanup orphaned droplets on cancellation
+        if: cancelled()
+        run: |
+          echo "Workflow cancelled - cleaning up any orphaned droplets..."
+
+          # Write to workflow summary
+          echo "## :warning: Workflow Cancelled - Droplet Cleanup" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Searching for orphaned droplets with tag: \`github-run-${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find droplets with our workflow run tag
+          DROPLET_IDS=$(doctl compute droplet list \
+            --tag-name "github-run-${{ github.run_id }}" \
+            --format ID \
+            --no-header)
+
+          if [ -n "$DROPLET_IDS" ]; then
+            echo "Found orphaned droplets: $DROPLET_IDS"
+            echo "### Orphaned Droplets Found and Deleted" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Droplet ID | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+            for DROPLET_ID in $DROPLET_IDS; do
+              echo "Deleting droplet $DROPLET_ID..."
+              if doctl compute droplet delete "$DROPLET_ID" --force; then
+                echo "| $DROPLET_ID | :white_check_mark: Deleted |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $DROPLET_ID | :x: Failed to delete |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo ":white_check_mark: Cleanup complete" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No orphaned droplets found"
+            echo ":white_check_mark: No orphaned droplets found - nothing to clean up" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Add build summary
+        if: success()
+        working-directory: ./DigitalOceanMarketplace
+        run: |
+          echo "## :rocket: Digital Ocean Image Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.set-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Get artifact details from manifest
+          if [ -f manifest.json ]; then
+            SNAPSHOT_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+            SNAPSHOT_NAME=$(jq -r '.builds[-1].custom_data.snapshot_name // "N/A"' manifest.json)
+            echo "**Snapshot ID:** \`$SNAPSHOT_ID\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Snapshot Name:** \`$SNAPSHOT_NAME\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo ":white_check_mark: Packer build droplet was automatically cleaned up" >> $GITHUB_STEP_SUMMARY
 
       - name: Digital Ocean Image Cleanup
         working-directory: ./DigitalOceanMarketplace
@@ -86,3 +145,9 @@ jobs:
 
           # Force remove the snapshot
           doctl compute image delete "$DO_ARTIFACT" -f
+
+          # Update summary for non-release builds
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo ":wastebasket: **Non-release build:** Snapshot \`$DO_ARTIFACT\` was automatically cleaned up" >> $GITHUB_STEP_SUMMARY
