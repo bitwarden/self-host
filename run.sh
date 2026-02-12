@@ -80,16 +80,12 @@ function install() {
 
         if [ "$LETS_ENCRYPT" == "y" ]
         then
-            echo -e -n "${CYAN}(!)${NC} Enter your email address (Let's Encrypt will send you certificate expiration reminders): "
-            read EMAIL
-            echo ""
-
             mkdir -p $OUTPUT_DIR/letsencrypt
 
             docker pull certbot/certbot
             docker run -it --rm --name certbot -p 80:80 -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
                 certonly --standalone --noninteractive  --agree-tos --preferred-challenges http \
-                --email $EMAIL -d $DOMAIN --logs-dir /etc/letsencrypt/logs
+                -d $DOMAIN --logs-dir /etc/letsencrypt/logs
         fi
     fi
 
