@@ -167,13 +167,21 @@ function dockerPrune() {
     docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
 }
 
+function preventLetsEncryptRandomSleepOnRenew() {
+    if [ -f "${OUTPUT_DIR}/config.yml" ] &&
+        grep -q -E "^lets_encrypt_no_random_sleep_on_renew: true" "${OUTPUT_DIR}/config.yml"
+    then
+        echo '--no-random-sleep-on-renew'
+    fi
+}
+
 function updateLetsEncrypt() {
     if [ -d "${OUTPUT_DIR}/letsencrypt/live" ]
     then
         docker pull certbot/certbot
         docker run -i --rm --name certbot -p 443:443 -p 80:80 \
             -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
-            renew --logs-dir /etc/letsencrypt/logs
+            renew ${preventLetsEncryptRandomSleepOnRenew} --logs-dir /etc/letsencrypt/logs
     fi
 }
 
@@ -183,7 +191,7 @@ function forceUpdateLetsEncrypt() {
         docker pull certbot/certbot
         docker run -i --rm --name certbot -p 443:443 -p 80:80 \
             -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
-            renew --logs-dir /etc/letsencrypt/logs --force-renew
+            renew ${preventLetsEncryptRandomSleepOnRenew} --logs-dir /etc/letsencrypt/logs --force-renew
     fi
 }
 
