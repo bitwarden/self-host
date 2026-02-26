@@ -33,6 +33,11 @@ variable "do_token" {
   sensitive = true
 }
 
+variable "github_run_id" {
+  type    = string
+  default = "${env("GITHUB_RUN_ID")}"
+}
+
 # "timestamp" template function replacement
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
@@ -49,6 +54,10 @@ source "digitalocean" "bitwarden_self_host" {
   size          = "s-1vcpu-2gb"
   snapshot_name = "${local.image_name}"
   ssh_username  = "root"
+  tags          = [
+    "bitwarden-packer-build",
+    "github-run-${var.github_run_id}"
+  ]
 }
 
 build {
