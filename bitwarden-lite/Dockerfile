@@ -190,6 +190,7 @@ ARG TARGETPLATFORM
 LABEL com.bitwarden.product="bitwarden"
 LABEL com.bitwarden.project="lite"
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV BW_ENABLE_IPV6=true
 ENV BW_ENABLE_ADMIN=true
 ENV BW_ENABLE_API=true
 ENV BW_ENABLE_EVENTS=false
