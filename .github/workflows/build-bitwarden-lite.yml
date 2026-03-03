@@ -138,33 +138,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Docker image tag
-        id: tag
-        env:
-          SERVER_REF: ${{ needs.setup.outputs.server_ref }}
-        run: |
-          if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
-              IMAGE_TAG="${BASH_REMATCH[1]}"
-          else
-              IMAGE_TAG=$(echo "${SERVER_REF#refs/heads/}" | \
-              tr '[:upper:]' '[:lower:]' | \
-              sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^-+|-+$//g' | \
-              cut -c1-128 | \
-              sed -E 's/[.-]$//')
-          fi
-
-          if [[ "$IMAGE_TAG" == "main" ]]; then
-            IMAGE_TAG=dev
-          fi
-
-          if [[ -z "$IMAGE_TAG" ]]; then
-            echo "ERROR: Failed to generate valid IMAGE_TAG from SERVER_REF: $SERVER_REF"
-            exit 1
-          fi
-
-          echo "Using $IMAGE_TAG for build"
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
-
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
         with:
@@ -188,6 +161,7 @@ jobs:
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          repositories: "server,clients"
           permission-actions: read # for downloading workflow run artifacts
           permission-contents: read # for checking out repos
 
@@ -199,6 +173,34 @@ jobs:
           ref: ${{ needs.setup.outputs.server_ref }}
           path: "server"
           persist-credentials: false
+
+      - name: Generate Docker image tag
+        id: tag
+        env:
+          SERVER_REF: ${{ needs.setup.outputs.server_ref }}
+          WEB_REF: ${{ needs.setup.outputs.web_ref }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
+            IMAGE_TAG="${BASH_REMATCH[1]}"
+          elif [[ "$SERVER_REF" == "refs/heads/main" && "$WEB_REF" == "refs/heads/main" ]]; then
+            IMAGE_TAG=dev
+          else
+            # At least one component is on a non-main branch; use short SHAs for precision
+            SERVER_SHA=$(git -C server rev-parse --short HEAD)
+            WEB_SHORT_REF="${WEB_REF#refs/heads/}"
+            WEB_SHORT_REF="${WEB_SHORT_REF#refs/tags/}"
+            WEB_SHA=$(gh api "repos/bitwarden/clients/commits/${WEB_SHORT_REF}" --jq '.sha[:7]')
+            IMAGE_TAG="${SERVER_SHA}_${WEB_SHA}"
+          fi
+
+          if [[ -z "$IMAGE_TAG" ]]; then
+            echo "ERROR: Failed to generate a valid IMAGE_TAG"
+            exit 1
+          fi
+
+          echo "Using $IMAGE_TAG for build"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Download web client branch artifacts for dev builds
         if: ${{ !inputs.use_latest_web_version }}
