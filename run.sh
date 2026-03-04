@@ -80,18 +80,12 @@ function install() {
 
         if [ "$LETS_ENCRYPT" == "y" ]
         then
-            echo -e -n "${CYAN}(!)${NC} Enter your email address (Let's Encrypt will send you certificate expiration reminders): "
-            read EMAIL
-            echo ""
-
             mkdir -p $OUTPUT_DIR/letsencrypt
 
             docker pull certbot/certbot
             docker run -it --rm --name certbot -p 80:80 -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
                 certonly --standalone --noninteractive  --agree-tos --preferred-challenges http \
-                --email $EMAIL -d $DOMAIN --logs-dir /etc/letsencrypt/logs
-            
-            certbotCleanup
+                -d $DOMAIN --logs-dir /etc/letsencrypt/logs
         fi
     fi
 
@@ -176,8 +170,6 @@ function updateLetsEncrypt() {
         docker run -i --rm --name certbot -p 443:443 -p 80:80 \
             -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
             renew --logs-dir /etc/letsencrypt/logs
-        
-        certbotCleanup
     fi
 }
 
@@ -188,8 +180,6 @@ function forceUpdateLetsEncrypt() {
         docker run -i --rm --name certbot -p 443:443 -p 80:80 \
             -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
             renew --logs-dir /etc/letsencrypt/logs --force-renew
-
-        certbotCleanup
     fi
 }
 
@@ -287,8 +277,6 @@ function uninstall() {
         dockerPrune
         echo -e -n "${CYAN}Bitwarden uninstall complete! ${NC}"
     fi
-
-    certbotCleanup
 }
 
 function printEnvironment() {
@@ -316,21 +304,6 @@ function certRestart() {
 
 function pullSetup() {
     docker pull ghcr.io/bitwarden/setup:$COREVERSION
-}
-
-function certbotCleanup() {
-    # Check if the certbot image is being used by any containers
-    if [[ -z $(docker ps -a --filter ancestor=certbot/certbot --quiet) ]]
-    then
-        echo -e -n "${RED}(!) The [certbot/certbot] container image used by this script is no longer associated with any containers. Would you like to purge it? (y/N): ${NC}"
-        read RESPONSE
-        RESPONSE=$(echo "$RESPONSE" | tr '[:upper:]' '[:lower:]')
-        
-        if [[ $RESPONSE == 'y' ]]
-        then
-            docker image rm certbot/certbot
-        fi
-    fi
 }
 
 # Commands

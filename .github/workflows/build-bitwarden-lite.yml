@@ -201,26 +201,30 @@ jobs:
           persist-credentials: false
 
       - name: Download web client branch artifacts for dev builds
-        if: needs.setup.outputs.web_ref == 'refs/heads/main'
+        if: ${{ !inputs.use_latest_web_version }}
         uses: bitwarden/gh-actions/download-artifacts@main
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           workflow: build-web.yml
           workflow_conclusion: success
-          branch: main
+          branch: ${{ needs.setup.outputs.web_ref }}
           repo: bitwarden/clients
           artifacts: "web-*-selfhosted-DEV.zip"
+          if_no_artifact_found: fail
 
       - name: Set web artifact path for dev builds
-        if: needs.setup.outputs.web_ref == 'refs/heads/main'
+        if: ${{ !inputs.use_latest_web_version }}
         id: set-web-artifact-path
+        run: echo "path=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Log build configuration
+        env:
+          SERVER_REF: ${{ needs.setup.outputs.server_ref }}
+          WEB_REF: ${{ needs.setup.outputs.web_ref }}
         run: |
-          WEB_ARTIFACT=$(find . -name "web-*-selfhosted-DEV.zip" | head -1)
-          if [[ -z "${WEB_ARTIFACT}" ]]; then
-            echo "ERROR: No web artifact found for dev build"
-            exit 1
-          fi
-          echo "path=${WEB_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Server: ${SERVER_REF}" >> $GITHUB_STEP_SUMMARY
+          echo "- Web: ${WEB_REF}" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
         id: build-docker
