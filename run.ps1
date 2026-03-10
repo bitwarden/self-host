@@ -12,7 +12,8 @@ param (
     [switch] $uninstall,
     [switch] $renewcert,
     [switch] $updatedb,
-    [switch] $update
+    [switch] $update,
+    [switch] $rebuild
 )
 
 # Setup
@@ -54,10 +55,6 @@ function Install() {
         echo ""
 
         if ($letsEncrypt -eq "y") {
-            Write-Host "(!) " -f cyan -nonewline
-            [string]$email = $( Read-Host ("Enter your email address (Let's Encrypt will send you certificate " +
-                    "expiration reminders)") )
-            echo ""
 
             $letsEncryptPath = "${outputDir}/letsencrypt"
             if (!(Test-Path -Path $letsEncryptPath )) {
@@ -67,7 +64,7 @@ function Install() {
             $certbotExp = "docker run -it --rm --name certbot -p ${certbotHttpsPort}:443 -p ${certbotHttpPort}:80 " + `
                 "-v ${outputDir}/letsencrypt:/etc/letsencrypt/ certbot/certbot " + `
                 "certonly{0} --standalone --noninteractive --agree-tos --preferred-challenges http " + `
-                "--email ${email} -d ${domain} --logs-dir /etc/letsencrypt/logs"
+                "-d ${domain} --logs-dir /etc/letsencrypt/logs"
             Invoke-Expression ($certbotExp -f $qFlag)
         }
     }
@@ -141,8 +138,7 @@ function Create-Dir($str) {
 }
 
 function Docker-Prune {
-    docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden" `
-        --filter="label!=com.bitwarden.project=setup"
+    docker image prune --all --force --filter="label=com.bitwarden.product=bitwarden"
 }
 
 function Update-Lets-Encrypt {
@@ -204,7 +200,6 @@ function Uninstall() {
         $uninstallAction = $( Read-Host "Are you sure you want to uninstall Bitwarden? (y/n)" )
     }
 
-
     if ($uninstallAction -eq "y") {
         Write-Host "uninstalling Bitwarden..."
         Docker-Compose-Down
@@ -217,11 +212,11 @@ function Uninstall() {
     }
 
     Write-Host "(!) " -f red -nonewline
-        $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/n)" )
+    $purgeAction = $( Read-Host "Would you like to purge all local Bitwarden container images? (y/n)" )
 
-        if ($purgeAction -eq "y") {
-            Docker-Prune
-        }
+    if ($purgeAction -eq "y") {
+        Docker-Prune
+    }
 }
 
 function Print-Environment {
@@ -246,7 +241,6 @@ function Cert-Restart {
     Docker-Compose-Up
     Print-Environment
 }
-
 
 function Pull-Setup {
     Invoke-Expression ("docker pull{0} ghcr.io/bitwarden/setup:${coreVersion}" -f "") #TODO: qFlag
