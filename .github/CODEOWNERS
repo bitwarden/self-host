@@ -5,14 +5,14 @@
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default file owners
-* @bitwarden/dept-bre
+* @bitwarden/dept-shot
 
 # Docker-related files
-**/Dockerfile @bitwarden/team-appsec @bitwarden/dept-bre
-**/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
-**/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
-**/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
+**/Dockerfile @bitwarden/team-appsec @bitwarden/dept-shot
+**/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-shot
+**/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-shot
+**/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-shot
 
-# Shared Platform and BRE
-.github/workflows/build-bitwarden-lite.yml @bitwarden/team-platform-dev @bitwarden/dept-bre
-bitwarden-lite/ @bitwarden/team-platform-dev @bitwarden/dept-bre
+# Shared Platform and SHOT
+.github/workflows/build-bitwarden-lite.yml @bitwarden/team-platform-dev @bitwarden/dept-shot
+bitwarden-lite/ @bitwarden/team-platform-dev @bitwarden/dept-shot
