@@ -13,7 +13,7 @@
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-shot
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-shot
 
-# Bitwarden Lite
+# Bitwarden lite
 .github/workflows/build-bitwarden-lite.yml @bitwarden/dept-shot
 bitwarden-lite/ @bitwarden/dept-shot
 
