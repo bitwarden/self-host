@@ -79,8 +79,8 @@ jobs:
           packer init -upgrade marketplace-image.pkr.hcl
           packer build marketplace-image.pkr.hcl
 
-      - name: Cleanup orphaned resources on cancellation
-        if: cancelled()
+      - name: Cleanup orphaned resources on cancellation or failure
+        if: cancelled() || failure()
         env:
           RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
         run: |
