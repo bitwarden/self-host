@@ -12,7 +12,7 @@ RUN apk add --no-cache \
     git
 
 WORKDIR /tmp
-ARG WEB_ARTIFACT_PAT
+ARG WEB_ARTIFACT_PATH
 # Grab last tag/release of the 'web' client
 RUN  if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
     git ls-remote --tags https://github.com/bitwarden/clients.git \
