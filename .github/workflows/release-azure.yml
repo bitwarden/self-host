@@ -1,0 +1,172 @@
+name: Release Azure Marketplace
+
+on:
+  release:
+    types: [published]
+
+  push:
+    paths:
+      - "AzureMarketplace/**"
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-image:
+    name: Build Image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Retrieve secrets
+        id: retrieve-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: "bitwarden-ci"
+          secrets: "azure-marketplace-client-id,
+            azure-marketplace-client-secret,
+            azure-marketplace-tenant-id,
+            azure-marketplace-subscription-id,
+            azure-marketplace-resource-group,
+            azure-marketplace-gallery-name"
+
+      - name: Set version from version.json
+        id: set-version
+        run: |
+          VERSION=$(jq -r '.versions.coreVersion' version.json)
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Failed to extract coreVersion from version.json"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Hashicorp Packer
+        uses: hashicorp/setup-packer@1aa358be5cf73883762b302a3a03abd66e75b232 # v3.1.0
+
+      - name: Build Azure Image
+        env:
+          AZURE_CLIENT_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-client-id }}
+          AZURE_CLIENT_SECRET: ${{ steps.retrieve-secrets.outputs.azure-marketplace-client-secret }}
+          AZURE_TENANT_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-tenant-id }}
+          AZURE_SUBSCRIPTION_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-subscription-id }}
+          AZURE_RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
+          AZURE_GALLERY_NAME: ${{ steps.retrieve-secrets.outputs.azure-marketplace-gallery-name }}
+          AZURE_GALLERY_IMAGE_NAME: "bitwarden-self-host"
+          AZURE_IMG_VERSION: ${{ steps.set-version.outputs.version }}
+        working-directory: ./AzureMarketplace
+        run: |
+          packer version
+          packer init -upgrade marketplace-image.pkr.hcl
+          packer build marketplace-image.pkr.hcl
+
+      - name: Cleanup orphaned resources on cancellation
+        if: cancelled()
+        env:
+          RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
+        run: |
+          echo "Workflow cancelled - cleaning up any orphaned resources..."
+
+          echo "## :warning: Workflow Cancelled - Resource Cleanup" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Searching for orphaned resources with tag: \`github-run-${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find and delete VMs tagged with this run
+          VM_IDS=$(az vm list \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?tags.github_run=='github-run-${{ github.run_id }}'].id" \
+            --output tsv)
+
+          if [ -n "$VM_IDS" ]; then
+            echo "Found orphaned VMs, deleting..."
+            echo "### Orphaned VMs Found and Deleted" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            for VM_ID in $VM_IDS; do
+              echo "Deleting VM: $VM_ID"
+              if az vm delete --ids "$VM_ID" --yes --force-deletion true; then
+                echo "| $VM_ID | :white_check_mark: Deleted |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $VM_ID | :x: Failed to delete |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No orphaned VMs found"
+            echo ":white_check_mark: No orphaned resources found - nothing to clean up" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Add build summary
+        if: success()
+        env:
+          VERSION: ${{ steps.set-version.outputs.version }}
+        working-directory: ./AzureMarketplace
+        run: |
+          echo "## :rocket: Azure Marketplace Image Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Get artifact details from manifest
+          if [ -f manifest.json ]; then
+            IMAGE_ID=$(jq -r '.builds[-1].artifact_id' manifest.json)
+            echo "**Image ID:** \`$IMAGE_ID\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo ":white_check_mark: Packer build VM was automatically cleaned up" >> $GITHUB_STEP_SUMMARY
+
+      - name: Azure Image Cleanup
+        working-directory: ./AzureMarketplace
+        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        env:
+          RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
+          GALLERY_NAME: ${{ steps.retrieve-secrets.outputs.azure-marketplace-gallery-name }}
+          VERSION: ${{ steps.set-version.outputs.version }}
+        run: |
+          # Get the managed image name from manifest
+          IMAGE_NAME=$(jq -r '.builds[-1].custom_data.managed_image_name // empty' manifest.json)
+
+          # Delete the gallery image version
+          az sig image-version delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --gallery-name "$GALLERY_NAME" \
+            --gallery-image-definition "bitwarden-self-host" \
+            --gallery-image-version "$VERSION" \
+            2>/dev/null || true
+
+          # Delete the managed image
+          if [ -n "$IMAGE_NAME" ]; then
+            az image delete \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$IMAGE_NAME" \
+              2>/dev/null || true
+          fi
+
+          # Update summary for non-release builds
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo ":wastebasket: **Non-release build:** Image was automatically cleaned up" >> $GITHUB_STEP_SUMMARY
+
+      - name: Log out from Azure
+        if: always()
+        uses: bitwarden/gh-actions/azure-logout@main
