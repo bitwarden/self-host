@@ -3,7 +3,6 @@
 #                 Build stage                 #
 ###############################################
 FROM --platform=$BUILDPLATFORM alpine:3.23 AS web-setup
-ARG WEB_ARTIFACT_PATH
 
 # Add packages
 RUN apk add --no-cache \
@@ -13,7 +12,7 @@ RUN apk add --no-cache \
     git
 
 WORKDIR /tmp
-
+ARG WEB_ARTIFACT_PAT
 # Grab last tag/release of the 'web' client
 RUN  if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
     git ls-remote --tags https://github.com/bitwarden/clients.git \
@@ -123,6 +122,17 @@ RUN . /tmp/rid.txt && dotnet restore -r $RID
 WORKDIR /source/bitwarden_license/src/Scim
 RUN . /tmp/rid.txt && dotnet restore -r $RID
 
+# Copy package.json files as layers
+WORKDIR /source
+COPY server/src/Admin/package*.json ./src/Admin/
+COPY server/bitwarden_license/src/Sso/package*.json ./bitwarden_license/src/Sso/
+
+# Install npm dependencies
+WORKDIR /source/src/Admin
+RUN npm install
+WORKDIR /source/bitwarden_license/src/Sso
+RUN npm install
+
 # Copy required project files
 WORKDIR /source
 COPY server/src/Admin/. ./src/Admin/
@@ -148,7 +158,6 @@ COPY server/.git/. ./.git/
 
 # Build Admin app
 WORKDIR /source/src/Admin
-RUN npm install
 RUN npm run build
 RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Admin --no-restore --no-self-contained -r $RID
 
@@ -174,7 +183,6 @@ RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Notifications --no-resto
 
 # Build Sso app
 WORKDIR /source/bitwarden_license/src/Sso
-RUN npm install
 RUN npm run build
 RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Sso --no-restore --no-self-contained -r $RID
 
@@ -235,19 +243,20 @@ RUN apk add --no-cache \
     gcompat
 
 # Create required directories
-RUN mkdir -p /etc/bitwarden/attachments/send
-RUN mkdir -p /etc/bitwarden/data-protection
-RUN mkdir -p /etc/bitwarden/licenses
-RUN mkdir -p /etc/bitwarden/logs
-RUN mkdir -p /etc/supervisor
-RUN mkdir -p /etc/supervisor.d
-RUN mkdir -p /var/log/bitwarden
-RUN mkdir -p /var/log/nginx/logs
-RUN mkdir -p /etc/nginx/http.d
-RUN mkdir -p /var/run/nginx
-RUN mkdir -p /var/lib/nginx/tmp
-RUN touch /var/run/nginx/nginx.pid
-RUN mkdir -p /app
+RUN mkdir -p \
+    /etc/bitwarden/attachments/send \
+    /etc/bitwarden/data-protection \
+    /etc/bitwarden/licenses \
+    /etc/bitwarden/logs \
+    /etc/supervisor \
+    /etc/supervisor.d \
+    /var/log/bitwarden \
+    /var/log/nginx/logs \
+    /etc/nginx/http.d \
+    /var/run/nginx \
+    /var/lib/nginx/tmp \
+    /app && \
+    touch /var/run/nginx/nginx.pid
 
 # Copy all apps from dotnet-build stage
 WORKDIR /app
@@ -267,8 +276,7 @@ COPY bitwarden-lite/nginx/proxy.conf /etc/nginx
 COPY bitwarden-lite/nginx/mime.types /etc/nginx
 COPY bitwarden-lite/nginx/security-headers.conf /etc/nginx
 COPY bitwarden-lite/nginx/security-headers-ssl.conf /etc/nginx
-COPY bitwarden-lite/nginx/logrotate.sh /
-RUN chmod +x /logrotate.sh
+COPY --chmod=755 bitwarden-lite/nginx/logrotate.sh /logrotate.sh
 
 # Copy configuration templates
 COPY bitwarden-lite/hbs/nginx-config.hbs /etc/hbs/
@@ -286,8 +294,7 @@ RUN unzip hbs.zip -d /usr/local/bin && mv /usr/local/bin/hbs* /usr/local/bin/hbs
 RUN chmod +x /usr/local/bin/hbs
 
 # Copy entrypoint script and make it executable
-COPY bitwarden-lite/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY --chmod=755 bitwarden-lite/entrypoint.sh /entrypoint.sh
 
 VOLUME ["/etc/bitwarden"]
 
