@@ -43,10 +43,7 @@ jobs:
         uses: bitwarden/gh-actions/get-keyvault-secrets@main
         with:
           keyvault: "bitwarden-ci"
-          secrets: "azure-marketplace-client-id,
-            azure-marketplace-client-secret,
-            azure-marketplace-tenant-id,
-            azure-marketplace-subscription-id,
+          secrets: "azure-marketplace-subscription-id,
             azure-marketplace-resource-group,
             azure-marketplace-gallery-name"
 
@@ -65,9 +62,6 @@ jobs:
 
       - name: Build Azure Image
         env:
-          AZURE_CLIENT_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-client-id }}
-          AZURE_CLIENT_SECRET: ${{ steps.retrieve-secrets.outputs.azure-marketplace-client-secret }}
-          AZURE_TENANT_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-tenant-id }}
           AZURE_SUBSCRIPTION_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-subscription-id }}
           AZURE_RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
           AZURE_GALLERY_NAME: ${{ steps.retrieve-secrets.outputs.azure-marketplace-gallery-name }}

@@ -27,23 +27,6 @@ variable "docker_packages" {
   default = "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
 }
 
-variable "client_id" {
-  type      = string
-  default   = "${env("AZURE_CLIENT_ID")}"
-  sensitive = true
-}
-
-variable "client_secret" {
-  type      = string
-  default   = "${env("AZURE_CLIENT_SECRET")}"
-  sensitive = true
-}
-
-variable "tenant_id" {
-  type    = string
-  default = "${env("AZURE_TENANT_ID")}"
-}
-
 variable "subscription_id" {
   type    = string
   default = "${env("AZURE_SUBSCRIPTION_ID")}"
@@ -82,10 +65,8 @@ locals {
 }
 
 source "azure-arm" "bitwarden_self_host" {
-  client_id       = var.client_id
-  client_secret   = var.client_secret
-  tenant_id       = var.tenant_id
-  subscription_id = var.subscription_id
+  use_azure_cli_auth = true
+  subscription_id    = var.subscription_id
 
   os_type         = "Linux"
   image_publisher = "Canonical"
