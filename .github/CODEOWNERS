@@ -18,5 +18,7 @@
 bitwarden-lite/ @bitwarden/dept-shot
 
 # Release workflows
+.github/workflows/release-aws.yml @bitwarden/dept-bre
+.github/workflows/release-azure.yml @bitwarden/dept-bre
 .github/workflows/release-digital-ocean.yml @bitwarden/dept-bre
 .github/workflows/release.yml @bitwarden/dept-bre
