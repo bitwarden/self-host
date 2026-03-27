@@ -5,6 +5,8 @@ on:
     paths:
       - "bitwarden-lite/**"
       - ".github/workflows/build-bitwarden-lite.yml"
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       self_host_repo_ref:
