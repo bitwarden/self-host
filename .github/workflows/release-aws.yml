@@ -1,0 +1,168 @@
+name: Release AWS Marketplace
+
+on:
+  release:
+    types: [published]
+
+  push:
+    paths:
+      - "AWSMarketplace/**"
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-image:
+    name: Build Image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Retrieve secrets
+        id: retrieve-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: "gh-self-host"
+          secrets: "aws-marketplace-access-key-id,
+            aws-marketplace-secret-access-key"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Set version from version.json
+        id: set-version
+        run: |
+          VERSION=$(jq -r '.versions.coreVersion' version.json)
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Failed to extract coreVersion from version.json"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Hashicorp Packer
+        uses: hashicorp/setup-packer@1aa358be5cf73883762b302a3a03abd66e75b232 # v3.1.0
+
+      - name: Build AWS Image
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-marketplace-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-marketplace-secret-access-key }}
+          AWS_DEFAULT_REGION: "us-east-1"
+          AWS_IMG_VERSION: ${{ steps.set-version.outputs.version }}
+        working-directory: ./AWSMarketplace
+        run: |
+          packer version
+          packer init -upgrade marketplace-image.pkr.hcl
+          packer build marketplace-image.pkr.hcl
+
+      - name: Cleanup orphaned instances on cancellation or failure
+        if: cancelled() || failure()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-marketplace-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-marketplace-secret-access-key }}
+          AWS_DEFAULT_REGION: "us-east-1"
+        run: |
+          echo "Workflow cancelled - cleaning up any orphaned resources..."
+
+          echo "## :warning: Workflow Cancelled - Resource Cleanup" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Searching for orphaned instances with tag: \`github-run-${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find and terminate EC2 instances tagged with this run
+          INSTANCE_IDS=$(aws ec2 describe-instances \
+            --filters "Name=tag:GitHub_Run,Values=github-run-${{ github.run_id }}" \
+                       "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+            --query "Reservations[].Instances[].InstanceId" \
+            --output text)
+
+          if [ -n "$INSTANCE_IDS" ]; then
+            echo "Found orphaned instances: $INSTANCE_IDS"
+            echo "### Orphaned Instances Found and Terminated" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Instance ID | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+            for INSTANCE_ID in $INSTANCE_IDS; do
+              echo "Terminating instance: $INSTANCE_ID"
+              if aws ec2 terminate-instances --instance-ids "$INSTANCE_ID"; then
+                echo "| $INSTANCE_ID | :white_check_mark: Terminated |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $INSTANCE_ID | :x: Failed to terminate |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No orphaned instances found"
+            echo ":white_check_mark: No orphaned resources found - nothing to clean up" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Add build summary
+        if: success()
+        env:
+          VERSION: ${{ steps.set-version.outputs.version }}
+        working-directory: ./AWSMarketplace
+        run: |
+          echo "## :rocket: AWS Marketplace Image Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Get artifact details from manifest
+          if [ -f manifest.json ]; then
+            AMI_ID=$(jq -r '.builds[-1].artifact_id' manifest.json)
+            echo "**AMI ID:** \`$AMI_ID\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo ":white_check_mark: Packer build instance was automatically cleaned up" >> $GITHUB_STEP_SUMMARY
+
+      - name: AWS Image Cleanup
+        working-directory: ./AWSMarketplace
+        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-marketplace-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-marketplace-secret-access-key }}
+          AWS_DEFAULT_REGION: "us-east-1"
+        run: |
+          # Get the AMI ID from the manifest (format: "us-east-1:ami-xxxxxxxxx")
+          AMI_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+
+          if [ -n "$AMI_ID" ]; then
+            # Find associated snapshots before deregistering
+            SNAPSHOT_IDS=$(aws ec2 describe-images --image-ids "$AMI_ID" \
+              --query "Images[].BlockDeviceMappings[].Ebs.SnapshotId" \
+              --output text 2>/dev/null || true)
+
+            # Deregister the AMI
+            aws ec2 deregister-image --image-id "$AMI_ID" 2>/dev/null || true
+
+            # Delete associated snapshots
+            for SNAPSHOT_ID in $SNAPSHOT_IDS; do
+              aws ec2 delete-snapshot --snapshot-id "$SNAPSHOT_ID" 2>/dev/null || true
+            done
+          fi
+
+          # Update summary for non-release builds
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo ":wastebasket: **Non-release build:** AMI \`$AMI_ID\` and snapshots were automatically cleaned up" >> $GITHUB_STEP_SUMMARY
