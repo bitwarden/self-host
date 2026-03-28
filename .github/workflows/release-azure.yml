@@ -43,9 +43,7 @@ jobs:
         uses: bitwarden/gh-actions/get-keyvault-secrets@main
         with:
           keyvault: "gh-self-host"
-          secrets: "azure-marketplace-subscription-id,
-            azure-marketplace-resource-group,
-            azure-marketplace-gallery-name"
+          secrets: "azure-marketplace-subscription-id"
 
       - name: Set version from version.json
         id: set-version
@@ -63,8 +61,8 @@ jobs:
       - name: Build Azure Image
         env:
           AZURE_SUBSCRIPTION_ID: ${{ steps.retrieve-secrets.outputs.azure-marketplace-subscription-id }}
-          AZURE_RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
-          AZURE_GALLERY_NAME: ${{ steps.retrieve-secrets.outputs.azure-marketplace-gallery-name }}
+          AZURE_RESOURCE_GROUP: rg-marketplace
+          AZURE_GALLERY_NAME: bitwarden_marketplace
           AZURE_GALLERY_IMAGE_NAME: "bitwarden-self-host"
           AZURE_IMG_VERSION: ${{ steps.set-version.outputs.version }}
         working-directory: ./AzureMarketplace
@@ -76,7 +74,7 @@ jobs:
       - name: Cleanup orphaned resources on cancellation or failure
         if: cancelled() || failure()
         env:
-          RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
+          RESOURCE_GROUP: rg-marketplace
         run: |
           echo "Workflow cancelled - cleaning up any orphaned resources..."
 
@@ -132,8 +130,8 @@ jobs:
         working-directory: ./AzureMarketplace
         if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
         env:
-          RESOURCE_GROUP: ${{ steps.retrieve-secrets.outputs.azure-marketplace-resource-group }}
-          GALLERY_NAME: ${{ steps.retrieve-secrets.outputs.azure-marketplace-gallery-name }}
+          RESOURCE_GROUP: rg-marketplace
+          GALLERY_NAME: bitwarden_marketplace
           VERSION: ${{ steps.set-version.outputs.version }}
         run: |
           # Get the managed image name from manifest
