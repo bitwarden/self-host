@@ -113,6 +113,15 @@ else
   ((PASS++))
 fi
 
+if [ -f /home/ubuntu/.ssh/authorized_keys ] && [ "$(wc -c < /home/ubuntu/.ssh/authorized_keys)" -gt 50 ]; then
+  echo -en "\e[41m[FAIL]\e[0m Ubuntu user has a populated authorized_keys file.\n"
+  ((FAIL++))
+  STATUS=2
+else
+  echo -en "\e[32m[PASS]\e[0m No SSH keys found for ubuntu user.\n"
+  ((PASS++))
+fi
+
 # Check bash history
 if [ -f /root/.bash_history ]; then
   BH_S=$(wc -c < /root/.bash_history)
