@@ -56,6 +56,14 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+          # Use a dev version for non-release builds to avoid colliding with
+          # published gallery image versions
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "img_version=0.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Hashicorp Packer
         uses: hashicorp/setup-packer@1aa358be5cf73883762b302a3a03abd66e75b232 # v3.1.0
 
@@ -65,7 +73,7 @@ jobs:
           AZURE_RESOURCE_GROUP: rg-marketplace
           AZURE_GALLERY_NAME: bitwarden_marketplace
           AZURE_GALLERY_IMAGE_NAME: "bitwarden-self-host"
-          AZURE_IMG_VERSION: ${{ steps.set-version.outputs.version }}
+          AZURE_IMG_VERSION: ${{ steps.set-version.outputs.img_version }}
         working-directory: ./AzureMarketplace
         run: |
           packer version
@@ -133,7 +141,7 @@ jobs:
         env:
           RESOURCE_GROUP: rg-marketplace
           GALLERY_NAME: bitwarden_marketplace
-          VERSION: ${{ steps.set-version.outputs.version }}
+          VERSION: ${{ steps.set-version.outputs.img_version }}
         run: |
           # Get the managed image name from manifest
           IMAGE_NAME=$(jq -r '.builds[-1].custom_data.managed_image_name // empty' manifest.json)
