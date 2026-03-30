@@ -67,19 +67,20 @@ build {
     inline = ["cloud-init status --wait"]
   }
 
+  # Upload common files directly (DO connects as root)
   provisioner "file" {
     destination = "/etc/"
-    source      = "files/etc/"
+    source      = "../CommonMarketplace/files/etc/"
   }
 
   provisioner "file" {
     destination = "/opt/"
-    source      = "files/opt/"
+    source      = "../CommonMarketplace/files/opt/"
   }
 
   provisioner "file" {
     destination = "/var/"
-    source      = "files/var/"
+    source      = "../CommonMarketplace/files/var/"
   }
 
   provisioner "shell" {
@@ -119,11 +120,17 @@ build {
       "LC_CTYPE=en_US.UTF-8"
     ]
     scripts          = [
-      "scripts/01-setup-first-run.sh",
-      "scripts/02-ufw-bitwarden.sh",
-      "scripts/03-force-ssh-logout.sh",
-      "scripts/90-cleanup.sh",
+      "../CommonMarketplace/scripts/01-setup-first-run.sh",
+      "../CommonMarketplace/scripts/02-ufw-bitwarden.sh",
+      "../CommonMarketplace/scripts/90-cleanup.sh",
       "scripts/99-img-check.sh"
+    ]
+  }
+
+  # DO-specific: securely erase unused disk space for snapshot compression
+  provisioner "shell" {
+    inline = [
+      "dd if=/dev/zero of=/zerofile bs=4096 || rm /zerofile"
     ]
   }
 
