@@ -1,186 +1,23 @@
 # syntax = docker/dockerfile:1.21
-###############################################
-#                 Build stage                 #
-###############################################
-FROM --platform=$BUILDPLATFORM alpine:3.23 AS web-setup
-ARG WEB_ARTIFACT_PATH
-
-# Add packages
-RUN apk add --no-cache \
-    curl \
-    jq \
-    unzip \
-    git
-
-WORKDIR /tmp
-
-# Grab last tag/release of the 'web' client
-RUN  if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    git ls-remote --tags https://github.com/bitwarden/clients.git \
-    | grep -E 'refs/tags/web-v[0-9]{4}\.([1-9]|1[0-2])\.[0-9]+' \
-    | cut -d/ -f3 | sort -Vr | head -1 > tag.txt; \
-    fi
-
-# Extract the version of the 'web' client
-RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    cat tag.txt | grep -o -E '[0-9]{4}\.([1-9]|1[0-2])\.[0-9]+' > version.txt; \
-    fi
-
-# Download the built release artifact for the 'web' client
-RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    TAG=$(cat tag.txt) \
-    && VERSION=$(cat version.txt) \
-    && curl --proto "=https" -L https://github.com/bitwarden/clients/releases/download/$TAG/web-$VERSION-selfhosted-COMMERCIAL.zip -O; \
-    fi
-
-# Copy provided web artifact if available
-COPY ${WEB_ARTIFACT_PATH}* /tmp/
-
-# Unzip the 'web' client to /tmp/build
-RUN if [ -z "${WEB_ARTIFACT_PATH}" ]; then \
-    VERSION=$(cat version.txt) \
-    && unzip web-$VERSION-selfhosted-COMMERCIAL.zip; \
-    else \
-    unzip ${WEB_ARTIFACT_PATH} -d /tmp/; \
-    fi
+ARG SERVER_TAG=dev
+ARG WEB_TAG=dev
 
 ###############################################
-#                 Build stage                 #
+#              Web app stage                  #
 ###############################################
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine3.21 AS dotnet-build
+FROM ghcr.io/bitwarden/web:${WEB_TAG} AS web-app
 
-# Docker buildx supplies the value for this arg
-ARG TARGETPLATFORM
-
-# Determine proper runtime value for .NET
-# We put the value in a file to be read by later layers.
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-    RID=linux-musl-x64 ; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-    RID=linux-musl-arm64 ; \
-    elif [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
-    RID=linux-musl-arm ; \
-    fi \
-    && echo "RID=$RID" > /tmp/rid.txt
-
-# Add packages
-RUN apk add --no-cache \
-    npm
-
-# Copy csproj files as distinct layers
-WORKDIR /source
-COPY server/src/Admin/*.csproj ./src/Admin/
-COPY server/src/Api/*.csproj ./src/Api/
-COPY server/src/Events/*.csproj ./src/Events/
-COPY server/src/Icons/*.csproj ./src/Icons/
-COPY server/src/Identity/*.csproj ./src/Identity/
-COPY server/src/Notifications/*.csproj ./src/Notifications/
-COPY server/bitwarden_license/src/Sso/*.csproj ./bitwarden_license/src/Sso/
-COPY server/bitwarden_license/src/Scim/*.csproj ./bitwarden_license/src/Scim/
-COPY server/src/Core/*.csproj ./src/Core/
-COPY server/src/Infrastructure.Dapper/*.csproj ./src/Infrastructure.Dapper/
-COPY server/src/Infrastructure.EntityFramework/*.csproj ./src/Infrastructure.EntityFramework/
-COPY server/src/SharedWeb/*.csproj ./src/SharedWeb/
-COPY server/util/Migrator/*.csproj ./util/Migrator/
-COPY server/util/MySqlMigrations/*.csproj ./util/MySqlMigrations/
-COPY server/util/PostgresMigrations/*.csproj ./util/PostgresMigrations/
-COPY server/util/SqliteMigrations/*.csproj ./util/SqliteMigrations/
-COPY server/bitwarden_license/src/Commercial.Core/*.csproj ./bitwarden_license/src/Commercial.Core/
-COPY server/bitwarden_license/src/Commercial.Infrastructure.EntityFramework/*.csproj ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
-COPY server/Directory.Build.props .
-COPY server/.editorconfig .
-COPY server/global.json .
-
-# Restore Admin project dependencies and tools
-WORKDIR /source/src/Admin
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Api project dependencies and tools
-WORKDIR /source/src/Api
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Events project dependencies and tools
-WORKDIR /source/src/Events
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Icons project dependencies and tools
-WORKDIR /source/src/Icons
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Identity project dependencies and tools
-WORKDIR /source/src/Identity
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Notifications project dependencies and tools
-WORKDIR /source/src/Notifications
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Sso project dependencies and tools
-WORKDIR /source/bitwarden_license/src/Sso
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Restore Scim project dependencies and tools
-WORKDIR /source/bitwarden_license/src/Scim
-RUN . /tmp/rid.txt && dotnet restore -r $RID
-
-# Copy required project files
-WORKDIR /source
-COPY server/src/Admin/. ./src/Admin/
-COPY server/src/Api/. ./src/Api/
-COPY server/src/Events/. ./src/Events/
-COPY server/src/Icons/. ./src/Icons/
-COPY server/src/Identity/. ./src/Identity/
-COPY server/src/Notifications/. ./src/Notifications/
-COPY server/bitwarden_license/src/Sso/. ./bitwarden_license/src/Sso/
-COPY server/bitwarden_license/src/Scim/. ./bitwarden_license/src/Scim/
-COPY server/src/Core/. ./src/Core/
-COPY server/src/Infrastructure.Dapper/. ./src/Infrastructure.Dapper/
-COPY server/src/Infrastructure.EntityFramework/. ./src/Infrastructure.EntityFramework/
-COPY server/src/SharedWeb/. ./src/SharedWeb/
-COPY server/util/Migrator/. ./util/Migrator/
-COPY server/util/MySqlMigrations/. ./util/MySqlMigrations/
-COPY server/util/PostgresMigrations/. ./util/PostgresMigrations/
-COPY server/util/SqliteMigrations/. ./util/SqliteMigrations/
-COPY server/util/EfShared/. ./util/EfShared/
-COPY server/bitwarden_license/src/Commercial.Core/. ./bitwarden_license/src/Commercial.Core/
-COPY server/bitwarden_license/src/Commercial.Infrastructure.EntityFramework/. ./bitwarden_license/src/Commercial.Infrastructure.EntityFramework/
-COPY server/.git/. ./.git/
-
-# Build Admin app
-WORKDIR /source/src/Admin
-RUN npm install
-RUN npm run build
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Admin --no-restore --no-self-contained -r $RID
-
-# Build Api app
-WORKDIR /source/src/Api
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Api --no-restore --no-self-contained -r $RID
-
-# Build Events app
-WORKDIR /source/src/Events
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Events --no-restore --no-self-contained -r $RID
-
-# Build Icons app
-WORKDIR /source/src/Icons
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Icons --no-restore --no-self-contained -r $RID
-
-# Build Identity app
-WORKDIR /source/src/Identity
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Identity --no-restore --no-self-contained -r $RID
-
-# Build Notifications app
-WORKDIR /source/src/Notifications
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Notifications --no-restore --no-self-contained -r $RID
-
-# Build Sso app
-WORKDIR /source/bitwarden_license/src/Sso
-RUN npm install
-RUN npm run build
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Sso --no-restore --no-self-contained -r $RID
-
-# Build Scim app
-WORKDIR /source/bitwarden_license/src/Scim
-RUN . /tmp/rid.txt && dotnet publish -c release -o /app/Scim --no-restore --no-self-contained -r $RID
+###############################################
+#              Server app stages              #
+###############################################
+FROM ghcr.io/bitwarden/admin:${SERVER_TAG} AS admin-app
+FROM ghcr.io/bitwarden/api:${SERVER_TAG} AS api-app
+FROM ghcr.io/bitwarden/events:${SERVER_TAG} AS events-app
+FROM ghcr.io/bitwarden/icons:${SERVER_TAG} AS icons-app
+FROM ghcr.io/bitwarden/identity:${SERVER_TAG} AS identity-app
+FROM ghcr.io/bitwarden/notifications:${SERVER_TAG} AS notifications-app
+FROM ghcr.io/bitwarden/sso:${SERVER_TAG} AS sso-app
+FROM ghcr.io/bitwarden/scim:${SERVER_TAG} AS scim-app
 
 ###############################################
 #                  App stage                  #
@@ -249,12 +86,19 @@ RUN mkdir -p /var/lib/nginx/tmp
 RUN touch /var/run/nginx/nginx.pid
 RUN mkdir -p /app
 
-# Copy all apps from dotnet-build stage
+# Copy compiled apps from server images
 WORKDIR /app
-COPY --from=dotnet-build /app ./
+COPY --from=admin-app /app /app/Admin
+COPY --from=api-app /app /app/Api
+COPY --from=events-app /app /app/Events
+COPY --from=icons-app /app /app/Icons
+COPY --from=identity-app /app /app/Identity
+COPY --from=notifications-app /app /app/Notifications
+COPY --from=sso-app /app /app/Sso
+COPY --from=scim-app /app /app/Scim
 
-# Copy Web files from web-setup stage
-COPY --from=web-setup /tmp/build /app/Web
+# Copy Web files from web-app stage
+COPY --from=web-app /app /app/Web
 
 # Set up supervisord
 COPY bitwarden-lite/supervisord/*.ini /etc/supervisor.d/
