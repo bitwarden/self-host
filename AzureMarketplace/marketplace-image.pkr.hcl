@@ -101,30 +101,30 @@ build {
     inline = ["cloud-init status --wait"]
   }
 
-  # Upload individual files to /tmp staging area (azure-arm connects as a non-root user)
+  # Upload common files to /tmp staging area (azure-arm connects as a non-root user)
   provisioner "file" {
-    source      = "files/etc/update-motd.d/99-bitwarden-welcome"
+    source      = "../CommonMarketplace/files/etc/update-motd.d/99-bitwarden-welcome"
     destination = "/tmp/99-bitwarden-welcome"
   }
 
   provisioner "file" {
-    source      = "files/etc/ufw/applications.d/bitwarden"
+    source      = "../CommonMarketplace/files/etc/ufw/applications.d/bitwarden"
     destination = "/tmp/bitwarden-ufw"
   }
 
   provisioner "file" {
-    source      = "files/opt/bitwarden/install-bitwarden.sh"
+    source      = "../CommonMarketplace/files/opt/bitwarden/install-bitwarden.sh"
     destination = "/tmp/install-bitwarden.sh"
   }
 
   provisioner "file" {
-    source      = "files/var/lib/cloud/scripts/per-instance/001_onboot"
+    source      = "../CommonMarketplace/files/var/lib/cloud/scripts/per-instance/001_onboot"
     destination = "/tmp/001_onboot"
   }
 
   provisioner "file" {
-    source      = "files/etc/profile.d/bitwarden-install.sh"
-    destination = "/tmp/bitwarden-install.sh"
+    source      = "../CommonMarketplace/files/etc/profile.d/bitwarden-first-login.sh"
+    destination = "/tmp/bitwarden-first-login.sh"
   }
 
   # Move staged files to their final system locations
@@ -135,9 +135,9 @@ build {
       "sudo mv /tmp/bitwarden-ufw /etc/ufw/applications.d/bitwarden",
       "sudo mv /tmp/install-bitwarden.sh /opt/bitwarden/install-bitwarden.sh",
       "sudo mv /tmp/001_onboot /var/lib/cloud/scripts/per-instance/001_onboot",
-      "sudo mv /tmp/bitwarden-install.sh /etc/profile.d/bitwarden-install.sh",
-      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/install-bitwarden.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-install.sh",
-      "sudo chmod 644 /etc/ufw/applications.d/bitwarden /etc/profile.d/bitwarden-install.sh"
+      "sudo mv /tmp/bitwarden-first-login.sh /etc/profile.d/bitwarden-first-login.sh",
+      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/install-bitwarden.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-first-login.sh",
+      "sudo chmod 644 /etc/ufw/applications.d/bitwarden /etc/profile.d/bitwarden-first-login.sh"
     ]
   }
 
@@ -173,10 +173,18 @@ build {
       "LC_CTYPE=en_US.UTF-8"
     ]
     scripts = [
-      "scripts/01-setup-first-run.sh",
-      "scripts/02-ufw-bitwarden.sh",
-      "scripts/90-cleanup.sh",
+      "../CommonMarketplace/scripts/01-setup-first-run.sh",
+      "../CommonMarketplace/scripts/02-ufw-bitwarden.sh",
+      "../CommonMarketplace/scripts/90-cleanup.sh",
       "scripts/99-img-check.sh"
+    ]
+  }
+
+  # Azure-specific cleanup
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sudo -E bash '{{ .Path }}'"
+    inline = [
+      "truncate -s 0 /var/log/waagent.log 2>/dev/null || true"
     ]
   }
 

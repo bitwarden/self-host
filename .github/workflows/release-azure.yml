@@ -7,6 +7,7 @@ on:
   push:
     paths:
       - "AzureMarketplace/**"
+      - "CommonMarketplace/**"
 
   workflow_dispatch:
 
