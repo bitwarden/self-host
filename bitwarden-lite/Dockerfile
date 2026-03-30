@@ -72,19 +72,20 @@ RUN apk add --no-cache \
     gcompat
 
 # Create required directories
-RUN mkdir -p /etc/bitwarden/attachments/send
-RUN mkdir -p /etc/bitwarden/data-protection
-RUN mkdir -p /etc/bitwarden/licenses
-RUN mkdir -p /etc/bitwarden/logs
-RUN mkdir -p /etc/supervisor
-RUN mkdir -p /etc/supervisor.d
-RUN mkdir -p /var/log/bitwarden
-RUN mkdir -p /var/log/nginx/logs
-RUN mkdir -p /etc/nginx/http.d
-RUN mkdir -p /var/run/nginx
-RUN mkdir -p /var/lib/nginx/tmp
-RUN touch /var/run/nginx/nginx.pid
-RUN mkdir -p /app
+RUN mkdir -p \
+    /etc/bitwarden/attachments/send \
+    /etc/bitwarden/data-protection \
+    /etc/bitwarden/licenses \
+    /etc/bitwarden/logs \
+    /etc/supervisor \
+    /etc/supervisor.d \
+    /var/log/bitwarden \
+    /var/log/nginx/logs \
+    /etc/nginx/http.d \
+    /var/run/nginx \
+    /var/lib/nginx/tmp \
+    /app \
+    && touch /var/run/nginx/nginx.pid
 
 # Copy compiled apps from server images
 WORKDIR /app
