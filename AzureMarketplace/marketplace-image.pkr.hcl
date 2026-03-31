@@ -71,7 +71,7 @@ source "azure-arm" "bitwarden_self_host" {
   os_type         = "Linux"
   image_publisher = "Canonical"
   image_offer     = "ubuntu-24_04-lts"
-  image_sku       = "server-gen2"
+  image_sku       = "server"
 
   build_resource_group_name = var.resource_group
   vm_size                   = "Standard_B2s"
