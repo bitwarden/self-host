@@ -44,12 +44,12 @@ locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 # All locals variables are generated from variables that uses expressions
 # that are not allowed in HCL2 variables.
 locals {
-  image_name = "bitwarden-22-04-snapshot-${local.timestamp}"
+  image_name = "bitwarden-24-04-snapshot-${local.timestamp}"
 }
 
 source "digitalocean" "bitwarden_self_host" {
   api_token     = "${var.do_token}"
-  image         = "ubuntu-22-04-x64"
+  image         = "ubuntu-24-04-x64"
   region        = "nyc3"
   size          = "s-1vcpu-2gb"
   snapshot_name = "${local.image_name}"

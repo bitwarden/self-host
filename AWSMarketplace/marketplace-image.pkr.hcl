@@ -41,7 +41,7 @@ variable "github_run_id" {
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
 locals {
-  image_name = "bitwarden-22-04-${local.timestamp}"
+  image_name = "bitwarden-24-04-${local.timestamp}"
 }
 
 source "amazon-ebs" "bitwarden_self_host" {
@@ -51,7 +51,7 @@ source "amazon-ebs" "bitwarden_self_host" {
 
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+      name                = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
