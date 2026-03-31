@@ -175,7 +175,11 @@ jobs:
           if [[ $WEB_REF =~ ^refs/tags/web-v(.+)$ ]]; then
             WEB_TAG="${BASH_REMATCH[1]}"
           else
-            WEB_TAG="${WEB_REF#refs/heads/}"
+            WEB_TAG=$(echo "${WEB_REF#refs/heads/}" | \
+              tr '[:upper:]' '[:lower:]' | \
+              sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^-+|-+$//g' | \
+              cut -c1-128 | \
+              sed -E 's/[.-]$//')
             [[ "$WEB_TAG" == "main" ]] && WEB_TAG=dev
           fi
           echo "web_tag=${WEB_TAG}" >> "$GITHUB_OUTPUT"
