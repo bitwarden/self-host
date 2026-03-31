@@ -35,11 +35,11 @@ fi
 echo -en "Distribution: ${OS}\n"
 echo -en "Version: ${VER}\n\n"
 
-if [[ $OS == "Ubuntu" ]] && [[ $VER == "22.04" ]]; then
+if [[ $OS == "Ubuntu" ]] && [[ $VER == "24.04" ]]; then
   echo -en "\e[32m[PASS]\e[0m Supported OS detected: ${OS} ${VER}\n"
   ((PASS++))
 else
-  echo -en "\e[41m[FAIL]\e[0m ${OS} ${VER} is not the expected OS (Ubuntu 22.04)\n"
+  echo -en "\e[41m[FAIL]\e[0m ${OS} ${VER} is not the expected OS (Ubuntu 24.04)\n"
   ((FAIL++))
   STATUS=2
 fi

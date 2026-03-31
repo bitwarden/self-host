@@ -61,7 +61,7 @@ variable "github_run_id" {
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
 locals {
-  image_name = "bitwarden-22-04-${local.timestamp}"
+  image_name = "bitwarden-24-04-${local.timestamp}"
 }
 
 source "azure-arm" "bitwarden_self_host" {
@@ -70,8 +70,8 @@ source "azure-arm" "bitwarden_self_host" {
 
   os_type         = "Linux"
   image_publisher = "Canonical"
-  image_offer     = "0001-com-ubuntu-server-jammy"
-  image_sku       = "22_04-lts-gen2"
+  image_offer     = "0001-com-ubuntu-server-noble"
+  image_sku       = "24_04-lts-gen2"
 
   build_resource_group_name = var.resource_group
   vm_size                   = "Standard_B2s"
