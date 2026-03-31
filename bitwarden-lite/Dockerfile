@@ -95,8 +95,8 @@ COPY --from=events-app /app /app/Events
 COPY --from=icons-app /app /app/Icons
 COPY --from=identity-app /app /app/Identity
 COPY --from=notifications-app /app /app/Notifications
-COPY --from=sso-app /app /app/Sso
 COPY --from=scim-app /app /app/Scim
+COPY --from=sso-app /app /app/Sso
 
 # Copy Web files from web-app stage
 COPY --from=web-app /app /app/Web
