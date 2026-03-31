@@ -16,8 +16,8 @@ FROM ghcr.io/bitwarden/events:${SERVER_TAG} AS events-app
 FROM ghcr.io/bitwarden/icons:${SERVER_TAG} AS icons-app
 FROM ghcr.io/bitwarden/identity:${SERVER_TAG} AS identity-app
 FROM ghcr.io/bitwarden/notifications:${SERVER_TAG} AS notifications-app
-FROM ghcr.io/bitwarden/sso:${SERVER_TAG} AS sso-app
 FROM ghcr.io/bitwarden/scim:${SERVER_TAG} AS scim-app
+FROM ghcr.io/bitwarden/sso:${SERVER_TAG} AS sso-app
 
 ###############################################
 #                  App stage                  #
