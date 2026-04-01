@@ -1,4 +1,4 @@
-# syntax = docker/dockerfile:1.21
+# syntax = docker/dockerfile:1.22
 ARG SERVER_TAG=dev
 ARG WEB_TAG=dev
 
