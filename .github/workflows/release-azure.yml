@@ -1,9 +1,6 @@
 name: Release Azure Marketplace
 
 on:
-  release:
-    types: [published]
-
   push:
     paths:
       - "AzureMarketplace/**"

@@ -1,9 +1,6 @@
 name: Release AWS Marketplace
 
 on:
-  release:
-    types: [published]
-
   push:
     paths:
       - "AWSMarketplace/**"
