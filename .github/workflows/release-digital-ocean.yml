@@ -1,9 +1,6 @@
 name: Release Digital Ocean 1-Click
 
 on:
-  release:
-    types: [published]
-
   push:
     paths:
       - "DigitalOceanMarketplace/**"
