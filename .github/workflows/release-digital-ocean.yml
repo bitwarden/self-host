@@ -7,6 +7,11 @@ on:
       - "CommonMarketplace/**"
 
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version (e.g., 2026.3.2)"
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}
@@ -46,8 +51,10 @@ jobs:
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
 
-      - name: Set version from version.json
+      - name: Set version
         id: set-version
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           VERSION=$(jq -r '.versions.coreVersion' version.json)
           if [[ -z "$VERSION" ]]; then
@@ -56,13 +63,21 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+          # Use the release version input when dispatched from the release
+          # pipeline. Fall back to coreVersion for other builds.
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            echo "img_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Hashicorp Packer
         uses: hashicorp/setup-packer@1aa358be5cf73883762b302a3a03abd66e75b232 # v3.1.0
 
       - name: Build Digital Ocean Image
         env:
           DIGITALOCEAN_TOKEN: ${{ steps.retrieve-secrets.outputs.digital-ocean-api-key }}
-          DIGITALOCEAN_IMG_VERSION: ${{ steps.set-version.outputs.version }}
+          DIGITALOCEAN_IMG_VERSION: ${{ steps.set-version.outputs.img_version }}
         working-directory: ./DigitalOceanMarketplace
         run: |
           packer version
@@ -138,7 +153,7 @@ jobs:
 
       - name: Digital Ocean Image Cleanup
         working-directory: ./DigitalOceanMarketplace
-        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        if: ${{ inputs.release_version == '' }}
         run: |
           # Get the ID from the snapshot build.
           DO_ARTIFACT=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
