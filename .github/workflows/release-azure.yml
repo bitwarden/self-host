@@ -53,12 +53,13 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Use a dev version for non-release builds to avoid colliding with
-          # published gallery image versions
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
-          else
+          # Use a dev version for push builds to avoid colliding with
+          # published gallery image versions. workflow_dispatch is used by
+          # the release pipeline, so it should use the real version.
+          if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "img_version=0.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Hashicorp Packer
