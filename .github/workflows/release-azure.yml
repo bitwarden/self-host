@@ -7,6 +7,11 @@ on:
       - "CommonMarketplace/**"
 
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version (e.g., 2026.3.2)"
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}
@@ -43,7 +48,7 @@ jobs:
           keyvault: "gh-self-host"
           secrets: "azure-marketplace-subscription-id"
 
-      - name: Set version from version.json
+      - name: Set version
         id: set-version
         run: |
           VERSION=$(jq -r '.versions.coreVersion' version.json)
@@ -53,13 +58,13 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Use a dev version for push builds to avoid colliding with
-          # published gallery image versions. workflow_dispatch is used by
-          # the release pipeline, so it should use the real version.
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "img_version=0.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          # Use the release version input when dispatched from the release
+          # pipeline. Fall back to a dev version for push builds to avoid
+          # colliding with published gallery image versions.
+          if [[ -n "${{ inputs.release_version }}" ]]; then
+            echo "img_version=${{ inputs.release_version }}" >> "$GITHUB_OUTPUT"
           else
-            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "img_version=0.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Hashicorp Packer
@@ -135,7 +140,7 @@ jobs:
 
       - name: Azure Image Cleanup
         working-directory: ./AzureMarketplace
-        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        if: ${{ inputs.release_version == '' }}
         env:
           RESOURCE_GROUP: rg-marketplace
           GALLERY_NAME: bitwarden_marketplace

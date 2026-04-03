@@ -7,6 +7,11 @@ on:
       - "CommonMarketplace/**"
 
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version (e.g., 2026.3.2)"
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}
@@ -47,7 +52,7 @@ jobs:
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
 
-      - name: Set version from version.json
+      - name: Set version
         id: set-version
         run: |
           VERSION=$(jq -r '.versions.coreVersion' version.json)
@@ -57,6 +62,14 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+          # Use the release version input when dispatched from the release
+          # pipeline. Fall back to coreVersion for other builds.
+          if [[ -n "${{ inputs.release_version }}" ]]; then
+            echo "img_version=${{ inputs.release_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Hashicorp Packer
         uses: hashicorp/setup-packer@1aa358be5cf73883762b302a3a03abd66e75b232 # v3.1.0
 
@@ -65,7 +78,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-marketplace-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-marketplace-secret-access-key }}
           AWS_DEFAULT_REGION: "us-east-1"
-          AWS_IMG_VERSION: ${{ steps.set-version.outputs.version }}
+          AWS_IMG_VERSION: ${{ steps.set-version.outputs.img_version }}
         working-directory: ./AWSMarketplace
         run: |
           packer version
@@ -135,7 +148,7 @@ jobs:
 
       - name: AWS Image Cleanup
         working-directory: ./AWSMarketplace
-        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        if: ${{ inputs.release_version == '' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.retrieve-secrets.outputs.aws-marketplace-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.retrieve-secrets.outputs.aws-marketplace-secret-access-key }}
