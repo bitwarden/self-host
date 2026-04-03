@@ -525,6 +525,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           RELEASE_TAG: v${{ inputs.release_version }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -533,5 +534,7 @@ jobs:
               repo: 'self-host',
               workflow_id: 'release-azure.yml',
               ref: process.env.RELEASE_TAG,
-              inputs: {}
+              inputs: {
+                release_version: process.env.RELEASE_VERSION
+              }
             });

@@ -7,6 +7,10 @@ on:
       - "CommonMarketplace/**"
 
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version (e.g. '2025.2.1'). Leave empty for a dev build."
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}
@@ -53,10 +57,10 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Use a dev version for non-release builds to avoid colliding with
-          # published gallery image versions
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "img_version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Use inputs.release_version when provided (triggered from release.yml),
+          # otherwise use a dev version to avoid colliding with published gallery image versions
+          if [[ -n "${{ inputs.release_version }}" ]]; then
+            echo "img_version=${{ inputs.release_version }}" >> "$GITHUB_OUTPUT"
           else
             echo "img_version=0.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
           fi
@@ -134,7 +138,7 @@ jobs:
 
       - name: Azure Image Cleanup
         working-directory: ./AzureMarketplace
-        if: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+        if: ${{ inputs.release_version == '' || inputs.release_version == null }}
         env:
           RESOURCE_GROUP: rg-marketplace
           GALLERY_NAME: bitwarden_marketplace
