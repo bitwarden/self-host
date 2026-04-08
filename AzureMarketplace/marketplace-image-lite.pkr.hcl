@@ -108,7 +108,7 @@ build {
   }
 
   provisioner "file" {
-    source      = "../CommonMarketplaceLite/files/etc/ufw/applications.d/bitwarden"
+    source      = "../CommonMarketplace/files/etc/ufw/applications.d/bitwarden"
     destination = "/tmp/bitwarden-ufw"
   }
 

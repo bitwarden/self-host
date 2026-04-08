@@ -73,7 +73,7 @@ build {
 
   provisioner "file" {
     destination = "/etc/ufw/applications.d/bitwarden"
-    source      = "../CommonMarketplaceLite/files/etc/ufw/applications.d/bitwarden"
+    source      = "../CommonMarketplace/files/etc/ufw/applications.d/bitwarden"
   }
 
   provisioner "file" {
