@@ -174,6 +174,7 @@ jobs:
         run: |
           if [[ $WEB_REF =~ ^refs/tags/web-v(.+)$ ]]; then
             WEB_TAG="${BASH_REMATCH[1]}"
+            WEB_IMAGE="ghcr.io/bitwarden/web"
           else
             WEB_TAG=$(echo "${WEB_REF#refs/heads/}" | \
               tr '[:upper:]' '[:lower:]' | \
@@ -181,17 +182,20 @@ jobs:
               cut -c1-128 | \
               sed -E 's/[.-]$//')
             [[ "$WEB_TAG" == "main" ]] && WEB_TAG=dev
+            WEB_IMAGE="ghcr.io/bitwarden/web-dev"
           fi
           echo "web_tag=${WEB_TAG}" >> "$GITHUB_OUTPUT"
+          echo "web_image=${WEB_IMAGE}" >> "$GITHUB_OUTPUT"
 
       - name: Log build configuration
         env:
           SERVER_TAG: ${{ steps.tag.outputs.image_tag }}
+          WEB_IMAGE: ${{ steps.web-tag.outputs.web_image }}
           WEB_TAG: ${{ steps.web-tag.outputs.web_tag }}
         run: |
           echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
           echo "- Server: ghcr.io/bitwarden/\*:${SERVER_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "- Web: ghcr.io/bitwarden/web:${WEB_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "- Web: ${WEB_IMAGE}:${WEB_TAG}" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
         id: build-docker
@@ -207,6 +211,7 @@ jobs:
           tags: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
           build-args: |
             SERVER_TAG=${{ steps.tag.outputs.image_tag }}
+            WEB_IMAGE=${{ steps.web-tag.outputs.web_image }}
             WEB_TAG=${{ steps.web-tag.outputs.web_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=min

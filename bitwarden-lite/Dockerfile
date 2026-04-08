@@ -1,11 +1,12 @@
 # syntax = docker/dockerfile:1.21
 ARG SERVER_TAG=dev
+ARG WEB_IMAGE=ghcr.io/bitwarden/web
 ARG WEB_TAG=dev
 
 ###############################################
 #              Web app stage                  #
 ###############################################
-FROM ghcr.io/bitwarden/web:${WEB_TAG} AS web-app
+FROM ${WEB_IMAGE}:${WEB_TAG} AS web-app
 
 ###############################################
 #              Server app stages              #
