@@ -26,4 +26,6 @@ chmod +x /etc/update-motd.d/99-bitwarden-welcome
 # Setup First Run Script
 #
 
-chmod +x /opt/bitwarden/install-bitwarden.sh
+if [ -f /opt/bitwarden/install-bitwarden.sh ]; then
+  chmod +x /opt/bitwarden/install-bitwarden.sh
+fi
