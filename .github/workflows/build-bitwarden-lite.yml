@@ -213,8 +213,6 @@ jobs:
             SERVER_TAG=${{ steps.tag.outputs.image_tag }}
             WEB_IMAGE=${{ steps.web-tag.outputs.web_image }}
             WEB_TAG=${{ steps.web-tag.outputs.web_tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
