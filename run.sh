@@ -202,6 +202,7 @@ function updateDatabase() {
 
 function updatebw() {
     KEY_CONNECTOR_ENABLED=$(grep 'enable_key_connector:' $OUTPUT_DIR/config.yml | awk '{ print $2}')
+    BUILT_IN_MS_SQL_ENABLED=$(grep 'enable_built_in_ms_sql:' $OUTPUT_DIR/config.yml | awk '{ print $2}')
     CORE_ID=$($dccmd ps -q admin)
     WEB_ID=$($dccmd ps -q web)
     if [ "$KEY_CONNECTOR_ENABLED" = true ];
@@ -227,8 +228,12 @@ function updatebw() {
     update withpull
     restart
     dockerPrune
-    echo "Pausing 60 seconds for database to come online. Please wait..."
-    sleep 60
+
+    if [ "$BUILT_IN_MS_SQL_ENABLED" = true ];
+    then
+        echo "Pausing 60 seconds for database to come online. Please wait..."
+        sleep 60
+    fi
 }
 
 function update() {
