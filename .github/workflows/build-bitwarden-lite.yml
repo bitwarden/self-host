@@ -262,7 +262,7 @@ jobs:
           WEB_TAG: ${{ steps.generate-tags.outputs.web_tag }}
         run: |
           echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lite image:** ${IMAGE_TAGS}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lite image:** \`${IMAGE_TAGS}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Server:** ref=\`${SERVER_REF}\` sha=\`${SERVER_SHA}\` tag=\`${SERVER_TAG}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Web:** ref=\`${WEB_REF}\` sha=\`${WEB_SHA}\` image=\`${WEB_IMAGE}:${WEB_TAG}\`" >> $GITHUB_STEP_SUMMARY
 
