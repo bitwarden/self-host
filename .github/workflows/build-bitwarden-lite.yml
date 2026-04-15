@@ -139,9 +139,14 @@ jobs:
 
       - name: Check secrets
         id: check-secrets
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         run: |
-          has_secrets=${{ secrets.AZURE_CLIENT_ID != '' }}
-          echo "has_secrets=$has_secrets" >> "$GITHUB_OUTPUT"
+          if [[ -n "$AZURE_CLIENT_ID" ]]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up QEMU emulators
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
@@ -259,6 +264,7 @@ jobs:
           cache-to: type=gha,mode=min
 
       - name: Install Cosign
+        if: steps.check-secrets.outputs.has_secrets == 'true'
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign image with Cosign
@@ -294,5 +300,5 @@ jobs:
       - name: Log out of registries
         if: always()
         run: |
-          docker logout ghcr.io
-          az acr logout -n bitwardenprod
+          docker logout ghcr.io || true
+          az acr logout -n bitwardenprod || true
