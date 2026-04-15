@@ -16,6 +16,6 @@ $ cosign verify ghcr.io/bitwarden/$IMAGE_NAME:latest --certificate-identity-rege
 ## Quick Deploy
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://marketplace.digitalocean.com/apps/bitwarden?action=deploy)
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/bitwarden.bitwarden-self-host)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/bitwardeninc.bitwarden-self-host)
 
 [Deploy to Kubernetes with Helm](https://github.com/bitwarden/helm-charts/blob/main/charts/self-host/README.md)
