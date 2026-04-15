@@ -64,68 +64,10 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: Setup
-    runs-on: ubuntu-24.04
-    outputs:
-      server_ref: ${{ steps.set-server-variables.outputs.server_ref }}
-      web_ref: ${{ steps.set-web-variables.outputs.web_ref }}
-      push_to_ghcr: ${{ steps.set-server-variables.outputs.push_to_ghcr }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          ref: ${{ inputs.self_host_repo_ref || github.ref }}
-          persist-credentials: false
-
-      - name: Set Server variables
-        id: set-server-variables
-        env:
-          SERVER_BRANCH: ${{ inputs.server_branch }}
-          USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
-        run: |
-          if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
-            CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
-            echo "Server version from version.json: $CORE_VERSION"
-            SERVER_REF="refs/tags/v$CORE_VERSION"
-          elif [[ -z "${SERVER_BRANCH}" ]]; then
-            SERVER_REF="refs/heads/main"
-          else
-            SERVER_REF="refs/heads/${SERVER_BRANCH#refs/heads/}"
-          fi
-
-          echo "server_ref=$SERVER_REF" >> "$GITHUB_OUTPUT"
-
-          # Always push to ACR. Additionally push to GHCR for rc, hotfix-rc, and version tags.
-          BRANCH_NAME="${SERVER_REF#refs/heads/}"
-          if [[ "$SERVER_REF" =~ ^refs/tags/ ]] || [[ "$BRANCH_NAME" == "rc" ]] || [[ "$BRANCH_NAME" == "hotfix-rc" ]]; then
-            echo "push_to_ghcr=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "push_to_ghcr=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set Web variables
-        id: set-web-variables
-        env:
-          WEB_BRANCH: ${{ inputs.web_branch }}
-          USE_LATEST_WEB_VERSION: ${{ inputs.use_latest_web_version }}
-        run: |
-          if [[ "$USE_LATEST_WEB_VERSION" == "true" ]]; then
-            # Extract webVersion from version.json
-            WEB_VERSION=$(jq -r '.versions.webVersion' version.json)
-            echo "Web version from version.json: $WEB_VERSION"
-            echo "web_ref=refs/tags/web-v$WEB_VERSION" >> "$GITHUB_OUTPUT"
-          elif [[ -z "${WEB_BRANCH}" ]]; then
-            echo "web_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
-          else
-            echo "web_ref=refs/heads/${WEB_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
-          fi
-
   build-docker:
     name: Build Docker image
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    needs: setup
     permissions:
       id-token: write
       packages: write
@@ -136,6 +78,63 @@ jobs:
         with:
           ref: ${{ inputs.self_host_repo_ref || github.ref }}
           persist-credentials: false
+
+      - name: Resolve refs and SHAs
+        id: resolve-refs
+        env:
+          SERVER_BRANCH: ${{ inputs.server_branch }}
+          USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
+          WEB_BRANCH: ${{ inputs.web_branch }}
+          USE_LATEST_WEB_VERSION: ${{ inputs.use_latest_web_version }}
+        run: |
+          # Resolve server ref
+          if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
+            CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
+            echo "Server version from version.json: $CORE_VERSION"
+            SERVER_REF="refs/tags/v$CORE_VERSION"
+          elif [[ -z "${SERVER_BRANCH}" ]]; then
+            SERVER_REF="refs/heads/main"
+          else
+            SERVER_REF="refs/heads/${SERVER_BRANCH#refs/heads/}"
+          fi
+
+          # Resolve web ref
+          if [[ "$USE_LATEST_WEB_VERSION" == "true" ]]; then
+            WEB_VERSION=$(jq -r '.versions.webVersion' version.json)
+            echo "Web version from version.json: $WEB_VERSION"
+            WEB_REF="refs/tags/web-v$WEB_VERSION"
+          elif [[ -z "${WEB_BRANCH}" ]]; then
+            WEB_REF="refs/heads/main"
+          else
+            WEB_REF="refs/heads/${WEB_BRANCH#refs/heads/}"
+          fi
+
+          # Always push to ACR. Additionally push to GHCR for rc, hotfix-rc, and version tags.
+          BRANCH_NAME="${SERVER_REF#refs/heads/}"
+          if [[ "$SERVER_REF" =~ ^refs/tags/ ]] || [[ "$BRANCH_NAME" == "rc" ]] || [[ "$BRANCH_NAME" == "hotfix-rc" ]]; then
+            PUSH_TO_GHCR=true
+          else
+            PUSH_TO_GHCR=false
+          fi
+
+          # Resolve commit SHAs
+          SERVER_SHA=$(git ls-remote https://github.com/bitwarden/server.git "$SERVER_REF" | head -1 | cut -c1-7)
+          if [[ -z "$SERVER_SHA" ]]; then
+            echo "ERROR: Could not resolve SHA for server ref: $SERVER_REF"
+            exit 1
+          fi
+
+          WEB_SHA=$(git ls-remote https://github.com/bitwarden/clients.git "$WEB_REF" | head -1 | cut -c1-7)
+          if [[ -z "$WEB_SHA" ]]; then
+            echo "ERROR: Could not resolve SHA for web ref: $WEB_REF"
+            exit 1
+          fi
+
+          echo "server_ref=$SERVER_REF" >> "$GITHUB_OUTPUT"
+          echo "web_ref=$WEB_REF" >> "$GITHUB_OUTPUT"
+          echo "push_to_ghcr=$PUSH_TO_GHCR" >> "$GITHUB_OUTPUT"
+          echo "server_sha=$SERVER_SHA" >> "$GITHUB_OUTPUT"
+          echo "web_sha=$WEB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Check secrets
         id: check-secrets
@@ -167,45 +166,37 @@ jobs:
         run: az acr login -n bitwardenprod
 
       - name: Login to GitHub Container Registry
-        if: steps.check-secrets.outputs.has_secrets == 'true' && needs.setup.outputs.push_to_ghcr == 'true'
+        if: steps.check-secrets.outputs.has_secrets == 'true' && steps.resolve-refs.outputs.push_to_ghcr == 'true'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Docker image tag
-        id: tag
+      - name: Generate Docker tags
+        id: generate-tags
         env:
-          SERVER_REF: ${{ needs.setup.outputs.server_ref }}
+          SERVER_REF: ${{ steps.resolve-refs.outputs.server_ref }}
+          WEB_REF: ${{ steps.resolve-refs.outputs.web_ref }}
         run: |
+          # Generate server image tag
           if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
-              IMAGE_TAG="${BASH_REMATCH[1]}"
+            IMAGE_TAG="${BASH_REMATCH[1]}"
           else
-              IMAGE_TAG=$(echo "${SERVER_REF#refs/heads/}" | \
+            IMAGE_TAG=$(echo "${SERVER_REF#refs/heads/}" | \
               tr '[:upper:]' '[:lower:]' | \
               sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^-+|-+$//g' | \
               cut -c1-128 | \
               sed -E 's/[.-]$//')
           fi
-
-          if [[ "$IMAGE_TAG" == "main" ]]; then
-            IMAGE_TAG=dev
-          fi
+          [[ "$IMAGE_TAG" == "main" ]] && IMAGE_TAG=dev
 
           if [[ -z "$IMAGE_TAG" ]]; then
             echo "ERROR: Failed to generate valid IMAGE_TAG from SERVER_REF: $SERVER_REF"
             exit 1
           fi
 
-          echo "Using $IMAGE_TAG for build"
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Generate web image tag
-        id: web-tag
-        env:
-          WEB_REF: ${{ needs.setup.outputs.web_ref }}
-        run: |
+          # Generate web image tag and registry
           if [[ $WEB_REF =~ ^refs/tags/web-v(.+)$ ]]; then
             WEB_TAG="${BASH_REMATCH[1]}"
             WEB_IMAGE="ghcr.io/bitwarden/web"
@@ -218,31 +209,62 @@ jobs:
             [[ "$WEB_TAG" == "main" ]] && WEB_TAG=dev
             WEB_IMAGE="ghcr.io/bitwarden/web-dev"
           fi
+
+          echo "Using server tag: $IMAGE_TAG, web tag: $WEB_TAG"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           echo "web_tag=${WEB_TAG}" >> "$GITHUB_OUTPUT"
           echo "web_image=${WEB_IMAGE}" >> "$GITHUB_OUTPUT"
 
-      - name: Determine image tags
-        id: image-ref
+      - name: Generate image tags
+        id: image-tags
         env:
-          PUSH_TO_GHCR: ${{ needs.setup.outputs.push_to_ghcr }}
-          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          SERVER_REF: ${{ steps.resolve-refs.outputs.server_ref }}
+          WEB_REF: ${{ steps.resolve-refs.outputs.web_ref }}
+          SERVER_TAG: ${{ steps.generate-tags.outputs.image_tag }}
+          SERVER_SHA: ${{ steps.resolve-refs.outputs.server_sha }}
+          WEB_SHA: ${{ steps.resolve-refs.outputs.web_sha }}
+          PUSH_TO_GHCR: ${{ steps.resolve-refs.outputs.push_to_ghcr }}
         run: |
-          TAGS="bitwardenprod.azurecr.io/lite:${IMAGE_TAG}"
-          if [[ "$PUSH_TO_GHCR" == "true" ]]; then
-            TAGS="${TAGS},ghcr.io/bitwarden/lite:${IMAGE_TAG}"
+          # Determine lite image tag
+          if [[ "$SERVER_REF" =~ ^refs/tags/ ]]; then
+            LITE_TAG="${SERVER_TAG}"
+          elif [[ "$SERVER_REF" == "refs/heads/main" && "$WEB_REF" == "refs/heads/main" ]]; then
+            LITE_TAG="dev"
+          else
+            LITE_TAG="server-${SERVER_SHA}-web-${WEB_SHA}"
           fi
+
+          if [[ -z "$LITE_TAG" ]]; then
+            echo "ERROR: Failed to generate valid LITE_TAG"
+            exit 1
+          fi
+
+          # Determine registry tags
+          TAGS="bitwardenprod.azurecr.io/lite:${LITE_TAG}"
+          if [[ "$PUSH_TO_GHCR" == "true" ]]; then
+            TAGS="${TAGS},ghcr.io/bitwarden/lite:${LITE_TAG}"
+          fi
+
+          echo "Using lite tag: $LITE_TAG"
+          echo "lite_tag=${LITE_TAG}" >> "$GITHUB_OUTPUT"
           echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
-          echo "acr_image=bitwardenprod.azurecr.io/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "acr_image=bitwardenprod.azurecr.io/lite:${LITE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Log build configuration
         env:
-          IMAGE_TAGS: ${{ steps.image-ref.outputs.tags }}
-          WEB_IMAGE: ${{ steps.web-tag.outputs.web_image }}
-          WEB_TAG: ${{ steps.web-tag.outputs.web_tag }}
+          IMAGE_TAGS: ${{ steps.image-tags.outputs.tags }}
+          SERVER_REF: ${{ steps.resolve-refs.outputs.server_ref }}
+          SERVER_SHA: ${{ steps.resolve-refs.outputs.server_sha }}
+          SERVER_TAG: ${{ steps.generate-tags.outputs.image_tag }}
+          WEB_REF: ${{ steps.resolve-refs.outputs.web_ref }}
+          WEB_SHA: ${{ steps.resolve-refs.outputs.web_sha }}
+          WEB_IMAGE: ${{ steps.generate-tags.outputs.web_image }}
+          WEB_TAG: ${{ steps.generate-tags.outputs.web_tag }}
         run: |
           echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- Lite: ${IMAGE_TAGS}" >> $GITHUB_STEP_SUMMARY
-          echo "- Web: ${WEB_IMAGE}:${WEB_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lite image:** ${IMAGE_TAGS}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Server:** ref=\`${SERVER_REF}\` sha=\`${SERVER_SHA}\` tag=\`${SERVER_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web:** ref=\`${WEB_REF}\` sha=\`${WEB_SHA}\` image=\`${WEB_IMAGE}:${WEB_TAG}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
         id: build-docker
@@ -255,11 +277,11 @@ jobs:
             linux/arm/v7,
             linux/arm64/v8
           push: ${{ steps.check-secrets.outputs.has_secrets == 'true' }}
-          tags: ${{ steps.image-ref.outputs.tags }}
+          tags: ${{ steps.image-tags.outputs.tags }}
           build-args: |
-            SERVER_TAG=${{ steps.tag.outputs.image_tag }}
-            WEB_IMAGE=${{ steps.web-tag.outputs.web_image }}
-            WEB_TAG=${{ steps.web-tag.outputs.web_tag }}
+            SERVER_TAG=${{ steps.generate-tags.outputs.image_tag }}
+            WEB_IMAGE=${{ steps.generate-tags.outputs.web_image }}
+            WEB_TAG=${{ steps.generate-tags.outputs.web_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=min
 
@@ -271,9 +293,9 @@ jobs:
         if: steps.check-secrets.outputs.has_secrets == 'true'
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
-          PUSH_TO_GHCR: ${{ needs.setup.outputs.push_to_ghcr }}
-          ACR_IMAGE: ${{ steps.image-ref.outputs.acr_image }}
-          GHCR_IMAGE: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+          PUSH_TO_GHCR: ${{ steps.resolve-refs.outputs.push_to_ghcr }}
+          ACR_IMAGE: ${{ steps.image-tags.outputs.acr_image }}
+          GHCR_IMAGE: ghcr.io/bitwarden/lite:${{ steps.image-tags.outputs.lite_tag }}
         run: |
           cosign sign --yes "${ACR_IMAGE}@${DIGEST}"
           if [[ "$PUSH_TO_GHCR" == "true" ]]; then
@@ -285,7 +307,7 @@ jobs:
         id: container-scan
         uses: anchore/scan-action@f6601287cdb1efc985d6b765bbf99cb4c0ac29d8 # v7.0.0
         with:
-          image: ${{ steps.image-ref.outputs.acr_image }}
+          image: ${{ steps.image-tags.outputs.acr_image }}
           fail-build: false
           output-format: sarif
 
