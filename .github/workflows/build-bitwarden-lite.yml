@@ -96,9 +96,9 @@ jobs:
 
           echo "server_ref=$SERVER_REF" >> "$GITHUB_OUTPUT"
 
-          # Always push to ACR. Additionally push to GHCR for rc and hotfix-rc builds.
+          # Always push to ACR. Additionally push to GHCR for rc, hotfix-rc, and version tags.
           BRANCH_NAME="${SERVER_REF#refs/heads/}"
-          if [[ "$BRANCH_NAME" == "rc" ]] || [[ "$BRANCH_NAME" == "hotfix-rc" ]]; then
+          if [[ "$SERVER_REF" =~ ^refs/tags/ ]] || [[ "$BRANCH_NAME" == "rc" ]] || [[ "$BRANCH_NAME" == "hotfix-rc" ]]; then
             echo "push_to_ghcr=true" >> "$GITHUB_OUTPUT"
           else
             echo "push_to_ghcr=false" >> "$GITHUB_OUTPUT"
