@@ -70,6 +70,7 @@ jobs:
     outputs:
       server_ref: ${{ steps.set-server-variables.outputs.server_ref }}
       web_ref: ${{ steps.set-web-variables.outputs.web_ref }}
+      use_azure: ${{ steps.set-server-variables.outputs.use_azure }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -84,14 +85,23 @@ jobs:
           USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
         run: |
           if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
-            # Extract coreVersion from version.json
             CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
             echo "Server version from version.json: $CORE_VERSION"
-            echo "server_ref=refs/tags/v$CORE_VERSION" >> "$GITHUB_OUTPUT"
+            SERVER_REF="refs/tags/v$CORE_VERSION"
           elif [[ -z "${SERVER_BRANCH}" ]]; then
-            echo "server_ref=refs/heads/main" >> "$GITHUB_OUTPUT"
+            SERVER_REF="refs/heads/main"
           else
-            echo "server_ref=refs/heads/${SERVER_BRANCH#refs/heads/}" >> "$GITHUB_OUTPUT"
+            SERVER_REF="refs/heads/${SERVER_BRANCH#refs/heads/}"
+          fi
+
+          echo "server_ref=$SERVER_REF" >> "$GITHUB_OUTPUT"
+
+          # Use Azure ACR for non-standard branches, GHCR for standard branches and release tags
+          BRANCH_NAME="${SERVER_REF#refs/heads/}"
+          if [[ "$SERVER_REF" =~ ^refs/tags/ ]] || [[ "$BRANCH_NAME" == "main" ]] || [[ "$BRANCH_NAME" == "rc" ]] || [[ "$BRANCH_NAME" == "hotfix-rc" ]]; then
+            echo "use_azure=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_azure=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set Web variables
@@ -134,11 +144,24 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Login to GitHub Container Registry
+        if: needs.setup.outputs.use_azure != 'true'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Azure
+        if: needs.setup.outputs.use_azure == 'true'
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Log in to ACR
+        if: needs.setup.outputs.use_azure == 'true'
+        run: az acr login -n bitwardenprod
 
       - name: Generate Docker image tag
         id: tag
@@ -187,14 +210,26 @@ jobs:
           echo "web_tag=${WEB_TAG}" >> "$GITHUB_OUTPUT"
           echo "web_image=${WEB_IMAGE}" >> "$GITHUB_OUTPUT"
 
+      - name: Determine image reference
+        id: image-ref
+        env:
+          USE_AZURE: ${{ needs.setup.outputs.use_azure }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+        run: |
+          if [[ "$USE_AZURE" == "true" ]]; then
+            echo "image=bitwardenprod.azurecr.io/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=ghcr.io/bitwarden/lite:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Log build configuration
         env:
-          SERVER_TAG: ${{ steps.tag.outputs.image_tag }}
+          LITE_IMAGE: ${{ steps.image-ref.outputs.image }}
           WEB_IMAGE: ${{ steps.web-tag.outputs.web_image }}
           WEB_TAG: ${{ steps.web-tag.outputs.web_tag }}
         run: |
           echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- Server: ghcr.io/bitwarden/\*:${SERVER_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "- Lite: ${LITE_IMAGE}" >> $GITHUB_STEP_SUMMARY
           echo "- Web: ${WEB_IMAGE}:${WEB_TAG}" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
@@ -208,7 +243,7 @@ jobs:
             linux/arm/v7,
             linux/arm64/v8
           push: true
-          tags: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+          tags: ${{ steps.image-ref.outputs.image }}
           build-args: |
             SERVER_TAG=${{ steps.tag.outputs.image_tag }}
             WEB_IMAGE=${{ steps.web-tag.outputs.web_image }}
@@ -222,14 +257,14 @@ jobs:
       - name: Sign image with Cosign
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
-          IMAGE: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+          IMAGE: ${{ steps.image-ref.outputs.image }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
       - name: Scan Docker image
         id: container-scan
         uses: anchore/scan-action@f6601287cdb1efc985d6b765bbf99cb4c0ac29d8 # v7.0.0
         with:
-          image: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+          image: ${{ steps.image-ref.outputs.image }}
           fail-build: false
           output-format: sarif
 
@@ -241,4 +276,9 @@ jobs:
           ref: ${{ contains(github.event_name, 'pull_request') && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
 
       - name: Log out of GHCR
+        if: needs.setup.outputs.use_azure != 'true'
         run: docker logout ghcr.io
+
+      - name: Log out from Azure
+        if: needs.setup.outputs.use_azure == 'true'
+        uses: bitwarden/gh-actions/azure-logout@main
