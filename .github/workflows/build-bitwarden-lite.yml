@@ -137,6 +137,12 @@ jobs:
           ref: ${{ inputs.self_host_repo_ref || github.ref }}
           persist-credentials: false
 
+      - name: Check secrets
+        id: check-secrets
+        run: |
+          has_secrets=${{ secrets.AZURE_CLIENT_ID != '' }}
+          echo "has_secrets=$has_secrets" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU emulators
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
@@ -144,6 +150,7 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Log in to Azure
+        if: steps.check-secrets.outputs.has_secrets == 'true'
         uses: bitwarden/gh-actions/azure-login@main
         with:
           subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -151,10 +158,11 @@ jobs:
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Log in to ACR
+        if: steps.check-secrets.outputs.has_secrets == 'true'
         run: az acr login -n bitwardenprod
 
       - name: Login to GitHub Container Registry
-        if: needs.setup.outputs.push_to_ghcr == 'true'
+        if: steps.check-secrets.outputs.has_secrets == 'true' && needs.setup.outputs.push_to_ghcr == 'true'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
@@ -241,7 +249,7 @@ jobs:
             linux/amd64,
             linux/arm/v7,
             linux/arm64/v8
-          push: true
+          push: ${{ steps.check-secrets.outputs.has_secrets == 'true' }}
           tags: ${{ steps.image-ref.outputs.tags }}
           build-args: |
             SERVER_TAG=${{ steps.tag.outputs.image_tag }}
@@ -254,12 +262,20 @@ jobs:
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign image with Cosign
+        if: steps.check-secrets.outputs.has_secrets == 'true'
         env:
           DIGEST: ${{ steps.build-docker.outputs.digest }}
-          IMAGE: ${{ steps.image-ref.outputs.acr_image }}
-        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+          PUSH_TO_GHCR: ${{ needs.setup.outputs.push_to_ghcr }}
+          ACR_IMAGE: ${{ steps.image-ref.outputs.acr_image }}
+          GHCR_IMAGE: ghcr.io/bitwarden/lite:${{ steps.tag.outputs.image_tag }}
+        run: |
+          cosign sign --yes "${ACR_IMAGE}@${DIGEST}"
+          if [[ "$PUSH_TO_GHCR" == "true" ]]; then
+            cosign sign --yes "${GHCR_IMAGE}@${DIGEST}"
+          fi
 
       - name: Scan Docker image
+        if: steps.check-secrets.outputs.has_secrets == 'true'
         id: container-scan
         uses: anchore/scan-action@f6601287cdb1efc985d6b765bbf99cb4c0ac29d8 # v7.0.0
         with:
@@ -268,15 +284,15 @@ jobs:
           output-format: sarif
 
       - name: Upload Grype results to GitHub
+        if: steps.check-secrets.outputs.has_secrets == 'true'
         uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.0
         with:
           sarif_file: ${{ steps.container-scan.outputs.sarif }}
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
           ref: ${{ contains(github.event_name, 'pull_request') && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
 
-      - name: Log out of GHCR
-        if: needs.setup.outputs.push_to_ghcr == 'true'
-        run: docker logout ghcr.io
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
+      - name: Log out of registries
+        if: always()
+        run: |
+          docker logout ghcr.io
+          az acr logout -n bitwardenprod
