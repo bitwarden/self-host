@@ -1,16 +1,15 @@
 #!/bin/bash
-
-# Scripts in this directory will be executed by cloud-init on the first boot of servers
-# created from your image.  Things like generating passwords, configuration requiring IP address
-# or other items that will be unique to each instance should be done in scripts here.
-
 #
-# Setup Bitwarden Lite
+# Install Bitwarden Lite
 # ref: https://bitwarden.com/help/install-and-deploy-lite/
 #
 
 # Generate a random database password
 DB_PASSWORD=$(openssl rand -hex 16)
+
+echo -e ''
+echo -e 'Downloading Bitwarden Lite configuration...'
+echo -e ''
 
 # Download docker-compose.yml
 curl -L -s -o /home/bitwarden/docker-compose.yml \
@@ -29,11 +28,22 @@ sed -i "s|MARIADB_PASSWORD: \"super_strong_password\"|MARIADB_PASSWORD: \"${DB_P
 chmod 600 /home/bitwarden/settings.env
 chown bitwarden:bitwarden /home/bitwarden/docker-compose.yml /home/bitwarden/settings.env
 
-# Start Bitwarden Lite with default configuration.
-# Database migrations run automatically on first boot.
-# Edit /home/bitwarden/settings.env to set your domain and installation keys,
-# then restart with: cd /home/bitwarden && docker compose up -d
+echo -e ''
+echo -e 'Starting Bitwarden Lite...'
+echo -e ''
+
+# Start Bitwarden Lite. Database migrations run automatically on first boot.
 cd /home/bitwarden && docker compose up -d
+
+echo -e ''
+echo -e 'Bitwarden Lite is running.'
+echo -e ''
+echo -e 'Next steps:'
+echo -e '  1. Edit /home/bitwarden/settings.env to set BW_DOMAIN, BW_INSTALLATION_ID,'
+echo -e '     and BW_INSTALLATION_KEY.'
+echo -e '  2. Get installation credentials at: https://bitwarden.com/host/'
+echo -e '  3. Restart services: cd /home/bitwarden && docker compose up -d'
+echo -e ''
 
 #
 # Setup Bitwarden Lite update cron

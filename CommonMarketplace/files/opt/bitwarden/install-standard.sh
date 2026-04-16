@@ -1,9 +1,19 @@
 #!/bin/bash
+#
+# Install Bitwarden Standard
+# ref: https://bitwarden.com/help/install-on-premise-linux/
+#
 
-#
-# Install Bitwarden
-# ref: https://help.bitwarden.com/article/install-on-premise/
-#
+echo -e ''
+echo -e 'Downloading Bitwarden installer...'
+echo -e ''
+
+curl -L -s -o /home/bitwarden/bitwarden.sh \
+    "https://func.bitwarden.com/api/dl/?app=self-host&platform=linux"
+chmod +x /home/bitwarden/bitwarden.sh
+chown bitwarden:bitwarden /home/bitwarden/bitwarden.sh
+
+docker pull ghcr.io/bitwarden/setup
 
 echo -e ''
 echo -e 'Installing Bitwarden...'
@@ -33,16 +43,10 @@ echo -e ''
 
 #
 # Setup Bitwarden update cron
-# ref: https://help.bitwarden.com/article/updating-on-premise/
+# ref: https://bitwarden.com/help/updating-on-premise/
 #
 
 echo -e '#!/usr/bin/env bash\nsudo -i -u bitwarden /home/bitwarden/bitwarden.sh updateself\nsudo -i -u bitwarden /home/bitwarden/bitwarden.sh update' \
     > /etc/cron.weekly/bitwardenupdate
 
 chmod +x /etc/cron.weekly/bitwardenupdate
-
-#
-# Cleanup - remove the login trigger
-#
-
-rm -f /etc/profile.d/bitwarden-first-login.sh

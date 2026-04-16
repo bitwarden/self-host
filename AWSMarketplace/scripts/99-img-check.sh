@@ -64,6 +64,16 @@ else
   STATUS=2
 fi
 
+# Check docker compose plugin
+if docker compose version > /dev/null 2>&1; then
+  echo -en "\e[32m[PASS]\e[0m Docker Compose plugin is installed.\n"
+  ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m Docker Compose plugin is not installed.\n"
+  ((FAIL++))
+  STATUS=2
+fi
+
 # Check firewall
 if [[ $OS == "Ubuntu" ]]; then
   ufwa=$(ufw status | head -1 | sed -e "s/^Status:\ //")
@@ -126,6 +136,16 @@ if [ -f /root/.bash_history ]; then
 else
   echo -en "\e[32m[PASS]\e[0m Root bash history is not present.\n"
   ((PASS++))
+fi
+
+# Check cloud-init first-boot script is present and executable
+if [ -x /var/lib/cloud/scripts/per-instance/001_onboot ]; then
+  echo -en "\e[32m[PASS]\e[0m Cloud-init first-boot script is present and executable.\n"
+  ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m Cloud-init first-boot script not found at /var/lib/cloud/scripts/per-instance/001_onboot.\n"
+  ((FAIL++))
+  STATUS=2
 fi
 
 # Check for log files

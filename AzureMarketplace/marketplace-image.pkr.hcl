@@ -113,8 +113,18 @@ build {
   }
 
   provisioner "file" {
-    source      = "../CommonMarketplace/files/opt/bitwarden/install-bitwarden.sh"
-    destination = "/tmp/install-bitwarden.sh"
+    source      = "../CommonMarketplace/files/opt/bitwarden/setup-wizard.sh"
+    destination = "/tmp/setup-wizard.sh"
+  }
+
+  provisioner "file" {
+    source      = "../CommonMarketplace/files/opt/bitwarden/install-standard.sh"
+    destination = "/tmp/install-standard.sh"
+  }
+
+  provisioner "file" {
+    source      = "../CommonMarketplace/files/opt/bitwarden/install-lite.sh"
+    destination = "/tmp/install-lite.sh"
   }
 
   provisioner "file" {
@@ -133,10 +143,12 @@ build {
       "sudo mkdir -p /etc/update-motd.d /etc/ufw/applications.d /opt/bitwarden /var/lib/cloud/scripts/per-instance",
       "sudo mv /tmp/99-bitwarden-welcome /etc/update-motd.d/99-bitwarden-welcome",
       "sudo mv /tmp/bitwarden-ufw /etc/ufw/applications.d/bitwarden",
-      "sudo mv /tmp/install-bitwarden.sh /opt/bitwarden/install-bitwarden.sh",
+      "sudo mv /tmp/setup-wizard.sh /opt/bitwarden/setup-wizard.sh",
+      "sudo mv /tmp/install-standard.sh /opt/bitwarden/install-standard.sh",
+      "sudo mv /tmp/install-lite.sh /opt/bitwarden/install-lite.sh",
       "sudo mv /tmp/001_onboot /var/lib/cloud/scripts/per-instance/001_onboot",
       "sudo mv /tmp/bitwarden-first-login.sh /etc/profile.d/bitwarden-first-login.sh",
-      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/install-bitwarden.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-first-login.sh",
+      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/setup-wizard.sh /opt/bitwarden/install-standard.sh /opt/bitwarden/install-lite.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-first-login.sh",
       "sudo chmod 644 /etc/ufw/applications.d/bitwarden /etc/profile.d/bitwarden-first-login.sh"
     ]
   }

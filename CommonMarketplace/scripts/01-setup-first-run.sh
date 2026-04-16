@@ -23,9 +23,9 @@ chmod +x /var/lib/cloud/scripts/per-instance/001_onboot
 chmod +x /etc/update-motd.d/99-bitwarden-welcome
 
 #
-# Setup First Run Script
+# Make setup wizard scripts executable
 #
 
-if [ -f /opt/bitwarden/install-bitwarden.sh ]; then
-  chmod +x /opt/bitwarden/install-bitwarden.sh
-fi
+chmod +x /opt/bitwarden/setup-wizard.sh
+chmod +x /opt/bitwarden/install-standard.sh
+chmod +x /opt/bitwarden/install-lite.sh
