@@ -83,6 +83,20 @@ build {
     source      = "../CommonMarketplace/files/var/"
   }
 
+  # Set file permissions explicitly — Packer's file provisioner does not
+  # guarantee permissions when uploading directories.
+  provisioner "shell" {
+    inline = [
+      "chmod +x /var/lib/cloud/scripts/per-instance/001_onboot",
+      "chmod +x /etc/update-motd.d/99-bitwarden-welcome",
+      "chmod +x /opt/bitwarden/setup-wizard.sh",
+      "chmod +x /opt/bitwarden/install-standard.sh",
+      "chmod +x /opt/bitwarden/install-lite.sh",
+      "chmod 644 /etc/profile.d/bitwarden-first-login.sh",
+      "chmod 644 /etc/ufw/applications.d/bitwarden"
+    ]
+  }
+
   provisioner "shell" {
     environment_vars = [
       "DEBIAN_FRONTEND=noninteractive",

@@ -1,16 +1,93 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Configured as part of the Bitwarden Marketplace Image build process
 
-myip=$(hostname -I | awk '{print$1}')
-cat <<EOF
+EDITION_FILE="/home/bitwarden/.bw-edition"
+SETTINGS_FILE="/home/bitwarden/settings.env"
+
+EDITION=""
+if [ -f "$EDITION_FILE" ]; then
+    EDITION=$(cat "$EDITION_FILE")
+fi
+
+if [ "$EDITION" = "lite" ]; then
+
+    # Read current values from settings.env
+    if [ -f "$SETTINGS_FILE" ]; then
+        BW_DOMAIN=$(grep "^BW_DOMAIN=" "$SETTINGS_FILE" | cut -d'=' -f2-)
+        BW_INSTALLATION_ID=$(grep "^BW_INSTALLATION_ID=" "$SETTINGS_FILE" | cut -d'=' -f2-)
+        BW_INSTALLATION_KEY=$(grep "^BW_INSTALLATION_KEY=" "$SETTINGS_FILE" | cut -d'=' -f2-)
+    else
+        BW_DOMAIN="(settings.env not found)"
+        BW_INSTALLATION_ID=""
+        BW_INSTALLATION_KEY=""
+    fi
+
+    NEEDS_CONFIG=0
+    CONFIG_ITEMS=""
+
+    if [ "$BW_DOMAIN" = "bitwarden.example.com" ] || [ -z "$BW_DOMAIN" ]; then
+        CONFIG_ITEMS="${CONFIG_ITEMS}  - BW_DOMAIN is not set (currently: ${BW_DOMAIN})\n"
+        NEEDS_CONFIG=1
+    fi
+
+    if [ "$BW_INSTALLATION_ID" = "00000000-0000-0000-0000-000000000000" ] || [ -z "$BW_INSTALLATION_ID" ]; then
+        CONFIG_ITEMS="${CONFIG_ITEMS}  - BW_INSTALLATION_ID is not set\n"
+        NEEDS_CONFIG=1
+    fi
+
+    if [ "$BW_INSTALLATION_KEY" = "xxxxxxxxxxxx" ] || [ -z "$BW_INSTALLATION_KEY" ]; then
+        CONFIG_ITEMS="${CONFIG_ITEMS}  - BW_INSTALLATION_KEY is not set\n"
+        NEEDS_CONFIG=1
+    fi
+
+    cat <<EOF
+********************************************************************************
+
+Welcome to your Bitwarden Lite server
+  https://bitwarden.com
+
+Documentation:
+  https://bitwarden.com/help/install-and-deploy-lite/
+
+Current configuration  ($SETTINGS_FILE):
+  Domain:           ${BW_DOMAIN}
+  Installation ID:  ${BW_INSTALLATION_ID}
+
+EOF
+
+    if [ "$NEEDS_CONFIG" -eq 1 ]; then
+        printf "Action required - the following settings still need to be configured:\n"
+        printf "${CONFIG_ITEMS}"
+        printf "\n  Get your Installation ID and Key at: https://bitwarden.com/host/\n"
+        printf "\n  After editing settings.env, restart Bitwarden Lite:\n"
+        printf "    cd /home/bitwarden && docker compose up -d\n"
+    else
+        printf "  Bitwarden Lite is configured. Access your vault at https://${BW_DOMAIN}\n"
+    fi
+
+    cat <<EOF
+
+Common commands:
+  sudo -i -u bitwarden docker compose -f /home/bitwarden/docker-compose.yml stop
+  sudo -i -u bitwarden docker compose -f /home/bitwarden/docker-compose.yml restart
+  sudo -i -u bitwarden docker compose -f /home/bitwarden/docker-compose.yml pull && \\
+    sudo -i -u bitwarden docker compose -f /home/bitwarden/docker-compose.yml up -d
+
+********************************************************************************
+To delete this message of the day: rm -rf $(readlink -f ${0})
+EOF
+
+elif [ "$EDITION" = "standard" ]; then
+
+    cat <<EOF
 ********************************************************************************
 
 Welcome to your Bitwarden server
   https://bitwarden.com
 
-Complete documentation:
-  https://help.bitwarden.com/hosting/
+Documentation:
+  https://bitwarden.com/help/install-on-premise-linux/
 
 Configuration:
   Configuration changes can be made in /home/bitwarden/bwdata/config.yml and
@@ -24,3 +101,20 @@ Common commands:
 ********************************************************************************
 To delete this message of the day: rm -rf $(readlink -f ${0})
 EOF
+
+else
+
+    # Edition not yet selected — setup wizard hasn't run
+    cat <<EOF
+********************************************************************************
+
+Welcome to your Bitwarden server
+  https://bitwarden.com
+
+  Setup has not been completed. Please log in to complete the Bitwarden
+  edition selection and installation wizard.
+
+********************************************************************************
+EOF
+
+fi

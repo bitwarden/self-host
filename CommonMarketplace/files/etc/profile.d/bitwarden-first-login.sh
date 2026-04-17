@@ -8,9 +8,9 @@ if [ "$(whoami)" = "bitwarden" ]; then
   return 0 2>/dev/null || exit 0
 fi
 
-if [ -f /opt/bitwarden/install-bitwarden.sh ]; then
-  # Wait for cloud-init to finish (downloads bitwarden.sh on first boot)
+if [ -f /opt/bitwarden/setup-wizard.sh ]; then
+  # Wait for cloud-init to finish before running the setup wizard
   echo "Waiting for cloud-init to complete..."
   sudo cloud-init status --wait > /dev/null 2>&1
-  sudo /opt/bitwarden/install-bitwarden.sh
+  sudo /opt/bitwarden/setup-wizard.sh
 fi
