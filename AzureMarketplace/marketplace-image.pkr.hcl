@@ -174,6 +174,19 @@ build {
     ]
   }
 
+  # Upgrade Azure Linux Agent from Microsoft's package repository to meet minimum version requirement
+  provisioner "shell" {
+    environment_vars = [
+      "DEBIAN_FRONTEND=noninteractive",
+    ]
+    inline = [
+      "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg",
+      "echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main\" | sudo tee /etc/apt/sources.list.d/microsoft-prod.list > /dev/null",
+      "sudo apt-get -qqy update",
+      "sudo apt-get -qqy -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install walinuxagent"
+    ]
+  }
+
   provisioner "shell" {
     execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sudo -E bash '{{ .Path }}'"
     environment_vars = [

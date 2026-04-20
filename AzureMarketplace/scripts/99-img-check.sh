@@ -54,10 +54,19 @@ else
   STATUS=2
 fi
 
-# Check Azure Linux Agent
+# Check Azure Linux Agent version (minimum 2.7.x required)
 if hash waagent 2>/dev/null; then
-  echo -en "\e[32m[PASS]\e[0m Azure Linux Agent (waagent) is installed.\n"
-  ((PASS++))
+  WAAGENT_VERSION=$(waagent --version 2>&1 | head -1 | grep -oP '(?<=WALinuxAgent-)\d+\.\d+' | head -1)
+  WAAGENT_MAJOR=$(echo "${WAAGENT_VERSION}" | cut -d. -f1)
+  WAAGENT_MINOR=$(echo "${WAAGENT_VERSION}" | cut -d. -f2)
+  if [[ "${WAAGENT_MAJOR}" -gt 2 ]] || ([[ "${WAAGENT_MAJOR}" -eq 2 ]] && [[ "${WAAGENT_MINOR}" -ge 7 ]]); then
+    echo -en "\e[32m[PASS]\e[0m Azure Linux Agent version ${WAAGENT_VERSION} meets minimum requirement.\n"
+    ((PASS++))
+  else
+    echo -en "\e[41m[FAIL]\e[0m Azure Linux Agent version ${WAAGENT_VERSION} is below minimum supported version (2.7.x).\n"
+    ((FAIL++))
+    STATUS=2
+  fi
 else
   echo -en "\e[41m[FAIL]\e[0m Azure Linux Agent (waagent) is not installed.\n"
   ((FAIL++))
@@ -130,6 +139,28 @@ if [ -f /home/ubuntu/.ssh/authorized_keys ] && [ "$(wc -c < /home/ubuntu/.ssh/au
 else
   echo -en "\e[32m[PASS]\e[0m No SSH keys found for ubuntu user.\n"
   ((PASS++))
+fi
+
+# Check SSH ClientAliveInterval (Azure requirement: 30-235 seconds)
+ALIVE_INTERVAL=$(grep -i "^ClientAliveInterval" /etc/ssh/sshd_config | awk '{print $2}' | tail -1)
+if [[ -n "${ALIVE_INTERVAL}" ]] && [[ "${ALIVE_INTERVAL}" -ge 30 ]] && [[ "${ALIVE_INTERVAL}" -le 235 ]]; then
+  echo -en "\e[32m[PASS]\e[0m SSH ClientAliveInterval is ${ALIVE_INTERVAL} seconds (30-235 required).\n"
+  ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m SSH ClientAliveInterval is not configured in the required range of 30-235 seconds (got: ${ALIVE_INTERVAL:-not set}).\n"
+  ((FAIL++))
+  STATUS=2
+fi
+
+# Check no swap on OS disk
+SWAP_ACTIVE=$(swapon --show 2>/dev/null)
+if [[ -z "${SWAP_ACTIVE}" ]]; then
+  echo -en "\e[32m[PASS]\e[0m No active swap partitions detected.\n"
+  ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m Swap is active. Disable swap before submitting to Azure Marketplace.\n"
+  ((FAIL++))
+  STATUS=2
 fi
 
 # Check bash history
