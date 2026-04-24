@@ -229,7 +229,7 @@ function updatebw() {
     restart
     dockerPrune
 
-    if [ "$BUILT_IN_MS_SQL_ENABLED" = true ];
+    if [ "$BUILT_IN_MS_SQL_ENABLED" != false ];
     then
         echo "Pausing 60 seconds for database to come online. Please wait..."
         sleep 60
