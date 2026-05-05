@@ -7,6 +7,9 @@ on:
       - ".github/workflows/build-bitwarden-lite.yml"
     branches:
       - main
+  repository_dispatch:
+    types:
+      - build-bitwarden-lite
   workflow_dispatch:
     inputs:
       self_host_repo_ref:
@@ -81,8 +84,8 @@ jobs:
       - name: Set Server variables
         id: set-server-variables
         env:
-          SERVER_BRANCH: ${{ inputs.server_branch }}
-          USE_LATEST_CORE_VERSION: ${{ inputs.use_latest_core_version }}
+          SERVER_BRANCH: ${{ inputs.server_branch || github.event.client_payload.server_branch }}
+          USE_LATEST_CORE_VERSION: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.use_latest_core_version || inputs.use_latest_core_version }}
         run: |
           if [[ "$USE_LATEST_CORE_VERSION" == "true" ]]; then
             CORE_VERSION=$(jq -r '.versions.coreVersion' version.json)
@@ -107,8 +110,8 @@ jobs:
       - name: Set Web variables
         id: set-web-variables
         env:
-          WEB_BRANCH: ${{ inputs.web_branch }}
-          USE_LATEST_WEB_VERSION: ${{ inputs.use_latest_web_version }}
+          WEB_BRANCH: ${{ inputs.web_branch || github.event.client_payload.web_branch }}
+          USE_LATEST_WEB_VERSION: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.use_latest_web_version || inputs.use_latest_web_version }}
         run: |
           if [[ "$USE_LATEST_WEB_VERSION" == "true" ]]; then
             # Extract webVersion from version.json
