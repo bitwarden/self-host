@@ -78,7 +78,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.self_host_repo_ref || github.ref }}
+          ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
 
       - name: Set Server variables
@@ -137,7 +137,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.self_host_repo_ref || github.ref }}
+          ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
 
       - name: Check secrets
