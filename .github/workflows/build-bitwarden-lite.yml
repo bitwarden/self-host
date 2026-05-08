@@ -1,4 +1,5 @@
 name: Build Bitwarden lite
+run-name: Build Bitwarden lite ${{ github.event_name }}
 
 on:
   push:
