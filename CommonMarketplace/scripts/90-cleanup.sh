@@ -4,6 +4,10 @@
 
 set -o errexit
 
+# Prevent this script from writing to bash history
+unset HISTFILE
+export HISTSIZE=0
+
 # Ensure /tmp exists and has the proper permissions
 if [ ! -d /tmp ]; then
   mkdir /tmp
@@ -18,19 +22,35 @@ if [ -n "$(command -v apt-get)" ]; then
   apt-get -y autoclean
 fi
 
-# Disable swap (marketplace requirement: no swap on OS disk)
+# Disable swap (marketplace requirement: no swap on OS disk).
+# Build-time: clear current swap and fstab.
 swapoff -a 2>/dev/null || true
 sed -i '/\bswap\b/d' /etc/fstab
 if [ -f /swapfile ]; then
   rm -f /swapfile
 fi
-
-# Configure SSH client alive interval (Azure requirement: 30-235 seconds)
-if grep -q "^#*\s*ClientAliveInterval" /etc/ssh/sshd_config; then
-  sed -i 's/^#*\s*ClientAliveInterval.*/ClientAliveInterval 120/' /etc/ssh/sshd_config
-else
-  echo "ClientAliveInterval 120" >> /etc/ssh/sshd_config
+# Boot-time: tell waagent not to create resource-disk swap on first boot.
+if [ -f /etc/waagent.conf ]; then
+  sed -i 's/^ResourceDisk\.EnableSwap=.*/ResourceDisk.EnableSwap=n/' /etc/waagent.conf
+  sed -i 's/^ResourceDisk\.SwapSizeMB=.*/ResourceDisk.SwapSizeMB=0/' /etc/waagent.conf
 fi
+# Boot-time: tell cloud-init not to create /swap.img.
+cat > /etc/cloud/cloud.cfg.d/99-disable-swap.cfg <<'EOF'
+swap:
+  filename: /swap.img
+  size: 0
+  maxsize: 0
+EOF
+chmod 644 /etc/cloud/cloud.cfg.d/99-disable-swap.cfg
+
+# Configure SSH client alive interval (Azure requirement: 30-235 seconds).
+# Use a drop-in that sorts before /etc/ssh/sshd_config.d/50-cloud-init.conf so
+# this setting wins — sshd uses the first occurrence of each directive.
+cat > /etc/ssh/sshd_config.d/10-azure-marketplace.conf <<'EOF'
+ClientAliveInterval 120
+ClientAliveCountMax 3
+EOF
+chmod 644 /etc/ssh/sshd_config.d/10-azure-marketplace.conf
 
 rm -rf /tmp/* /var/tmp/*
 

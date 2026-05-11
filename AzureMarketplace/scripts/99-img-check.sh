@@ -2,6 +2,10 @@
 
 # Azure Marketplace Image Validation Tool
 
+# Prevent this script from writing to bash history
+unset HISTFILE
+export HISTSIZE=0
+
 VERSION="v. 1.0.0"
 RUNDATE=$( date )
 
@@ -69,6 +73,16 @@ if hash waagent 2>/dev/null; then
   fi
 else
   echo -en "\e[41m[FAIL]\e[0m Azure Linux Agent (waagent) is not installed.\n"
+  ((FAIL++))
+  STATUS=2
+fi
+
+# Check Azure Linux Agent service is enabled (will start on the deployed VM)
+if systemctl is-enabled walinuxagent >/dev/null 2>&1; then
+  echo -en "\e[32m[PASS]\e[0m Azure Linux Agent service is enabled.\n"
+  ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m Azure Linux Agent service is not enabled.\n"
   ((FAIL++))
   STATUS=2
 fi
@@ -142,7 +156,7 @@ else
 fi
 
 # Check SSH ClientAliveInterval (Azure requirement: 30-235 seconds)
-ALIVE_INTERVAL=$(grep -i "^ClientAliveInterval" /etc/ssh/sshd_config | awk '{print $2}' | tail -1)
+ALIVE_INTERVAL=$(sshd -T 2>/dev/null | awk '/^clientaliveinterval/{print $2}')
 if [[ -n "${ALIVE_INTERVAL}" ]] && [[ "${ALIVE_INTERVAL}" -ge 30 ]] && [[ "${ALIVE_INTERVAL}" -le 235 ]]; then
   echo -en "\e[32m[PASS]\e[0m SSH ClientAliveInterval is ${ALIVE_INTERVAL} seconds (30-235 required).\n"
   ((PASS++))
@@ -163,20 +177,24 @@ else
   STATUS=2
 fi
 
-# Check bash history
-if [ -f /root/.bash_history ]; then
-  BH_S=$(wc -c < /root/.bash_history)
-  if [[ $BH_S -lt 200 ]]; then
-    echo -en "\e[32m[PASS]\e[0m Root bash history appears cleared.\n"
-    ((PASS++))
-  else
-    echo -en "\e[41m[FAIL]\e[0m Root bash history should be cleared.\n"
-    ((FAIL++))
-    STATUS=2
-  fi
-else
-  echo -en "\e[32m[PASS]\e[0m Root bash history is not present.\n"
+# Check waagent will not recreate swap on first boot of the deployed VM.
+if [ -f /etc/waagent.conf ] && grep -q "^ResourceDisk.EnableSwap=n" /etc/waagent.conf; then
+  echo -en "\e[32m[PASS]\e[0m waagent ResourceDisk.EnableSwap is disabled.\n"
   ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m waagent will recreate swap on first boot (ResourceDisk.EnableSwap is not 'n').\n"
+  ((FAIL++))
+  STATUS=2
+fi
+
+# Check bash history — Azure tests for file existence, not size.
+if [ ! -f /root/.bash_history ] && [ ! -f /home/ubuntu/.bash_history ]; then
+  echo -en "\e[32m[PASS]\e[0m No bash history files present.\n"
+  ((PASS++))
+else
+  echo -en "\e[41m[FAIL]\e[0m bash history file present (must be deleted, not truncated).\n"
+  ((FAIL++))
+  STATUS=2
 fi
 
 # Check cloud-init first-boot script is present and executable
