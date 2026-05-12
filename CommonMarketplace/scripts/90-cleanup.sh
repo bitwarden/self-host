@@ -46,11 +46,11 @@ chmod 644 /etc/cloud/cloud.cfg.d/99-disable-swap.cfg
 # Configure SSH client alive interval (Azure requirement: 30-235 seconds).
 # Use a drop-in that sorts before /etc/ssh/sshd_config.d/50-cloud-init.conf so
 # this setting wins — sshd uses the first occurrence of each directive.
-cat > /etc/ssh/sshd_config.d/10-azure-marketplace.conf <<'EOF'
+cat > /etc/ssh/sshd_config.d/10-bitwarden-marketplace.conf <<'EOF'
 ClientAliveInterval 120
 ClientAliveCountMax 3
 EOF
-chmod 644 /etc/ssh/sshd_config.d/10-azure-marketplace.conf
+chmod 644 /etc/ssh/sshd_config.d/10-bitwarden-marketplace.conf
 
 rm -rf /tmp/* /var/tmp/*
 
@@ -66,6 +66,4 @@ done
 find /var/log -mtime -1 -type f -exec truncate -s 0 {} \;
 rm -rf /var/log/*.gz /var/log/*.[0-9] /var/log/*-????????
 rm -rf /var/lib/cloud/instances/*
-rm -f /root/.ssh/authorized_keys /home/ubuntu/.ssh/authorized_keys /etc/ssh/*key*
-touch /etc/ssh/revoked_keys
-chmod 600 /etc/ssh/revoked_keys
+rm -f /root/.ssh/authorized_keys /home/ubuntu/.ssh/authorized_keys
