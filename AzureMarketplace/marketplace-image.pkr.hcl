@@ -197,7 +197,8 @@ build {
       "../CommonMarketplace/scripts/01-setup-first-run.sh",
       "../CommonMarketplace/scripts/02-ufw-bitwarden.sh",
       "../CommonMarketplace/scripts/90-cleanup.sh",
-      "scripts/99-img-check.sh"
+      "scripts/99-img-check.sh",
+      "../CommonMarketplace/scripts/99-cleanup-final.sh"
     ]
   }
 
