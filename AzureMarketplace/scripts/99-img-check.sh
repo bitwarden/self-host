@@ -20,7 +20,6 @@ PASS=0
 WARN=0
 FAIL=0
 
-clear
 echo "Azure Marketplace Image Validation Tool ${VERSION}"
 echo "Executed on: ${RUNDATE}"
 echo "Checking local system for Marketplace compatibility..."
@@ -156,7 +155,8 @@ else
 fi
 
 # Check SSH ClientAliveInterval (Azure requirement: 30-235 seconds)
-ALIVE_INTERVAL=$(sshd -T 2>/dev/null | awk '/^clientaliveinterval/{print $2}')
+ALIVE_INTERVAL=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1 2>/dev/null \
+  | awk '/^clientaliveinterval/{print $2}')
 if [[ -n "${ALIVE_INTERVAL}" ]] && [[ "${ALIVE_INTERVAL}" -ge 30 ]] && [[ "${ALIVE_INTERVAL}" -le 235 ]]; then
   echo -en "\e[32m[PASS]\e[0m SSH ClientAliveInterval is ${ALIVE_INTERVAL} seconds (30-235 required).\n"
   ((PASS++))

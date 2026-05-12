@@ -59,7 +59,7 @@ unset HISTFILE
 export HISTSIZE=0
 for home_dir in /root /home/*; do
   if [ -d "$home_dir" ]; then
-    cat /dev/null > "$home_dir/.bash_history" 2>/dev/null || true
+    rm -f "$home_dir/.bash_history" 2>/dev/null || true
   fi
 done
 
