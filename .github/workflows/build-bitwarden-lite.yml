@@ -185,16 +185,19 @@ jobs:
         run: |
           if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
               IMAGE_TAG="${BASH_REMATCH[1]}"
+              SERVER_TAG="${BASH_REMATCH[1]}"
           else
               IMAGE_TAG=$(echo "${SERVER_REF#refs/heads/}" | \
               tr '[:upper:]' '[:lower:]' | \
               sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^-+|-+$//g' | \
               cut -c1-128 | \
               sed -E 's/[.-]$//')
+              SERVER_TAG=$(echo "${SERVER_REF#refs/heads/}" | sed 's|/|-|g' | cut -c1-128)
           fi
 
           if [[ "$IMAGE_TAG" == "main" ]]; then
             IMAGE_TAG=dev
+            SERVER_TAG=dev
           fi
 
           if [[ -z "$IMAGE_TAG" ]]; then
@@ -202,8 +205,9 @@ jobs:
             exit 1
           fi
 
-          echo "Using $IMAGE_TAG for build"
+          echo "Using lite tag $IMAGE_TAG, server tag $SERVER_TAG"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "server_tag=${SERVER_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Generate web image tag
         id: web-tag
@@ -241,11 +245,14 @@ jobs:
       - name: Log build configuration
         env:
           IMAGE_TAGS: ${{ steps.image-ref.outputs.tags }}
+          SERVER_REGISTRY: ${{ needs.setup.outputs.push_to_ghcr == 'true' && 'ghcr.io/bitwarden' || 'bitwardenprod.azurecr.io' }}
+          SERVER_TAG: ${{ steps.tag.outputs.server_tag }}
           WEB_IMAGE: ${{ steps.web-tag.outputs.web_image }}
           WEB_TAG: ${{ steps.web-tag.outputs.web_tag }}
         run: |
           echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
           echo "- Lite: ${IMAGE_TAGS}" >> $GITHUB_STEP_SUMMARY
+          echo "- Server: ${SERVER_REGISTRY}/*:${SERVER_TAG}" >> $GITHUB_STEP_SUMMARY
           echo "- Web: ${WEB_IMAGE}:${WEB_TAG}" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push Docker image
@@ -261,7 +268,8 @@ jobs:
           push: ${{ steps.check-secrets.outputs.has_secrets == 'true' }}
           tags: ${{ steps.image-ref.outputs.tags }}
           build-args: |
-            SERVER_TAG=${{ steps.tag.outputs.image_tag }}
+            SERVER_TAG=${{ steps.tag.outputs.server_tag }}
+            SERVER_REGISTRY=${{ needs.setup.outputs.push_to_ghcr == 'true' && 'ghcr.io/bitwarden' || 'bitwardenprod.azurecr.io' }}
             WEB_IMAGE=${{ steps.web-tag.outputs.web_image }}
             WEB_TAG=${{ steps.web-tag.outputs.web_tag }}
 

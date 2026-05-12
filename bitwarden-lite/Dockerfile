@@ -1,5 +1,6 @@
 # syntax = docker/dockerfile:1.23
 ARG SERVER_TAG=dev
+ARG SERVER_REGISTRY=ghcr.io/bitwarden
 ARG WEB_IMAGE=ghcr.io/bitwarden/web
 ARG WEB_TAG=dev
 
@@ -11,14 +12,14 @@ FROM ${WEB_IMAGE}:${WEB_TAG} AS web-app
 ###############################################
 #              Server app stages              #
 ###############################################
-FROM ghcr.io/bitwarden/admin:${SERVER_TAG} AS admin-app
-FROM ghcr.io/bitwarden/api:${SERVER_TAG} AS api-app
-FROM ghcr.io/bitwarden/events:${SERVER_TAG} AS events-app
-FROM ghcr.io/bitwarden/icons:${SERVER_TAG} AS icons-app
-FROM ghcr.io/bitwarden/identity:${SERVER_TAG} AS identity-app
-FROM ghcr.io/bitwarden/notifications:${SERVER_TAG} AS notifications-app
-FROM ghcr.io/bitwarden/scim:${SERVER_TAG} AS scim-app
-FROM ghcr.io/bitwarden/sso:${SERVER_TAG} AS sso-app
+FROM ${SERVER_REGISTRY}/admin:${SERVER_TAG} AS admin-app
+FROM ${SERVER_REGISTRY}/api:${SERVER_TAG} AS api-app
+FROM ${SERVER_REGISTRY}/events:${SERVER_TAG} AS events-app
+FROM ${SERVER_REGISTRY}/icons:${SERVER_TAG} AS icons-app
+FROM ${SERVER_REGISTRY}/identity:${SERVER_TAG} AS identity-app
+FROM ${SERVER_REGISTRY}/notifications:${SERVER_TAG} AS notifications-app
+FROM ${SERVER_REGISTRY}/scim:${SERVER_TAG} AS scim-app
+FROM ${SERVER_REGISTRY}/sso:${SERVER_TAG} AS sso-app
 
 ###############################################
 #                  App stage                  #
