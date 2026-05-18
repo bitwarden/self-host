@@ -11,9 +11,6 @@ on:
       - ".github/workflows/build-bitwarden-lite.yml"
       - ".github/workflows/build-bitwarden-lite-workflow-target.yml"
 
-permissions:
-  contents: read
-
 jobs:
   check-run:
     name: Check PR run approval
