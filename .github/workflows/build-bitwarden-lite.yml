@@ -55,6 +55,16 @@ on:
         description: "Use the latest web version from version.json instead of branch"
         type: boolean
         default: false
+    secrets:
+      AZURE_CLIENT_ID:
+        description: "Azure client ID for ACR/Cosign auth"
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        description: "Azure subscription ID"
+        required: false
+      AZURE_TENANT_ID:
+        description: "Azure tenant ID"
+        required: false
   pull_request:
     types: [opened, synchronize]
     branches:
