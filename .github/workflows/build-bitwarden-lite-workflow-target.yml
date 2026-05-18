@@ -1,0 +1,36 @@
+name: Build Bitwarden lite (fork PR)
+run-name: Build Bitwarden lite fork PR #${{ github.event.pull_request.number }}
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths:
+      - "bitwarden-lite/**"
+      - ".github/workflows/build-bitwarden-lite.yml"
+      - ".github/workflows/build-bitwarden-lite-workflow-target.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check-run:
+    name: Check PR run approval
+    uses: bitwarden/gh-actions/.github/workflows/check-run.yml@main
+    permissions:
+      contents: read
+
+  build:
+    name: Build Docker image (fork PR)
+    needs: check-run
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    uses: ./.github/workflows/build-bitwarden-lite.yml
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+      security-events: write
+    secrets: inherit
+    with:
+      self_host_repo_ref: ${{ github.event.pull_request.head.sha }}
