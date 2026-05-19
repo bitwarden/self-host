@@ -55,22 +55,45 @@ on:
         description: "Use the latest web version from version.json instead of branch"
         type: boolean
         default: false
+    secrets:
+      AZURE_CLIENT_ID:
+        description: "Azure client ID for ACR/Cosign auth"
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        description: "Azure subscription ID"
+        required: false
+      AZURE_TENANT_ID:
+        description: "Azure tenant ID"
+        required: false
   pull_request:
+    types: [opened, synchronize]
+    branches:
+      - main
     paths:
-      - ".github/workflows/build-bitwarden-lite.yml"
       - "bitwarden-lite/**"
+      - ".github/workflows/build-bitwarden-lite.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
+  check-event-source:
+    name: Check event and source
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Check PR event and source
+        run: echo "Internal PR, push, dispatch, or workflow_call — proceeding"
+
   setup:
     name: Setup
     runs-on: ubuntu-24.04
+    needs: check-event-source
+    permissions:
+      contents: read
     outputs:
       server_ref: ${{ steps.set-server-variables.outputs.server_ref }}
       web_ref: ${{ steps.set-web-variables.outputs.web_ref }}
@@ -131,6 +154,7 @@ jobs:
     timeout-minutes: 60
     needs: setup
     permissions:
+      contents: read
       id-token: write
       packages: write
       security-events: write
