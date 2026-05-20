@@ -62,6 +62,7 @@ ENV globalSettings__logRollBySizeLimit="1073741824"
 
 # Add packages
 RUN apk add --no-cache \
+    ca-certificates \
     curl \
     jq \
     nginx \
