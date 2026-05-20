@@ -83,6 +83,15 @@ if [ "$BW_ENABLE_SSL" = "true" ] && [ ! -f /etc/bitwarden/${BW_SSL_KEY:-ssl.key}
   rm "$TMP_OPENSSL_CONF"
 fi
 
+# Trust the configured SSL certificates
+if [ "$BW_ENABLE_SSL" = "true" ]; then
+  cp /etc/bitwarden/${BW_SSL_CERT:-ssl.crt} /usr/local/share/ca-certificates/bitwarden.crt
+  if [ -f /etc/bitwarden/${BW_SSL_CA_CERT:-ca.crt} ]; then
+    cp /etc/bitwarden/${BW_SSL_CA_CERT:-ca.crt} /usr/local/share/ca-certificates/bitwarden-ca.crt
+  fi
+  update-ca-certificates >/dev/null
+fi
+
 # Launch a loop to rotate nginx logs on a daily basis
 /bin/sh -c "/logrotate.sh loop >/dev/null 2>&1 &"
 
