@@ -27,6 +27,15 @@ variable "docker_packages" {
   default = "docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
 }
 
+# Pinned to a version above what apt noble-updates ships (currently 2.11.x).
+# Azure Marketplace cert check 200.3.3.4 fails for unspecified reasons against
+# the apt build; switch to a tarball install from upstream to remove the
+# Canonical packaging as a variable.
+variable "waagent_version" {
+  type    = string
+  default = "2.15.0.1"
+}
+
 variable "subscription_id" {
   type    = string
   default = "${env("AZURE_SUBSCRIPTION_ID")}"
@@ -137,6 +146,11 @@ build {
     destination = "/tmp/bitwarden-first-login.sh"
   }
 
+  provisioner "file" {
+    source      = "../CommonMarketplace/files/etc/systemd/system/disable-swap.service"
+    destination = "/tmp/disable-swap.service"
+  }
+
   # Move staged files to their final system locations
   provisioner "shell" {
     inline = [
@@ -148,8 +162,10 @@ build {
       "sudo mv /tmp/install-lite.sh /opt/bitwarden/install-lite.sh",
       "sudo mv /tmp/001_onboot /var/lib/cloud/scripts/per-instance/001_onboot",
       "sudo mv /tmp/bitwarden-first-login.sh /etc/profile.d/bitwarden-first-login.sh",
-      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/setup-wizard.sh /opt/bitwarden/install-standard.sh /opt/bitwarden/install-lite.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-first-login.sh",
-      "sudo chmod 644 /etc/ufw/applications.d/bitwarden /etc/profile.d/bitwarden-first-login.sh"
+      "sudo mv /tmp/disable-swap.service /etc/systemd/system/disable-swap.service",
+      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/setup-wizard.sh /opt/bitwarden/install-standard.sh /opt/bitwarden/install-lite.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-first-login.sh /etc/systemd/system/disable-swap.service",
+      "sudo chmod 644 /etc/ufw/applications.d/bitwarden /etc/profile.d/bitwarden-first-login.sh /etc/systemd/system/disable-swap.service",
+      "sudo systemctl enable disable-swap.service"
     ]
   }
 
@@ -177,7 +193,19 @@ build {
   provisioner "shell" {
     environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
     inline = [
-      "sudo apt-get -qqy -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install walinuxagent",
+      # Remove any walinuxagent shipped by Canonical so apt's version cannot
+      # override the upstream-source install on later upgrade.
+      "sudo apt-get -qqy purge walinuxagent || true",
+      "sudo apt-get -qqy -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install python3 python3-setuptools",
+      # Fetch the pinned upstream release and install via setup.py. The
+      # --register-service flag drops a systemd unit and a /etc/waagent.conf
+      # if missing. var.waagent_version is interpolated at template-compile
+      # time, not at shell-runtime.
+      "curl -fsSL -o /tmp/walinuxagent.tar.gz https://github.com/Azure/WALinuxAgent/archive/refs/tags/v${var.waagent_version}.tar.gz",
+      "sudo mkdir -p /opt/walinuxagent-src",
+      "sudo tar -xzf /tmp/walinuxagent.tar.gz -C /opt/walinuxagent-src --strip-components=1",
+      "cd /opt/walinuxagent-src && sudo python3 setup.py install --register-service",
+      "sudo rm -f /tmp/walinuxagent.tar.gz",
       "sudo systemctl enable walinuxagent",
       "waagent --version",
     ]
@@ -202,7 +230,9 @@ build {
     ]
   }
 
-  # Azure-specific cleanup
+  # Azure-specific cleanup. First pass at history deletion runs here so the
+  # image is in a clean state before deprovision; a second pass runs after
+  # deprovision below to catch anything deprovision recreates.
   provisioner "shell" {
     execute_command  = "chmod +x {{ .Path }}; {{ .Vars }} sudo -E bash '{{ .Path }}'"
     environment_vars = [
@@ -211,15 +241,23 @@ build {
     ]
     inline = [
       "truncate -s 0 /var/log/waagent.log 2>/dev/null || true",
-      "find / -xdev -name '.bash_history' -type f -delete 2>/dev/null || true",
+      "find / -name '.bash_history' -type f -delete 2>/dev/null || true",
     ]
   }
 
-  # Azure generalization - must be the last provisioner
+  # Azure generalization - must be the last provisioner.
+  # Runs `sh` (dash) which does not write bash history, but waagent itself
+  # may shell out via bash during deprovision and recreate /root/.bash_history.
+  # After deprovision finishes, sweep again with HISTFILE=/dev/null so the
+  # captured disk has no .bash_history regardless of who recreated it.
   provisioner "shell" {
     execute_command = "chmod +x {{ .Path }}; {{ .Vars }} sudo -E sh '{{ .Path }}'"
+    environment_vars = [
+      "HISTFILE=/dev/null",
+      "HISTSIZE=0",
+    ]
     inline = [
-      "/usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync"
+      "/usr/sbin/waagent -force -deprovision+user && find / -name '.bash_history' -type f -delete 2>/dev/null; export HISTSIZE=0 && sync"
     ]
   }
 

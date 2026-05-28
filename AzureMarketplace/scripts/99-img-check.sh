@@ -57,16 +57,18 @@ else
   STATUS=2
 fi
 
-# Check Azure Linux Agent version (minimum 2.7.x required)
+# Check Azure Linux Agent version (minimum 2.13.x required by Azure Marketplace
+# cert 200.3.3.4; the apt-installed 2.11 from noble-updates is below this
+# floor and the packer build installs walinuxagent from upstream source).
 if hash waagent 2>/dev/null; then
   WAAGENT_VERSION=$(waagent --version 2>&1 | head -1 | grep -oP '(?<=WALinuxAgent-)\d+\.\d+' | head -1)
   WAAGENT_MAJOR=$(echo "${WAAGENT_VERSION}" | cut -d. -f1)
   WAAGENT_MINOR=$(echo "${WAAGENT_VERSION}" | cut -d. -f2)
-  if [[ "${WAAGENT_MAJOR}" -gt 2 ]] || ([[ "${WAAGENT_MAJOR}" -eq 2 ]] && [[ "${WAAGENT_MINOR}" -ge 7 ]]); then
+  if [[ "${WAAGENT_MAJOR}" -gt 2 ]] || ([[ "${WAAGENT_MAJOR}" -eq 2 ]] && [[ "${WAAGENT_MINOR}" -ge 13 ]]); then
     echo -en "\e[32m[PASS]\e[0m Azure Linux Agent version ${WAAGENT_VERSION} meets minimum requirement.\n"
     ((PASS++))
   else
-    echo -en "\e[41m[FAIL]\e[0m Azure Linux Agent version ${WAAGENT_VERSION} is below minimum supported version (2.7.x).\n"
+    echo -en "\e[41m[FAIL]\e[0m Azure Linux Agent version ${WAAGENT_VERSION} is below minimum supported version (2.13.x).\n"
     ((FAIL++))
     STATUS=2
   fi
