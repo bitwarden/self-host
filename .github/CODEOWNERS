@@ -17,6 +17,12 @@
 .github/workflows/build-bitwarden-lite.yml @bitwarden/dept-shot
 bitwarden-lite/ @bitwarden/dept-shot
 
+# Marketplace packer images
+AWSMarketplace/ @bitwarden/dept-bre
+AzureMarketplace/ @bitwarden/dept-bre
+CommonMarketplace/ @bitwarden/dept-bre
+DigitalOceanMarketplace/ @bitwarden/dept-bre
+
 # Release workflows
 .github/workflows/release-aws.yml @bitwarden/dept-bre
 .github/workflows/release-azure.yml @bitwarden/dept-bre
