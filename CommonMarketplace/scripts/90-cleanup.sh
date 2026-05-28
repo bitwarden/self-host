@@ -44,8 +44,21 @@ EOF
 chmod 644 /etc/cloud/cloud.cfg.d/99-disable-swap.cfg
 
 # Configure SSH client alive interval (Azure requirement: 30-235 seconds).
-# Use a drop-in that sorts before /etc/ssh/sshd_config.d/50-cloud-init.conf so
-# this setting wins — sshd uses the first occurrence of each directive.
+# Write to BOTH the main sshd_config and a drop-in:
+#   - Main file: satisfies Azure's certification probe, which appears to do a
+#     literal grep of /etc/ssh/sshd_config and does not honor Include'd drop-ins.
+#   - Drop-in:   wins at sshd runtime against any later cloud-init drop-in
+#     because /etc/ssh/sshd_config.d/*.conf is sourced in lexical order and
+#     sshd uses the first occurrence of each directive.
+for directive in "ClientAliveInterval 120" "ClientAliveCountMax 3"; do
+  key="${directive%% *}"
+  if grep -qE "^[#[:space:]]*${key}\b" /etc/ssh/sshd_config; then
+    sed -i "s|^[#[:space:]]*${key}\b.*|${directive}|" /etc/ssh/sshd_config
+  else
+    echo "${directive}" >> /etc/ssh/sshd_config
+  fi
+done
+
 cat > /etc/ssh/sshd_config.d/10-bitwarden-marketplace.conf <<'EOF'
 ClientAliveInterval 120
 ClientAliveCountMax 3
