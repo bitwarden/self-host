@@ -16,3 +16,9 @@
 # Bitwarden lite
 .github/workflows/build-bitwarden-lite.yml @bitwarden/dept-shot
 bitwarden-lite/ @bitwarden/dept-shot
+
+# Marketplace packer images
+AWSMarketplace/ @bitwarden/dept-bre
+AzureMarketplace/ @bitwarden/dept-bre
+CommonMarketplace/ @bitwarden/dept-bre
+DigitalOceanMarketplace/ @bitwarden/dept-bre
