@@ -206,6 +206,9 @@ build {
       "sudo tar -xzf /tmp/walinuxagent.tar.gz -C /opt/walinuxagent-src --strip-components=1",
       "cd /opt/walinuxagent-src && sudo python3 setup.py install --register-service",
       "sudo rm -f /tmp/walinuxagent.tar.gz",
+      # Force systemd to re-read units after setup.py modifies walinuxagent.service.
+      # The version systemd has loaded is outdated" on first boot.
+      "sudo systemctl daemon-reload",
       "sudo systemctl enable walinuxagent",
       "waagent --version",
     ]
