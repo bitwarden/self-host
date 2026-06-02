@@ -78,11 +78,18 @@ done
 
 find /var/log -mtime -1 -type f -exec truncate -s 0 {} \;
 rm -rf /var/log/*.gz /var/log/*.[0-9] /var/log/*-????????
-# Reset cloud-init state for redeploy. `rm -rf /var/lib/cloud/instances/*` alone
-# leaves the /var/lib/cloud/instance symlink dangling, which causes cloud-init
-# to enter `degraded done` on the deployed VM's first boot
 if command -v cloud-init >/dev/null 2>&1; then
+  ONBOOT_SCRIPT=/var/lib/cloud/scripts/per-instance/001_onboot
+  if [ -f "$ONBOOT_SCRIPT" ]; then
+    cp -a "$ONBOOT_SCRIPT" /root/001_onboot.bak
+  fi
   cloud-init clean --logs --machine-id
+  if [ -f /root/001_onboot.bak ]; then
+    mkdir -p /var/lib/cloud/scripts/per-instance
+    mv /root/001_onboot.bak "$ONBOOT_SCRIPT"
+    chown root:root "$ONBOOT_SCRIPT"
+    chmod +x "$ONBOOT_SCRIPT"
+  fi
 fi
 rm -rf /var/lib/cloud/instance /var/lib/cloud/instances/* /var/lib/cloud/data/* /var/lib/cloud/sem/*
 rm -f /root/.ssh/authorized_keys /home/ubuntu/.ssh/authorized_keys
