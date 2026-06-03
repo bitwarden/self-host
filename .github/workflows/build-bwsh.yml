@@ -4,8 +4,6 @@ run-name: Build bwsh CLI ${{ github.event_name }}
 
 on:
   push:
-    branches:
-      - main
     paths:
       - "POC/bwsh/**"
       - ".github/workflows/build-bwsh.yml"
