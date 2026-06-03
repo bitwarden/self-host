@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+
+# Generated deployment data — contains secrets (PFX, installation key, DB password)
+bwdata/
+**/bwdata/
+
+# Log exports / backups
+bundle/
+*.tar.gz
+bitwarden-logs-*.zip
+
+# Local answer files may hold installation id/key
+answers.yaml
+answers.yml
+
+# Secrets / certs
+*.pfx
+*.override.env

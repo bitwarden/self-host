@@ -1,0 +1,19 @@
+<Project>
+
+  <!--
+    Shared MSBuild defaults for the bw-selfhost CLI + its test project, mirroring
+    bitwarden/server's Directory.Build.props. RootNamespace is set per-project (our project
+    file names don't map to the Bit.* namespace), and the throwaway bw-engine-spike opts out
+    via its own (empty) Directory.Build.props.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject Condition="'$(IsTestProject)' == '' and $(MSBuildProjectName.EndsWith('.Test'))">true</IsTestProject>
+    <Nullable Condition="'$(Nullable)' == '' and '$(IsTestProject)' == 'true'">annotations</Nullable>
+    <Nullable Condition="'$(Nullable)' == '' and '$(IsTestProject)' != 'true'">enable</Nullable>
+    <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">true</TreatWarningsAsErrors>
+    <NuGetAuditLevel>critical</NuGetAuditLevel>
+  </PropertyGroup>
+
+</Project>

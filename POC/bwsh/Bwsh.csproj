@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>bwsh</AssemblyName>
+    <RootNamespace>Bit.SelfHost</RootNamespace>
+    <!-- Match server/util/Setup: CA1305 (IFormatProvider) opt-out until addressed -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1305</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bwsh.Test" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Setup/Templates/**/*.hbs" />
+    <!-- Bake the repo's version.json (single source of truth) so installs pin a real version. -->
+    <EmbeddedResource Include="../../version.json">
+      <LogicalName>version.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Docker.DotNet" Version="[3.125.15]" />
+    <PackageReference Include="Handlebars.Net" Version="[2.1.6]" />
+    <PackageReference Include="Spectre.Console" Version="[0.55.2]" />
+    <PackageReference Include="System.CommandLine" Version="[3.0.0-preview.4.26230.115]" />
+    <PackageReference Include="YamlDotNet" Version="[18.0.0]" />
+  </ItemGroup>
+
+</Project>
