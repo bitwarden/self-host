@@ -23,19 +23,24 @@ permissions: {}
 jobs:
   build:
     name: Build (${{ matrix.rid }})
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        rid:
-          - linux-x64
-          - linux-arm64
-          - osx-x64
-          - osx-arm64
-          - win-x64
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04
+          - rid: win-x64
+            runner: ubuntu-24.04
+          - rid: osx-x64
+            runner: macos-14
+          - rid: osx-arm64
+            runner: macos-14
     steps:
       - name: Checkout Repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
