@@ -59,7 +59,7 @@ public static class RestoreCommand
 
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);
-            var ctx = new InstallContext { Root = rootDir, Answers = new AnswerFile() };
+            var ctx = new InstallContext { Root = rootDir, Manifest = new InstallManifest() };
             var topology = dep.BuildTopology(ctx);
 
             if (kind == DeploymentKind.Standard)

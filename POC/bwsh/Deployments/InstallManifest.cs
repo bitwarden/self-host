@@ -4,10 +4,10 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace Bit.SelfHost.Deployments;
 
 /// <summary>
-/// The unattended-install answer file (`install --config answers.yaml`). A small declarative
+/// The unattended-install manifest (`install --manifest bitwarden.yaml`). A small declarative
 /// schema covering both deployments; the active deployment reads the fields it cares about.
 /// </summary>
-public sealed class AnswerFile
+public sealed class InstallManifest
 {
     public string Deployment { get; set; } = "standard";
     public string Domain { get; set; } = "localhost";
@@ -49,15 +49,15 @@ public sealed class AnswerFile
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public static AnswerFile Load(string path)
+    public static InstallManifest Load(string path)
     {
-        if (!File.Exists(path)) throw new FileNotFoundException($"Answer file not found: {path}");
-        return Yaml.Deserialize<AnswerFile>(File.ReadAllText(path)) ?? new AnswerFile();
+        if (!File.Exists(path)) throw new FileNotFoundException($"Manifest not found: {path}");
+        return Yaml.Deserialize<InstallManifest>(File.ReadAllText(path)) ?? new InstallManifest();
     }
 
     public static string SampleYaml() =>
         """
-        # bwsh unattended install answer file
+        # bwsh unattended install manifest
         deployment: standard          # standard | lite
         domain: bitwarden.example.com
         region: US                    # US | EU

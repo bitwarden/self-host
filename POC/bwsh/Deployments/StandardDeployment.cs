@@ -47,7 +47,7 @@ public sealed class StandardDeployment : IDeployment
         }
 
         // (2) Render config.yml + env files + identity cert + nginx + app-id — the Setup replacement.
-        var a = ctx.Answers;
+        var a = ctx.Manifest;
         var ssl = a.Ssl.Enable;
         var domain = string.IsNullOrEmpty(a.Domain) ? "localhost" : a.Domain;
 
@@ -78,8 +78,8 @@ public sealed class StandardDeployment : IDeployment
     public IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx)
     {
         var root = ctx.Root;
-        var core = ctx.Answers.CoreVersion;
-        var web = ctx.Answers.WebVersion;
+        var core = ctx.Manifest.CoreVersion;
+        var web = ctx.Manifest.WebVersion;
         string[] appEnv = [$"{root}/docker/global.env", $"{root}/env/uid.env", $"{root}/env/global.override.env"];
         const string D = "bitwarden-default";
         const string P = "bitwarden-public";
@@ -133,7 +133,7 @@ public sealed class StandardDeployment : IDeployment
             {
                 Name = "key-connector",
                 ContainerName = "bitwarden-key-connector",
-                Image = $"ghcr.io/bitwarden/key-connector:{ctx.Answers.KeyConnectorVersion}",
+                Image = $"ghcr.io/bitwarden/key-connector:{ctx.Manifest.KeyConnectorVersion}",
                 EnvFiles = [$"{root}/env/uid.env", $"{root}/env/key-connector.override.env"],
                 Networks = [D, P],
                 Binds = [($"{root}/key-connector", "/etc/bitwarden/key-connector"), ca, Logs("key-connector")],

@@ -43,23 +43,23 @@ public static class Cli
         AnsiConsole.MarkupLine("""Run [green]bwsh <command> --help[/] [grey]for details.[/]""");
     }
 
-    /// <summary>Resolve which deployment to act on: explicit --deployment wins, else the answer file, else standard.</summary>
-    public static DeploymentKind ResolveKind(string? deploymentFlag, AnswerFile? answers) =>
+    /// <summary>Resolve which deployment to act on: explicit --deployment wins, else the manifest, else standard.</summary>
+    public static DeploymentKind ResolveKind(string? deploymentFlag, InstallManifest? manifest) =>
         deploymentFlag is not null ? DeploymentFactory.Parse(deploymentFlag)
-        : answers is not null ? DeploymentFactory.Parse(answers.Deployment)
+        : manifest is not null ? DeploymentFactory.Parse(manifest.Deployment)
         : DeploymentKind.Standard;
 
-    public static void ApplyAnswer(AnswerFile a, string key, string value)
+    public static void ApplyManifestValue(InstallManifest m, string key, string value)
     {
         switch (key)
         {
-            case "domain": a.Domain = value; break;
-            case "region": a.Region = value; break;
-            case "installation-id": a.InstallationId = value; break;
-            case "installation-key": a.InstallationKey = value; break;
-            case "database": a.Database = value; break;
-            case "db-provider": a.DbProvider = value; break;
-            default: a.Config[key] = value; break;
+            case "domain": m.Domain = value; break;
+            case "region": m.Region = value; break;
+            case "installation-id": m.InstallationId = value; break;
+            case "installation-key": m.InstallationKey = value; break;
+            case "database": m.Database = value; break;
+            case "db-provider": m.DbProvider = value; break;
+            default: m.Config[key] = value; break;
         }
     }
 

@@ -45,7 +45,7 @@ public interface IDeployment
 public sealed record InstallContext
 {
     public required string Root { get; init; }      // the bwdata directory
-    public required AnswerFile Answers { get; init; }
+    public required InstallManifest Manifest { get; init; }
 }
 
 /// <summary>

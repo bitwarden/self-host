@@ -55,7 +55,7 @@ public sealed class LiteDeployment : IDeployment
 
     public Task GenerateAssetsAsync(InstallContext ctx, CancellationToken ct)
     {
-        var a = ctx.Answers;
+        var a = ctx.Manifest;
         Directory.CreateDirectory(ctx.Root);
 
         var lines = new List<string>();
@@ -107,7 +107,7 @@ public sealed class LiteDeployment : IDeployment
 
     public IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx)
     {
-        var a = ctx.Answers;
+        var a = ctx.Manifest;
         var image = string.IsNullOrEmpty(a.Image) ? $"ghcr.io/bitwarden/lite:{Setup.Versions.Core}" : a.Image!;
 
         (int, int)[] ports = a.Ssl.Enable

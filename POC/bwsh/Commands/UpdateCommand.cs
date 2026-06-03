@@ -46,11 +46,11 @@ public static class UpdateCommand
             }
 
             // Version flags override the pinned defaults; omitted ones keep the baked version.
-            var answers = new AnswerFile();
-            if (parseResult.GetValue(coreVersion) is { } cv) answers.CoreVersion = cv;
-            if (parseResult.GetValue(webVersion) is { } wv) answers.WebVersion = wv;
-            if (parseResult.GetValue(keyConnectorVersion) is { } kv) answers.KeyConnectorVersion = kv;
-            var ctx = new InstallContext { Root = rootDir, Answers = answers };
+            var manifest = new InstallManifest();
+            if (parseResult.GetValue(coreVersion) is { } cv) manifest.CoreVersion = cv;
+            if (parseResult.GetValue(webVersion) is { } wv) manifest.WebVersion = wv;
+            if (parseResult.GetValue(keyConnectorVersion) is { } kv) manifest.KeyConnectorVersion = kv;
+            var ctx = new InstallContext { Root = rootDir, Manifest = manifest };
 
             if (parseResult.GetValue(rebuild))
                 await dep.GenerateAssetsAsync(ctx, ct);

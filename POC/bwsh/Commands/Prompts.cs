@@ -25,10 +25,10 @@ public static class Prompts
         return DeploymentFactory.Parse(choice);
     }
 
-    public static AnswerFile Collect(IDeployment deployment)
+    public static InstallManifest Collect(IDeployment deployment)
     {
-        var answers = new AnswerFile { Deployment = deployment.Kind == DeploymentKind.Lite ? "lite" : "standard" };
-        AnsiConsole.MarkupLine($"Interactive install ([green]{answers.Deployment}[/] deployment).\n");
+        var manifest = new InstallManifest { Deployment = deployment.Kind == DeploymentKind.Lite ? "lite" : "standard" };
+        AnsiConsole.MarkupLine($"Interactive install ([green]{manifest.Deployment}[/] deployment).\n");
 
         foreach (var p in deployment.InstallPrompts)
         {
@@ -44,10 +44,10 @@ public static class Prompts
                     : ValidationResult.Success());
             }
 
-            Cli.ApplyAnswer(answers, p.Key, AnsiConsole.Prompt(prompt));
+            Cli.ApplyManifestValue(manifest, p.Key, AnsiConsole.Prompt(prompt));
         }
 
         AnsiConsole.WriteLine();
-        return answers;
+        return manifest;
     }
 }

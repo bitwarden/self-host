@@ -41,7 +41,7 @@ public static class UninstallCommand
                 }
             }
 
-            var ctx = new InstallContext { Root = rootDir, Answers = new AnswerFile() };
+            var ctx = new InstallContext { Root = rootDir, Manifest = new InstallManifest() };
             var topology = dep.BuildTopology(ctx);
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);

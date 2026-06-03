@@ -12,43 +12,43 @@ public static class InstallCommand
         var cmd = new Command("install", "Install a Bitwarden self-host deployment.");
 
         var deployment = new Option<string?>("--deployment", "-d")
-        { Description = "Deployment type: standard | lite. Defaults to the answer file, else standard." };
-        var config = new Option<string?>("--config", "-c")
-        { Description = "Path to a YAML answer file for an unattended install." };
+        { Description = "Deployment type: standard | lite. Defaults to the manifest, else standard." };
+        var manifest = new Option<string?>("--manifest", "-m")
+        { Description = "Path to a YAML install manifest for an unattended install." };
         var root = new Option<string>("--root")
         { Description = "Target data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var plan = new Option<bool>("--plan")
         { Description = "Dry run: generate assets and print the topology without pulling or starting." };
 
         cmd.Options.Add(deployment);
-        cmd.Options.Add(config);
+        cmd.Options.Add(manifest);
         cmd.Options.Add(root);
         cmd.Options.Add(plan);
 
         cmd.SetAction(async (parseResult, ct) =>
         {
-            var configPath = parseResult.GetValue(config);
+            var manifestPath = parseResult.GetValue(manifest);
             var deploymentFlag = parseResult.GetValue(deployment);
             var rootDir = parseResult.GetValue(root)!;
             var isPlan = parseResult.GetValue(plan);
 
-            AnswerFile? loaded = configPath is not null ? AnswerFile.Load(configPath) : null;
+            InstallManifest? loaded = manifestPath is not null ? InstallManifest.Load(manifestPath) : null;
 
             // Interactive install needs a real terminal for the Spectre prompts.
             if (loaded is null && !AnsiConsole.Profile.Capabilities.Interactive)
             {
-                Console.Error.WriteLine("Interactive install needs a terminal. Use --config <answers.yaml> for an unattended install.");
+                Console.Error.WriteLine("Interactive install needs a terminal. Use --manifest <bitwarden.yaml> for an unattended install.");
                 return 4;
             }
 
-            // Deployment: explicit flag wins, then the answer file, else prompt for it interactively.
+            // Deployment: explicit flag wins, then the manifest, else prompt for it interactively.
             var kind = deploymentFlag is not null ? DeploymentFactory.Parse(deploymentFlag)
                 : loaded is not null ? DeploymentFactory.Parse(loaded.Deployment)
                 : Prompts.SelectDeployment();
             var dep = DeploymentFactory.Create(kind);
 
-            var answers = loaded ?? Prompts.Collect(dep);
-            var ctx = new InstallContext { Root = rootDir, Answers = answers };
+            var manifestData = loaded ?? Prompts.Collect(dep);
+            var ctx = new InstallContext { Root = rootDir, Manifest = manifestData };
 
             // TODO(cloud): validate installation id/key against api.bitwarden.com/.eu before proceeding.
             await dep.GenerateAssetsAsync(ctx, ct);

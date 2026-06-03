@@ -25,9 +25,9 @@ dotnet run -- install
 It asks for your domain, region, installation id/key, and database name, then pulls the images,
 starts the stack, and shows a live status table.
 
-### Unattended with an answer file
+### Unattended with a manifest
 
-Create `answers.yaml`:
+Create `bitwarden.yaml`:
 
 ```yaml
 deployment: standard            # standard | lite
@@ -43,7 +43,7 @@ installation-key: your-key-here
 Then:
 
 ```bash
-dotnet run -- install --config answers.yaml
+dotnet run -- install --manifest bitwarden.yaml
 ```
 
 Add `--plan` to preview without pulling or starting anything.
@@ -74,7 +74,7 @@ dotnet run -- migrate --root ./bwdata
 
 - Data lives in `./bwdata` by default; override with `--root <dir>`.
 - Versions default to the pinned `version.json` release; override per run with
-  `update --core-version <v> --web-version <v>` or in the answer file.
+  `update --core-version <v> --web-version <v>` or in the manifest.
 - A real `bwsh` binary can be produced with `dotnet publish -c Release --self-contained`.
 
 ## What's not done yet

@@ -148,7 +148,7 @@ public static class LogsCommand
                 .Distinct()
                 .ToList();
         }
-        var ctx = new InstallContext { Root = root, Answers = new AnswerFile() };
+        var ctx = new InstallContext { Root = root, Manifest = new InstallManifest() };
         return dep.BuildTopology(ctx).Select(s => s.Name).ToList();
     }
 }

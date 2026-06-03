@@ -30,7 +30,7 @@ public static class StatusCommand
                 return 4;
             }
 
-            var ctx = new InstallContext { Root = rootDir, Answers = new AnswerFile() };
+            var ctx = new InstallContext { Root = rootDir, Manifest = new InstallManifest() };
             var topology = dep.BuildTopology(ctx);
 
             using var engine = new DockerDotNetEngine();

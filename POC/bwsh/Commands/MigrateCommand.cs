@@ -56,20 +56,20 @@ public static class MigrateCommand
             using var engine = new DockerDotNetEngine();
 
             // Pin to the versions currently running (migrate ≠ upgrade); missing → pinned defaults.
-            var answers = new AnswerFile();
-            if (await Cli.ImageTagAsync(engine, "bitwarden-api", ct) is { } core) answers.CoreVersion = core;
-            if (await Cli.ImageTagAsync(engine, "bitwarden-web", ct) is { } web) answers.WebVersion = web;
-            if (await Cli.ImageTagAsync(engine, "bitwarden-key-connector", ct) is { } kc) answers.KeyConnectorVersion = kc;
+            var manifest = new InstallManifest();
+            if (await Cli.ImageTagAsync(engine, "bitwarden-api", ct) is { } core) manifest.CoreVersion = core;
+            if (await Cli.ImageTagAsync(engine, "bitwarden-web", ct) is { } web) manifest.WebVersion = web;
+            if (await Cli.ImageTagAsync(engine, "bitwarden-key-connector", ct) is { } kc) manifest.KeyConnectorVersion = kc;
 
             var config = StandardConfig.Load(rootDir);
-            var ctx = new InstallContext { Root = rootDir, Answers = answers };
+            var ctx = new InstallContext { Root = rootDir, Manifest = manifest };
             var topology = AdoptStandard(dep.BuildTopology(ctx), rootDir, config);
 
             // Preview + confirm.
             AnsiConsole.MarkupLine($"[bold]Migrate[/] the install at [grey]{Markup.Escape(rootDir)}[/] to CLI management:");
             AnsiConsole.MarkupLine($"  • recreate {topology.Count} containers (brief downtime), moving them onto the [green]bitwarden-*[/] networks");
             AnsiConsole.MarkupLine($"  • preserve the database at [green]{Markup.Escape(dbDataDir)}[/] and reuse existing config/secrets");
-            AnsiConsole.MarkupLine($"  • pin to: core [green]{answers.CoreVersion}[/], web [green]{answers.WebVersion}[/]");
+            AnsiConsole.MarkupLine($"  • pin to: core [green]{manifest.CoreVersion}[/], web [green]{manifest.WebVersion}[/]");
             AnsiConsole.MarkupLine(parseResult.GetValue(noBackup)
                 ? "  • [yellow]--no-backup: skipping the pre-migration backup[/]"
                 : "  • take a full backup first");
