@@ -4,6 +4,11 @@
 # Runs once on first interactive login to select the deployment edition.
 #
 
+# Don't run the interactive wizard in a non-interactive session
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+  exit 0
+fi
+
 cat <<'EOF'
 
 ################################################################################
@@ -30,7 +35,7 @@ cat <<'EOF'
 EOF
 
 while true; do
-    read -rp "  Enter selection [1 or 2]: " SELECTION
+    read -rp "  Enter selection [1 or 2]: " SELECTION || exit 0
     case "$SELECTION" in
         1)
             EDITION="standard"
