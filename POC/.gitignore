@@ -1,6 +1,7 @@
 # Build output
 bin/
 obj/
+publish/
 
 # Generated deployment data — contains secrets (PFX, installation key, DB password)
 bwdata/
