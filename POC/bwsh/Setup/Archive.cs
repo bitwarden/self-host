@@ -41,6 +41,11 @@ public static class Archive
     {
         var rootFull = Path.GetFullPath(root);
         Directory.CreateDirectory(rootFull);
+        // Compare against the root WITH a trailing separator so a crafted entry like "../bwdata-evil/x"
+        // (which resolves to a sibling directory sharing the root's name prefix) cannot pass the check.
+        var rootPrefix = rootFull.EndsWith(Path.DirectorySeparatorChar)
+            ? rootFull
+            : rootFull + Path.DirectorySeparatorChar;
 
         using var fs = File.OpenRead(archivePath);
         using var gz = new GZipStream(fs, CompressionMode.Decompress);
@@ -51,7 +56,7 @@ public static class Archive
             if (entry.Name is "manifest.txt") continue;
 
             var dest = Path.GetFullPath(Path.Combine(rootFull, entry.Name));
-            if (!dest.StartsWith(rootFull, StringComparison.Ordinal))
+            if (dest != rootFull && !dest.StartsWith(rootPrefix, StringComparison.Ordinal))
                 throw new InvalidOperationException($"Refusing to extract entry outside the target root: {entry.Name}");
 
             if (entry.EntryType is TarEntryType.Directory)

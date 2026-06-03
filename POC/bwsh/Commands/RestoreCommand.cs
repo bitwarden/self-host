@@ -95,10 +95,14 @@ public static class RestoreCommand
 
         var (db, saPw) = ReadDbCreds(root);
         var diskPath = $"/etc/bitwarden/mssql/backups/{Path.GetFileName(bak)}";
+        // Both the database name and the .BAK filename originate from the (untrusted) archive, so escape
+        // them for their T-SQL contexts: bracket identifier (] -> ]]) and string literal (' -> '').
+        var dbEscaped = db.Replace("]", "]]");
+        var diskEscaped = diskPath.Replace("'", "''");
         string[] cmd =
         [
             "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", saPw, "-C",
-            "-Q", $"RESTORE DATABASE [{db}] FROM DISK = N'{diskPath}' WITH REPLACE",
+            "-Q", $"RESTORE DATABASE [{dbEscaped}] FROM DISK = N'{diskEscaped}' WITH REPLACE",
         ];
 
         // mssql may report healthy a moment before it accepts the restore; retry briefly.
