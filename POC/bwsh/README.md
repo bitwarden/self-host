@@ -78,8 +78,7 @@ Run `dotnet run -- <command> --help` for options on any command.
 
 ## HTTPS
 
-Both standard and lite installs serve **HTTPS by default** with a generated self-signed cert (browsers
-will warn, which is fine for local/testing). On standard, provide your own certificate by placing the
+Both standard and lite installs serve **HTTPS by default** with a generated self-signed cert. On standard, provide your own certificate by placing the
 files in `bwdata/ssl/<domain>/` before installing:
 
 ```text
@@ -88,6 +87,9 @@ bwdata/ssl/bitwarden.example.com/private.key
 bwdata/ssl/bitwarden.example.com/ca.crt        # optional
 bwdata/ssl/bitwarden.example.com/dhparam.pem   # optional
 ```
+
+On lite, drop `ssl.crt` and `ssl.key` into the data dir before installing and the container uses those
+instead of self-signing (point at other filenames with `BW_SSL_CERT`/`BW_SSL_KEY`).
 
 Ports default to 80/443; override with `http-port`/`https-port` in the manifest. Opt out of HTTPS with
 `ssl: { enable: false }`. Let's Encrypt is not wired up yet.
