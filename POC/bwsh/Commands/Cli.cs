@@ -1,4 +1,5 @@
-﻿using Bit.SelfHost.Deployments;
+﻿using System.CommandLine;
+using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Engine;
 using Spectre.Console;
 
@@ -7,6 +8,21 @@ namespace Bit.SelfHost.Commands;
 /// <summary>Shared helpers for the command layer.</summary>
 public static class Cli
 {
+    /// <summary>Service names across both deployments, for `logs &lt;service&gt;` tab completion.</summary>
+    public static readonly string[] ServiceNames =
+    [
+        "mssql", "web", "attachments", "api", "identity", "sso", "admin", "icons",
+        "notifications", "events", "nginx", "key-connector", "scim",
+    ];
+
+    /// <summary>The shared `--deployment` option, with standard|lite validation + tab completion.</summary>
+    public static Option<string?> DeploymentOption(string description = "standard | lite.")
+    {
+        var option = new Option<string?>("--deployment", "-d") { Description = description };
+        option.AcceptOnlyFromAmong("standard", "lite");
+        return option;
+    }
+
     /// <summary>The image tag of a running container (e.g. "2026.4.1"), or null if it isn't present.</summary>
     public static async Task<string?> ImageTagAsync(IContainerEngine engine, string container, CancellationToken ct)
     {

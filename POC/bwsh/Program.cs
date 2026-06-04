@@ -12,6 +12,7 @@ root.Subcommands.Add(LogsCommand.Build());
 root.Subcommands.Add(MigrateCommand.Build());
 root.Subcommands.Add(BackupCommand.Build());
 root.Subcommands.Add(RestoreCommand.Build());
+root.Subcommands.Add(CompletionsCommand.Build());
 
 // ProcessTerminationTimeout (default ~2s) makes System.CommandLine cancel the action's token on
 // Ctrl+C/SIGTERM; we catch the resulting cancellation below and exit cleanly.

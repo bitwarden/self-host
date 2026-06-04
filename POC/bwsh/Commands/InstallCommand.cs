@@ -11,8 +11,7 @@ public static class InstallCommand
     {
         var cmd = new Command("install", "Install a Bitwarden self-host deployment.");
 
-        var deployment = new Option<string?>("--deployment", "-d")
-        { Description = "Deployment type: standard | lite. Defaults to the manifest, else standard." };
+        var deployment = Cli.DeploymentOption("Deployment type: standard | lite. Defaults to the manifest, else standard.");
         var manifest = new Option<string?>("--manifest", "-m")
         { Description = "Path to a YAML install manifest for an unattended install." };
         var root = new Option<string>("--root")

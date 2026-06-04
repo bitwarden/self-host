@@ -13,7 +13,7 @@ public static class RestoreCommand
         var cmd = new Command("restore", "Restore a deployment from a backup .tar.gz.");
 
         var archive = new Argument<string>("archive") { Description = "Path to a backup .tar.gz." };
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Target data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var yes = new Option<bool>("--yes", "-y") { Description = "Skip confirmation." };

@@ -18,7 +18,8 @@ public static class LogsCommand
             Description = "Service name (e.g. identity). Omit for the whole container.",
             Arity = ArgumentArity.ZeroOrOne,
         };
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        service.CompletionSources.Add(Cli.ServiceNames);
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var tail = new Option<int>("--tail")

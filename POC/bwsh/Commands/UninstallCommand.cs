@@ -10,7 +10,7 @@ public static class UninstallCommand
     {
         var cmd = new Command("uninstall", "Stop and remove the deployment's containers.");
 
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var purge = new Option<bool>("--purge")

@@ -12,9 +12,8 @@ public static class StandardAssetBuilder
         IReadOnlyDictionary<string, string>? Config = null);
 
     /// <summary>
-    /// Secrets read back from an existing bwdata/ so re-rendering (`apply`, or a re-run `install`)
-    /// reuses them instead of minting new ones — rotating the DB/identity passwords would mismatch
-    /// the already-initialized mssql volume and break the install.
+    /// Secrets read back from an existing bwdata/ so re-rendering (apply, or a re-run install) reuses
+    /// them. Rotating the DB or identity password would break the already-initialized mssql volume.
     /// </summary>
     private sealed record ExistingSecrets(
         string? IdentityCertPassword, string? DbPassword,
@@ -34,7 +33,7 @@ public static class StandardAssetBuilder
         var existing = ReadExistingSecrets(root);
 
         // Order matches Setup's Install(): cert first (yields the password the env file needs).
-        // Reuse the identity cert + its password when already present so `apply` doesn't rotate it.
+        // Reuse the identity cert and password if present so apply doesn't rotate it.
         var identityCertPath = Path.Combine(root, "identity", "identity.pfx");
         var identityCertPassword = existing.IdentityCertPassword ?? SecureRandom.String(32);
         if (existing.IdentityCertPassword is null || !File.Exists(identityCertPath))
@@ -131,8 +130,7 @@ public static class StandardAssetBuilder
         if (!config.PushNotifications)
             globalOverride["globalSettings__pushRelayBaseUri"] = "REPLACE";
 
-        // Manifest `config:` passthrough LAST so it overrides the defaults above (e.g. flips
-        // mail__smtp__host from REPLACE to the operator's value) — mirrors LiteDeployment.
+        // Manifest `config:` passthrough last so it overrides the defaults above (e.g. SMTP).
         if (install.Config is not null)
             foreach (var kv in install.Config)
                 globalOverride[kv.Key] = kv.Value;

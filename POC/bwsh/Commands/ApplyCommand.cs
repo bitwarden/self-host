@@ -14,8 +14,7 @@ public static class ApplyCommand
 
         var manifest = new Option<string>("--manifest", "-m")
         { Description = "Path to the YAML manifest.", DefaultValueFactory = _ => "bitwarden.yaml" };
-        var deployment = new Option<string?>("--deployment", "-d")
-        { Description = "standard | lite (defaults to the manifest)." };
+        var deployment = Cli.DeploymentOption("standard | lite (defaults to the manifest).");
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
 
@@ -38,10 +37,9 @@ public static class ApplyCommand
             var rootDir = parseResult.GetValue(root)!;
             var ctx = new InstallContext { Root = rootDir, Manifest = loaded };
 
-            // Re-render config/env from the manifest WITHOUT regenerating secrets (generation reuses
-            // on-disk secrets), then recreate the stack so the new env takes effect. UpAsync force-
-            // recreates every container, so the whole stack restarts briefly; data survives via the
-            // named volume. Selective (only-changed) recreate is a future refinement.
+            // Re-render from the manifest (secrets are reused, not regenerated), then recreate the
+            // stack to pick up the changes. UpAsync recreates every container, so the stack restarts
+            // briefly; data survives via the named volume.
             await dep.GenerateAssetsAsync(ctx, ct);
             var topology = dep.BuildTopology(ctx);
 

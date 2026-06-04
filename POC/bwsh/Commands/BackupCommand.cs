@@ -15,7 +15,7 @@ public static class BackupCommand
     {
         var cmd = new Command("backup", "Back up a deployment (config, secrets, certs, attachments + a DB dump) to a .tar.gz.");
 
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var output = new Option<string?>("--out", "-o")

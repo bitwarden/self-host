@@ -11,7 +11,7 @@ public static class StatusCommand
     {
         var cmd = new Command("status", "Show the running state of a deployment's services.");
 
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
 

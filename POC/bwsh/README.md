@@ -75,6 +75,21 @@ dotnet run -- uninstall              # stop and remove; --purge also deletes dat
 
 Run `dotnet run -- <command> --help` for options on any command.
 
+## Shell completion
+
+`bwsh` prints a completion script (zsh or bash) that tab-completes commands, options, deployment
+kinds (`standard`/`lite`), and service names. Load it with the `bwsh` binary on your PATH:
+
+```bash
+source <(bwsh completions zsh)                 # zsh, current shell
+bwsh completions zsh > "${fpath[1]}/_bwsh"     # zsh, persistent (restart zsh)
+
+source <(bwsh completions bash)                # bash, current shell
+bwsh completions bash > /usr/local/etc/bash_completion.d/bwsh   # bash, persistent
+```
+
+It delegates back to `bwsh` for suggestions, so no `dotnet-suggest` tool is needed.
+
 ## Migrate an existing bash install
 
 Adopt a stack that was installed with `bitwarden.sh` under CLI management — non-destructive,

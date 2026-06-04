@@ -10,7 +10,7 @@ public static class UpdateCommand
     {
         var cmd = new Command("update", "Pull target versions and recreate changed containers.");
 
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var rebuild = new Option<bool>("--rebuild")

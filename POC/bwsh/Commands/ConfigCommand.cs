@@ -11,7 +11,7 @@ public static class ConfigCommand
 
         var assignment = new Argument<string?>("assignment")
         { Description = "key=value to set, or key to get. Omit with --show to list.", Arity = ArgumentArity.ZeroOrOne };
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var show = new Option<bool>("--show") { Description = "Show resolved config files." };
@@ -32,9 +32,9 @@ public static class ConfigCommand
             {
                 Console.WriteLine($"{kind} deployment config files (under {rootDir}):");
                 Console.WriteLine(kind == DeploymentKind.Standard
-                    ? "  config.yml                (structural — `rebuild` to apply)\n" +
-                      "  env/global.override.env   (SMTP/admin/globalSettings — `restart` to apply)"
-                    : "  settings.env              (all BW_*/globalSettings__* — `restart` to apply)");
+                    ? "  config.yml                (structural; run `bwsh apply`)\n" +
+                      "  env/global.override.env   (SMTP / admin / globalSettings; run `bwsh apply`)"
+                    : "  settings.env              (all BW_* / globalSettings__*; run `bwsh apply`)");
                 return 0;
             }
 
@@ -60,8 +60,8 @@ public static class ConfigCommand
             {
                 Cli.UpsertEnv(target, key, value);
                 Console.WriteLine($"Set {key} in {binding.File}. Run `bwsh apply` to apply.");
-                // The manifest is the source of truth: `apply` re-renders from it, so add durable
-                // keys to the manifest's `config:` block (a bare `config set` is a one-off tweak).
+                // apply re-renders from the manifest, so add durable keys to its `config:` block;
+                // a bare `bwsh config key=value` is a one-off tweak.
                 Console.WriteLine("Add it to your manifest's `config:` block to persist across applies.");
             }
             else

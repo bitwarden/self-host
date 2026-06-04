@@ -12,7 +12,7 @@ public static class MigrateCommand
     {
         var cmd = new Command("migrate", "Adopt an existing bash/compose install under CLI management (non-destructive).");
 
-        var deployment = new Option<string?>("--deployment", "-d") { Description = "standard | lite." };
+        var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
         var yes = new Option<bool>("--yes", "-y") { Description = "Skip confirmation." };
