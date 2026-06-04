@@ -25,9 +25,9 @@ public static class WebCert
         san.AddDnsName(domain);
         request.CertificateExtensions.Add(san.Build());
 
-        // CA:true lets the cert be added to a device trust store.
+        // Leaf cert, not a CA, so the key can't sign certs for other domains.
         request.CertificateExtensions.Add(
-            new X509BasicConstraintsExtension(certificateAuthority: true, hasPathLengthConstraint: false, pathLengthConstraint: 0, critical: false));
+            new X509BasicConstraintsExtension(certificateAuthority: false, hasPathLengthConstraint: false, pathLengthConstraint: 0, critical: true));
 
         using var cert = request.CreateSelfSigned(
             DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(100));
