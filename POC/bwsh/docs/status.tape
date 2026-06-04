@@ -7,8 +7,8 @@ Require bwsh
 
 Set Shell "bash"
 Set FontSize 16
-Set Width 900
-Set Height 620
+Set Width 1000
+Set Height 640
 Set Padding 24
 Set TypingSpeed 60ms
 Set WindowBar Colorful
@@ -23,7 +23,7 @@ Type "clear"
 Enter
 Show
 
-Type "bwsh status -d lite"
+Type "bwsh status"
 Sleep 700ms
 Enter
 Sleep 5s
