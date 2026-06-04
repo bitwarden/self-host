@@ -31,15 +31,19 @@ public sealed class InstallManifest
 
     // Lite-specific:
     public string? Image { get; set; }                    // override full image ref, e.g. to pin a beta tag for a repro
-    public int HttpPort { get; set; } = 8080;
-    public int HttpsPort { get; set; } = 8443;
+
+    // 0 = use the deployment default (standard 80/443, lite 8080/8443) — the shared manifest must
+    // not force lite's ports onto standard.
+    public int HttpPort { get; set; }
+    public int HttpsPort { get; set; }
 
     /// <summary>Extra raw config key/values applied like `config set` after generation.</summary>
     public Dictionary<string, string> Config { get; set; } = new();
 
     public sealed class SslOptions
     {
-        public bool Enable { get; set; }
+        // null = deployment default (standard => HTTPS on, lite => off until lite TLS lands).
+        public bool? Enable { get; set; }
         public bool LetsEncrypt { get; set; }
         public string? Email { get; set; }
     }

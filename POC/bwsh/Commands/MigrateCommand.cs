@@ -1,7 +1,6 @@
 ﻿using System.CommandLine;
 using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Engine;
-using Bit.SelfHost.Setup;
 using Spectre.Console;
 
 namespace Bit.SelfHost.Commands;
@@ -61,9 +60,8 @@ public static class MigrateCommand
             if (await Cli.ImageTagAsync(engine, "bitwarden-web", ct) is { } web) manifest.WebVersion = web;
             if (await Cli.ImageTagAsync(engine, "bitwarden-key-connector", ct) is { } kc) manifest.KeyConnectorVersion = kc;
 
-            var config = StandardConfig.Load(rootDir);
             var ctx = new InstallContext { Root = rootDir, Manifest = manifest };
-            var topology = AdoptStandard(dep.BuildTopology(ctx), rootDir, config);
+            var topology = AdoptStandard(dep.BuildTopology(ctx), rootDir);
 
             // Preview + confirm.
             AnsiConsole.MarkupLine($"[bold]Migrate[/] the install at [grey]{Markup.Escape(rootDir)}[/] to CLI management:");
@@ -114,32 +112,18 @@ public static class MigrateCommand
     }
 
     /// <summary>
-    /// Rewrites the two specs whose hardcoded values don't fit an adopted install: the mssql data
-    /// mount (named volume → the existing host bind) and the nginx host ports (→ the install's
-    /// configured ports). Everything else is reused as-is. Stays here, not in BuildTopology.
+    /// Repoints the mssql data mount (named volume → the existing host bind) for an adopted install.
+    /// Nginx host ports come from config.yml via BuildTopology, so nothing else needs rewriting.
     /// </summary>
-    internal static IReadOnlyList<ServiceSpec> AdoptStandard(IReadOnlyList<ServiceSpec> topology, string root, StandardConfig config)
+    internal static IReadOnlyList<ServiceSpec> AdoptStandard(IReadOnlyList<ServiceSpec> topology, string root)
     {
-        return topology.Select(spec => spec.Name switch
-        {
-            "mssql" => spec with
+        return topology.Select(spec => spec.Name == "mssql"
+            ? spec with
             {
                 Binds = spec.Binds
                     .Select(b => b.Container == "/var/opt/mssql/data" ? ($"{root}/mssql/data", b.Container) : b)
                     .ToArray(),
-            },
-            "nginx" => RewriteNginxPorts(spec, config),
-            _ => spec,
-        }).ToList();
-    }
-
-    private static ServiceSpec RewriteNginxPorts(ServiceSpec spec, StandardConfig config)
-    {
-        if (int.TryParse(config.HttpPort, out var http) && int.TryParse(config.HttpsPort, out var https)
-            && (http != 80 || https != 443))
-        {
-            return spec with { Ports = [(http, 8080), (https, 8443)] };
-        }
-        return spec;
+            }
+            : spec).ToList();
     }
 }

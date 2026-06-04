@@ -1,5 +1,6 @@
 ﻿using Bit.SelfHost.Commands;
 using Bit.SelfHost.Deployments;
+using Bit.SelfHost.Engine;
 using Bit.SelfHost.Setup;
 using Xunit;
 
@@ -186,5 +187,127 @@ public class StandardAssetBuilderTests
         Assert.Equal("11111111-1111-1111-1111-111111111111", read.InstallationId);
         // Passthrough (SMTP etc.) is preserved so a rebuild doesn't reset it.
         Assert.Equal("smtp.example.com", read.Config["globalSettings__mail__smtp__host"]);
+    }
+}
+
+public class StandardTlsTests
+{
+    private static async Task<string> Generate(InstallManifest manifest)
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        await new StandardDeployment().GenerateAssetsAsync(new InstallContext { Root = root, Manifest = manifest }, default);
+        return root;
+    }
+
+    private static ServiceSpec Nginx(string root) =>
+        new StandardDeployment().BuildTopology(new InstallContext { Root = root, Manifest = new InstallManifest() })
+            .Single(s => s.Name == "nginx");
+
+    [Fact]
+    public async Task Default_manifest_serves_https_with_a_self_signed_cert()
+    {
+        var root = await Generate(new InstallManifest { Domain = "vault.example.com" });
+
+        var cert = Path.Combine(root, "ssl/self-signed/certificate.crt");
+        var key = Path.Combine(root, "ssl/self-signed/private.key");
+        Assert.StartsWith("-----BEGIN CERTIFICATE-----", File.ReadAllText(cert));
+        Assert.Contains("-----BEGIN PRIVATE KEY-----", File.ReadAllText(key));
+        Assert.Contains("/etc/ssl/self-signed/certificate.crt", File.ReadAllText(Path.Combine(root, "nginx/default.conf")));
+        Assert.True(StandardConfig.Load(root).Ssl);
+    }
+
+    [Fact]
+    public async Task Self_signed_cert_is_preserved_on_regenerate()
+    {
+        var root = await Generate(new InstallManifest { Domain = "vault.example.com" });
+        var first = File.ReadAllText(Path.Combine(root, "ssl/self-signed/certificate.crt"));
+
+        await new StandardDeployment().GenerateAssetsAsync(
+            new InstallContext { Root = root, Manifest = new InstallManifest { Domain = "vault.example.com" } }, default);
+
+        Assert.Equal(first, File.ReadAllText(Path.Combine(root, "ssl/self-signed/certificate.crt")));
+    }
+
+    [Fact]
+    public async Task Custom_cert_is_used_when_present_and_no_self_signed_is_generated()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        var dir = Directory.CreateDirectory(Path.Combine(root, "ssl", "vault.example.com")).FullName;
+        File.WriteAllText(Path.Combine(dir, "certificate.crt"), "x");
+        File.WriteAllText(Path.Combine(dir, "private.key"), "x");
+        File.WriteAllText(Path.Combine(dir, "ca.crt"), "x");
+
+        await new StandardDeployment().GenerateAssetsAsync(
+            new InstallContext { Root = root, Manifest = new InstallManifest { Domain = "vault.example.com" } }, default);
+
+        var nginx = File.ReadAllText(Path.Combine(root, "nginx/default.conf"));
+        Assert.Contains("/etc/ssl/vault.example.com/certificate.crt", nginx);
+        Assert.Contains("/etc/ssl/vault.example.com/ca.crt", nginx);
+        Assert.False(File.Exists(Path.Combine(root, "ssl/self-signed/certificate.crt")));
+    }
+
+    [Fact]
+    public async Task Ssl_disabled_renders_http_only()
+    {
+        var root = await Generate(new InstallManifest
+        {
+            Domain = "vault.example.com",
+            Ssl = new InstallManifest.SslOptions { Enable = false },
+        });
+
+        Assert.DoesNotContain("ssl_certificate ", File.ReadAllText(Path.Combine(root, "nginx/default.conf")));
+        Assert.False(StandardConfig.Load(root).Ssl);
+        Assert.False(File.Exists(Path.Combine(root, "ssl/self-signed/certificate.crt")));
+    }
+
+    [Fact]
+    public async Task Nginx_ports_default_to_80_443_and_drop_https_when_off()
+    {
+        var https = Nginx(await Generate(new InstallManifest { Domain = "v" }));
+        Assert.Equal((80, 8080), https.Ports[0]);
+        Assert.Equal((443, 8443), https.Ports[1]);
+
+        var http = Nginx(await Generate(new InstallManifest
+        { Domain = "v", Ssl = new InstallManifest.SslOptions { Enable = false } }));
+        Assert.Single(http.Ports);
+        Assert.Equal((80, 8080), http.Ports[0]);
+    }
+
+    [Fact]
+    public async Task Nginx_ports_honor_custom_config()
+    {
+        var nginx = Nginx(await Generate(new InstallManifest { Domain = "v", HttpPort = 8080, HttpsPort = 8443 }));
+        Assert.Equal((8080, 8080), nginx.Ports[0]);
+        Assert.Equal((8443, 8443), nginx.Ports[1]);
+    }
+}
+
+public class LiteTlsTests
+{
+    private static async Task<Dictionary<string, string>> Generate(InstallManifest manifest)
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        await new LiteDeployment().GenerateAssetsAsync(new InstallContext { Root = root, Manifest = manifest }, default);
+        return StandardAssetBuilder.ReadEnv(Path.Combine(root, "settings.env"));
+    }
+
+    [Fact]
+    public async Task Lite_defaults_to_https()
+    {
+        var env = await Generate(new InstallManifest { Deployment = "lite", Domain = "v" });
+        Assert.Equal("true", env["BW_ENABLE_SSL"]);
+
+        var ports = new LiteDeployment()
+            .BuildTopology(new InstallContext { Root = "/r", Manifest = new InstallManifest { Deployment = "lite" } })
+            .Single().Ports;
+        Assert.Contains((8443, 8443), ports);
+    }
+
+    [Fact]
+    public async Task Lite_ssl_can_be_disabled()
+    {
+        var env = await Generate(new InstallManifest
+        { Deployment = "lite", Domain = "v", Ssl = new InstallManifest.SslOptions { Enable = false } });
+        Assert.Equal("false", env["BW_ENABLE_SSL"]);
     }
 }

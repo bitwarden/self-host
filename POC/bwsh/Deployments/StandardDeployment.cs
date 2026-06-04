@@ -1,4 +1,5 @@
 ﻿using Bit.SelfHost.Engine;
+using Spectre.Console;
 
 namespace Bit.SelfHost.Deployments;
 
@@ -58,8 +59,8 @@ public sealed class StandardDeployment : IDeployment
             EnableKeyConnector = config.EnableKeyConnector,
             EnableScim = config.EnableScim,
             Ssl = new InstallManifest.SslOptions { Enable = config.Ssl, LetsEncrypt = config.SslManagedLetsEncrypt },
-            HttpPort = int.TryParse(config.HttpPort, out var http) ? http : 8080,
-            HttpsPort = int.TryParse(config.HttpsPort, out var https) ? https : 8443,
+            HttpPort = int.TryParse(config.HttpPort, out var http) ? http : 80,
+            HttpsPort = int.TryParse(config.HttpsPort, out var https) ? https : 443,
         };
 
         // Preserve user-set values (SMTP, admins, HIBP, yubico, …) as passthrough so a rebuild
@@ -94,17 +95,23 @@ public sealed class StandardDeployment : IDeployment
 
         // (2) Render config.yml + env files + identity cert + nginx + app-id — the Setup replacement.
         var a = ctx.Manifest;
-        var ssl = a.Ssl.Enable;
+        var ssl = a.Ssl.Enable ?? true; // HTTPS by default for standard
         var domain = string.IsNullOrEmpty(a.Domain) ? "localhost" : a.Domain;
 
         var config = Setup.StandardConfig.Load(ctx.Root);
         config.Url = $"http{(ssl ? "s" : "")}://{domain}";
         config.Ssl = ssl;
         config.SslManagedLetsEncrypt = a.Ssl.LetsEncrypt;
-        config.HttpPort = a.HttpPort.ToString();
-        config.HttpsPort = a.HttpsPort.ToString();
+        config.HttpPort = (a.HttpPort != 0 ? a.HttpPort : 80).ToString();
+        config.HttpsPort = (a.HttpsPort != 0 ? a.HttpsPort : 443).ToString();
         config.EnableKeyConnector = a.EnableKeyConnector;
         config.EnableScim = a.EnableScim;
+
+        // Resolve the web TLS cert (HTTPS is on by default). Off => clear paths so only http renders.
+        if (ssl)
+            ResolveWebCert(ctx.Root, domain, a.Ssl.LetsEncrypt, config);
+        else
+            config.SslCertificatePath = config.SslKeyPath = config.SslCaPath = config.SslDiffieHellmanPath = null;
 
         if (a.EnableKeyConnector)
             Directory.CreateDirectory(Path.Combine(ctx.Root, "logs/key-connector")); // bwkc.pfx dir is made by the cert writer
@@ -122,11 +129,56 @@ public sealed class StandardDeployment : IDeployment
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Chooses the web TLS cert: Let's Encrypt paths, a custom cert in bwdata/ssl/&lt;domain&gt;/, or a
+    /// generated self-signed cert (the default). Sets the container cert paths the nginx template renders.
+    /// </summary>
+    private static void ResolveWebCert(string root, string domain, bool letsEncrypt, Setup.StandardConfig config)
+    {
+        config.SslCaPath = null;
+        config.SslDiffieHellmanPath = null;
+
+        if (letsEncrypt)
+        {
+            config.SslCertificatePath = $"/etc/letsencrypt/live/{domain}/fullchain.pem";
+            config.SslKeyPath = $"/etc/letsencrypt/live/{domain}/privkey.pem";
+            AnsiConsole.MarkupLine("[yellow]note: Let's Encrypt provisioning isn't implemented yet; "
+                + "supply certs under bwdata/letsencrypt or use a custom cert.[/]");
+            return;
+        }
+
+        var customDir = Path.Combine(root, "ssl", domain);
+        if (File.Exists(Path.Combine(customDir, "certificate.crt")))
+        {
+            config.SslCertificatePath = $"/etc/ssl/{domain}/certificate.crt";
+            config.SslKeyPath = $"/etc/ssl/{domain}/private.key";
+            if (File.Exists(Path.Combine(customDir, "ca.crt"))) config.SslCaPath = $"/etc/ssl/{domain}/ca.crt";
+            if (File.Exists(Path.Combine(customDir, "dhparam.pem"))) config.SslDiffieHellmanPath = $"/etc/ssl/{domain}/dhparam.pem";
+            return;
+        }
+
+        // Self-signed fallback: generate once, then preserve across re-renders (apply/rebuild).
+        var certPath = Path.Combine(root, "ssl", "self-signed", "certificate.crt");
+        var keyPath = Path.Combine(root, "ssl", "self-signed", "private.key");
+        if (!File.Exists(certPath) || !File.Exists(keyPath))
+            Setup.WebCert.WriteSelfSigned(certPath, keyPath, domain);
+        config.SslCertificatePath = "/etc/ssl/self-signed/certificate.crt";
+        config.SslKeyPath = "/etc/ssl/self-signed/private.key";
+    }
+
     public IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx)
     {
         var root = ctx.Root;
         var core = ctx.Manifest.CoreVersion;
         var web = ctx.Manifest.WebVersion;
+
+        // Loaded up front: drives both the nginx host ports and the optional-service gating below.
+        var config = Setup.StandardConfig.Load(root);
+        var httpHost = int.TryParse(config.HttpPort, out var hp) ? hp : 80;
+        var httpsHost = int.TryParse(config.HttpsPort, out var sp) ? sp : 443;
+        (int Host, int Container)[] nginxPorts = config.Ssl
+            ? [(httpHost, 8080), (httpsHost, 8443)]
+            : [(httpHost, 8080)];
         string[] appEnv = [$"{root}/docker/global.env", $"{root}/env/uid.env", $"{root}/env/global.override.env"];
         const string D = "bitwarden-default";
         const string P = "bitwarden-public";
@@ -166,14 +218,13 @@ public sealed class StandardDeployment : IDeployment
                     EnvFiles = appEnv, Networks = [D, P], Binds = [ca, Logs("events")] },
             new() { Name = "nginx", ContainerName = "bitwarden-nginx", Image = $"ghcr.io/bitwarden/nginx:{core}",
                     EnvFiles = [$"{root}/env/uid.env"], Networks = [D, P],
-                    Ports = [(80, 8080), (443, 8443)], DependsOn = ["web", "admin", "api", "identity"],
+                    Ports = nginxPorts, DependsOn = ["web", "admin", "api", "identity"],
                     Binds = [($"{root}/nginx", "/etc/bitwarden/nginx"), ($"{root}/letsencrypt", "/etc/letsencrypt"),
                              ($"{root}/ssl", "/etc/ssl"), ($"{root}/logs/nginx", "/var/log/nginx")] },
         };
 
         // Optional services, gated by the persisted config.yml (so status/update/uninstall see them
         // too — not just install).
-        var config = Setup.StandardConfig.Load(root);
         if (config.EnableKeyConnector)
         {
             services.Add(new ServiceSpec

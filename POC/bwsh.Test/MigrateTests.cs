@@ -1,6 +1,5 @@
 ﻿using Bit.SelfHost.Commands;
 using Bit.SelfHost.Engine;
-using Bit.SelfHost.Setup;
 using Xunit;
 
 namespace Bit.SelfHost.Test;
@@ -28,7 +27,7 @@ public class MigrateAdoptTests
     [Fact]
     public void Adopt_repoints_mssql_data_to_the_existing_host_bind_and_keeps_the_rest()
     {
-        var adopted = MigrateCommand.AdoptStandard(SampleTopology(), "/r", new StandardConfig());
+        var adopted = MigrateCommand.AdoptStandard(SampleTopology(), "/r");
 
         var mssql = adopted.Single(s => s.Name == "mssql");
         Assert.Contains(("/r/mssql/data", "/var/opt/mssql/data"), mssql.Binds);
@@ -39,31 +38,9 @@ public class MigrateAdoptTests
     }
 
     [Fact]
-    public void Adopt_rewrites_nginx_ports_when_config_is_custom()
-    {
-        var adopted = MigrateCommand.AdoptStandard(SampleTopology(), "/r",
-            new StandardConfig { HttpPort = "8080", HttpsPort = "8443" });
-
-        var nginx = adopted.Single(s => s.Name == "nginx");
-        Assert.Equal((8080, 8080), nginx.Ports[0]);
-        Assert.Equal((8443, 8443), nginx.Ports[1]);
-    }
-
-    [Fact]
-    public void Adopt_leaves_default_nginx_ports_unchanged()
-    {
-        var adopted = MigrateCommand.AdoptStandard(SampleTopology(), "/r",
-            new StandardConfig { HttpPort = "80", HttpsPort = "443" });
-
-        var nginx = adopted.Single(s => s.Name == "nginx");
-        Assert.Equal((80, 8080), nginx.Ports[0]);
-        Assert.Equal((443, 8443), nginx.Ports[1]);
-    }
-
-    [Fact]
     public void Adopt_does_not_touch_other_services()
     {
-        var adopted = MigrateCommand.AdoptStandard(SampleTopology(), "/r", new StandardConfig());
+        var adopted = MigrateCommand.AdoptStandard(SampleTopology(), "/r");
         var api = adopted.Single(s => s.Name == "api");
         Assert.Equal("ghcr.io/bitwarden/api:2026.4.1", api.Image);
     }

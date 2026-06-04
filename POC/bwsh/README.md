@@ -76,6 +76,22 @@ dotnet run -- uninstall              # stop and remove; --purge also deletes dat
 
 Run `dotnet run -- <command> --help` for options on any command.
 
+## HTTPS
+
+Both standard and lite installs serve **HTTPS by default** with a generated self-signed cert (browsers
+will warn, which is fine for local/testing). On standard, provide your own certificate by placing the
+files in `bwdata/ssl/<domain>/` before installing:
+
+```text
+bwdata/ssl/bitwarden.example.com/certificate.crt
+bwdata/ssl/bitwarden.example.com/private.key
+bwdata/ssl/bitwarden.example.com/ca.crt        # optional
+bwdata/ssl/bitwarden.example.com/dhparam.pem   # optional
+```
+
+Ports default to 80/443; override with `http-port`/`https-port` in the manifest. Opt out of HTTPS with
+`ssl: { enable: false }`. Let's Encrypt is not wired up yet.
+
 ## Shell completion
 
 `bwsh` prints a completion script (zsh or bash) that tab-completes commands, options, deployment

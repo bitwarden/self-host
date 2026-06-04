@@ -120,9 +120,10 @@ public sealed class LiteDeployment : IDeployment
         Set("BW_ENABLE_SCIM", "false");
         Set("BW_ENABLE_SSO", "false");
 
-        Set("BW_ENABLE_SSL", a.Ssl.Enable ? "true" : "false");
-        Set("BW_PORT_HTTP", a.HttpPort.ToString());
-        Set("BW_PORT_HTTPS", a.HttpsPort.ToString());
+        // HTTPS by default; the lite container self-signs a cert when none is provided.
+        Set("BW_ENABLE_SSL", (a.Ssl.Enable ?? true) ? "true" : "false");
+        Set("BW_PORT_HTTP", (a.HttpPort != 0 ? a.HttpPort : 8080).ToString());
+        Set("BW_PORT_HTTPS", (a.HttpsPort != 0 ? a.HttpsPort : 8443).ToString());
 
         // Raw passthrough LAST so it overrides anything above — the escape hatch for crafting
         // an exact environment from a bug report (e.g. a malformed globalSettings__baseServiceUri__vault).
@@ -143,9 +144,11 @@ public sealed class LiteDeployment : IDeployment
         var a = ctx.Manifest;
         var image = string.IsNullOrEmpty(a.Image) ? $"ghcr.io/bitwarden/lite:{Setup.Versions.Core}" : a.Image!;
 
-        (int, int)[] ports = a.Ssl.Enable
-            ? [(a.HttpPort, 8080), (a.HttpsPort, 8443)]
-            : [(a.HttpPort, 8080)];
+        var httpPort = a.HttpPort != 0 ? a.HttpPort : 8080;
+        var httpsPort = a.HttpsPort != 0 ? a.HttpsPort : 8443;
+        (int, int)[] ports = (a.Ssl.Enable ?? true)
+            ? [(httpPort, 8080), (httpsPort, 8443)]
+            : [(httpPort, 8080)];
 
         return
         [
