@@ -118,6 +118,48 @@ backs up first:
 dotnet run -- migrate --root ./bwdata
 ```
 
+## Local development
+
+A development manifest [`bitwarden.yaml`](bitwarden.yaml) can be used for local testing. It
+installs a `standard` deployment on `localhost` and points outbound mail at a local MailDev server.
+
+```yaml
+deployment: standard
+domain: localhost
+region: US
+installation-id: 94389b62-6b3f-413e-8bbb-6c9e4ed83cb3
+installation-key: bwsh-demo
+database: vault
+config:
+  # Containers reach MailDev on the Docker host. View mail at http://localhost:1080
+  globalSettings__mail__smtp__host: host.docker.internal
+  globalSettings__mail__smtp__port: "1025"
+  globalSettings__mail__smtp__ssl: "false"
+  globalSettings__mail__smtp__startTls: "false"
+  globalSettings__mail__smtp__username: ""
+  globalSettings__mail__smtp__password: ""
+```
+
+### Mail server (MailDev)
+
+Start the MailDev server with docker compose.
+
+```bash
+cd ../maildev
+docker compose up -d        # start (pulls maildev/maildev on first run)
+docker compose logs -f      # tail
+docker compose down         # stop
+```
+
+### Install against the test manifest
+
+```bash
+dotnet run -- install --manifest bitwarden.yaml
+```
+
+Register a user, then open http://localhost:1080 to see the welcome email. If you change the
+`config:` block later, re-apply with `dotnet run -- apply --manifest bitwarden.yaml` and restart.
+
 ## Notes
 
 - Data lives in `./bwdata` by default; override with `--root <dir>`.
