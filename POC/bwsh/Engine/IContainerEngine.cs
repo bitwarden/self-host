@@ -13,6 +13,10 @@ public interface IContainerEngine
     Task<string> CreateAsync(ServiceSpec spec, IList<string> env, CancellationToken ct);
     Task ConnectNetworkAsync(string containerId, string network, string alias, CancellationToken ct);
     Task StartAsync(string containerId, CancellationToken ct);
+
+    /// <summary>Block until the container exits and return its exit code (one-off runs like certbot).</summary>
+    Task<long> WaitAsync(string containerName, CancellationToken ct);
+
     Task<ContainerState> InspectAsync(string containerName, CancellationToken ct);
     Task RemoveAsync(string containerName, bool force, CancellationToken ct);
     Task RemoveNetworkAsync(string name, CancellationToken ct);

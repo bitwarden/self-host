@@ -6,6 +6,7 @@ root.Subcommands.Add(InstallCommand.Build());
 root.Subcommands.Add(ApplyCommand.Build());
 root.Subcommands.Add(ConfigCommand.Build());
 root.Subcommands.Add(UpdateCommand.Build());
+root.Subcommands.Add(RenewCertCommand.Build());
 root.Subcommands.Add(UninstallCommand.Build());
 root.Subcommands.Add(StatusCommand.Build());
 root.Subcommands.Add(LogsCommand.Build());

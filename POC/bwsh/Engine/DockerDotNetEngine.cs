@@ -111,6 +111,7 @@ public sealed class DockerDotNetEngine : IContainerEngine, IDisposable
         {
             Name = spec.ContainerName,
             Image = spec.Image,
+            Cmd = spec.Command.Length > 0 ? spec.Command : null,
             Env = env,
             ExposedPorts = exposed.Count > 0 ? exposed : null,
             Labels = new Dictionary<string, string>
@@ -156,6 +157,9 @@ public sealed class DockerDotNetEngine : IContainerEngine, IDisposable
 
     public Task StartAsync(string containerId, CancellationToken ct) =>
         _client.Containers.StartContainerAsync(containerId, new ContainerStartParameters(), ct);
+
+    public async Task<long> WaitAsync(string containerName, CancellationToken ct) =>
+        (await _client.Containers.WaitContainerAsync(containerName, ct)).StatusCode;
 
     public async Task<ContainerState> InspectAsync(string containerName, CancellationToken ct)
     {

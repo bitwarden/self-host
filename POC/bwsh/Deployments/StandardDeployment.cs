@@ -1,5 +1,4 @@
 ﻿using Bit.SelfHost.Engine;
-using Spectre.Console;
 
 namespace Bit.SelfHost.Deployments;
 
@@ -142,8 +141,6 @@ public sealed class StandardDeployment : IDeployment
         {
             config.SslCertificatePath = $"/etc/letsencrypt/live/{domain}/fullchain.pem";
             config.SslKeyPath = $"/etc/letsencrypt/live/{domain}/privkey.pem";
-            AnsiConsole.MarkupLine("[yellow]note: Let's Encrypt provisioning isn't implemented yet; "
-                + "supply certs under bwdata/letsencrypt or use a custom cert.[/]");
             return;
         }
 

@@ -45,6 +45,10 @@ public static class ApplyCommand
 
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);
+
+            if (kind == DeploymentKind.Standard)
+                await Setup.LetsEncrypt.ProvisionIfNeeded(engine, rootDir, Setup.StandardConfig.Load(rootDir), loaded.Ssl.Email, ct);
+
             await orch.UpAsync(topology, ct, $"Bitwarden {kind} — apply");
 
             AnsiConsole.MarkupLine($"\n[green]Apply complete.[/] Running at: [link]{Markup.Escape(dep.ResolveUrl(rootDir))}[/]");

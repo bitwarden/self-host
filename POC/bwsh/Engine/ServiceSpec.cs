@@ -22,6 +22,9 @@ public sealed record ServiceSpec
     public string[] DependsOn { get; init; } = [];
     public bool RestartAlways { get; init; } = true;
     public int? StopTimeoutSeconds { get; init; }
+
+    /// <summary>Container command/args (e.g. certbot). Empty keeps the image's default.</summary>
+    public string[] Command { get; init; } = [];
 }
 
 public sealed record NetworkSpec(string Name, bool Internal);

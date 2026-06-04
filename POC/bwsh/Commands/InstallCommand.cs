@@ -65,6 +65,10 @@ public static class InstallCommand
 
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);
+
+            if (kind == DeploymentKind.Standard)
+                await Setup.LetsEncrypt.ProvisionIfNeeded(engine, rootDir, Setup.StandardConfig.Load(rootDir), manifestData.Ssl.Email, ct);
+
             await orch.UpAsync(topology, ct, $"Bitwarden {kind}");
             AnsiConsole.MarkupLine("\n[green]Bitwarden install complete.[/]");
             Cli.WriteCommandHelp();

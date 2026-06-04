@@ -91,8 +91,21 @@ bwdata/ssl/bitwarden.example.com/dhparam.pem   # optional
 On lite, drop `ssl.crt` and `ssl.key` into the data dir before installing and the container uses those
 instead of self-signing (point at other filenames with `BW_SSL_CERT`/`BW_SSL_KEY`).
 
+For a trusted cert on standard, use Let's Encrypt (needs a public domain with ports 80/443 reachable from
+the internet):
+
+```yaml
+ssl:
+  enable: true
+  lets-encrypt: true
+  email: you@example.com
+```
+
+`install`/`apply` then provisions the cert with certbot. Renew with `dotnet run -- renewcert` (cron it for
+auto-renewal).
+
 Ports default to 80/443; override with `http-port`/`https-port` in the manifest. Opt out of HTTPS with
-`ssl: { enable: false }`. Let's Encrypt is not wired up yet.
+`ssl: { enable: false }`.
 
 ## Shell completion
 
