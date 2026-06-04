@@ -20,21 +20,21 @@ public class StandardConfigTests
     }
 }
 
-public class AnswerFileTests
+public class InstallManifestTests
 {
     [Fact]
     public void Load_maps_hyphenated_yaml_keys()
     {
-        var path = Path.Combine(Directory.CreateTempSubdirectory().FullName, "answers.yaml");
+        var path = Path.Combine(Directory.CreateTempSubdirectory().FullName, "bitwarden.yaml");
         File.WriteAllText(path,
             "deployment: standard\ncore-version: 2026.3.1\nenable-key-connector: true\nenable-scim: true\n");
 
-        var a = AnswerFile.Load(path);
+        var m = InstallManifest.Load(path);
 
-        Assert.Equal("standard", a.Deployment);
-        Assert.Equal("2026.3.1", a.CoreVersion);
-        Assert.True(a.EnableKeyConnector);
-        Assert.True(a.EnableScim);
+        Assert.Equal("standard", m.Deployment);
+        Assert.Equal("2026.3.1", m.CoreVersion);
+        Assert.True(m.EnableKeyConnector);
+        Assert.True(m.EnableScim);
     }
 }
 
@@ -44,7 +44,7 @@ public class StandardTopologyTests
     {
         var root = Directory.CreateTempSubdirectory().FullName;
         new StandardConfig { EnableKeyConnector = keyConnector, EnableScim = scim }.Save(root);
-        return new InstallContext { Root = root, Answers = new AnswerFile() };
+        return new InstallContext { Root = root, Manifest = new InstallManifest() };
     }
 
     [Fact]
@@ -67,4 +67,69 @@ public class StandardTopologyTests
     [Fact]
     public void Both_enabled_is_thirteen_services()
         => Assert.Equal(13, new StandardDeployment().BuildTopology(CtxWith(true, true)).Count);
+}
+
+public class StandardAssetBuilderTests
+{
+    private static StandardConfig Config() => new() { Url = "http://localhost", GenerateNginxConfig = false };
+
+    private static Dictionary<string, string> ReadEnv(string path)
+    {
+        var d = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var raw in File.ReadLines(path))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            var eq = line.IndexOf('=');
+            if (eq > 0) d[line[..eq]] = line[(eq + 1)..];
+        }
+        return d;
+    }
+
+    [Fact]
+    public void Generate_twice_preserves_secrets()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        var p = new StandardAssetBuilder.InstallParams("id-1", "key-1", "US", "vault");
+
+        StandardAssetBuilder.BuildForInstaller(root, Config(), p);
+        var mssql1 = ReadEnv(Path.Combine(root, "env/mssql.override.env"));
+        var global1 = ReadEnv(Path.Combine(root, "env/global.override.env"));
+
+        StandardAssetBuilder.BuildForInstaller(root, Config(), p);
+        var mssql2 = ReadEnv(Path.Combine(root, "env/mssql.override.env"));
+        var global2 = ReadEnv(Path.Combine(root, "env/global.override.env"));
+
+        Assert.Equal(mssql1["SA_PASSWORD"], mssql2["SA_PASSWORD"]);
+        Assert.Equal(global1["globalSettings__identityServer__certificatePassword"],
+                     global2["globalSettings__identityServer__certificatePassword"]);
+        Assert.Equal(global1["globalSettings__internalIdentityKey"], global2["globalSettings__internalIdentityKey"]);
+        Assert.Equal(global1["globalSettings__duo__aKey"], global2["globalSettings__duo__aKey"]);
+    }
+
+    [Fact]
+    public void Config_passthrough_overrides_defaults()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        var passthrough = new Dictionary<string, string> { ["globalSettings__mail__smtp__host"] = "smtp.example.com" };
+        StandardAssetBuilder.BuildForInstaller(root, Config(),
+            new StandardAssetBuilder.InstallParams("id", "key", "US", "vault", passthrough));
+
+        var global = ReadEnv(Path.Combine(root, "env/global.override.env"));
+        Assert.Equal("smtp.example.com", global["globalSettings__mail__smtp__host"]);
+    }
+
+    [Fact]
+    public void Omitted_installation_id_is_preserved_on_reapply()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        StandardAssetBuilder.BuildForInstaller(root, Config(),
+            new StandardAssetBuilder.InstallParams("real-id", "real-key", "US", "vault"));
+        StandardAssetBuilder.BuildForInstaller(root, Config(),
+            new StandardAssetBuilder.InstallParams("", "", "US", "vault")); // manifest omitted id/key
+
+        var global = ReadEnv(Path.Combine(root, "env/global.override.env"));
+        Assert.Equal("real-id", global["globalSettings__installation__id"]);
+        Assert.Equal("real-key", global["globalSettings__installation__key"]);
+    }
 }

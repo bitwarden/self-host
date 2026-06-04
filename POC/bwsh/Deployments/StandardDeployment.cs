@@ -67,10 +67,11 @@ public sealed class StandardDeployment : IDeployment
 
         Setup.StandardAssetBuilder.BuildForInstaller(ctx.Root, config,
             new Setup.StandardAssetBuilder.InstallParams(
-                InstallationId: a.InstallationId ?? Guid.Empty.ToString(),
+                InstallationId: a.InstallationId ?? string.Empty,
                 InstallationKey: a.InstallationKey ?? string.Empty,
                 Region: a.Region,
-                Database: a.Database));
+                Database: a.Database,
+                Config: a.Config));
 
         await Task.CompletedTask;
     }

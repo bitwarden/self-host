@@ -49,7 +49,7 @@ public static class ConfigCommand
 
             if (eq < 0) // get
             {
-                Console.WriteLine($"{key} lives in {binding.File} (applying changes needs: {binding.Action}).");
+                Console.WriteLine($"{key} lives in {binding.File} (apply changes with `bwsh apply`).");
                 return 0;
             }
 
@@ -59,23 +59,19 @@ public static class ConfigCommand
             if (binding.File.EndsWith(".env"))
             {
                 Cli.UpsertEnv(target, key, value);
-                Console.WriteLine($"Set {key} in {binding.File}. Run `bwsh {Verb(binding.Action)}` to apply.");
+                Console.WriteLine($"Set {key} in {binding.File}. Run `bwsh apply` to apply.");
+                // The manifest is the source of truth: `apply` re-renders from it, so add durable
+                // keys to the manifest's `config:` block (a bare `config set` is a one-off tweak).
+                Console.WriteLine("Add it to your manifest's `config:` block to persist across applies.");
             }
             else
             {
-                // TODO(setup-replacement): structured YAML edit of config.yml + rebuild.
-                Console.WriteLine($"Would set {key}={value} in {binding.File} (config.yml YAML edit: TODO). Needs `rebuild`.");
+                // TODO(setup-replacement): structured YAML edit of config.yml + apply.
+                Console.WriteLine($"Would set {key}={value} in {binding.File} (config.yml YAML edit: TODO). Apply with `bwsh apply`.");
             }
             return 0;
         });
 
         return cmd;
     }
-
-    private static string Verb(ConfigApplyAction a) => a switch
-    {
-        ConfigApplyAction.Rebuild => "update --rebuild",
-        ConfigApplyAction.Restart => "restart",
-        _ => "restart",
-    };
 }

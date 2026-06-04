@@ -7,7 +7,19 @@
 /// </summary>
 public static class StandardAssetBuilder
 {
-    public sealed record InstallParams(string InstallationId, string InstallationKey, string Region, string Database);
+    public sealed record InstallParams(
+        string InstallationId, string InstallationKey, string Region, string Database,
+        IReadOnlyDictionary<string, string>? Config = null);
+
+    /// <summary>
+    /// Secrets read back from an existing bwdata/ so re-rendering (`apply`, or a re-run `install`)
+    /// reuses them instead of minting new ones — rotating the DB/identity passwords would mismatch
+    /// the already-initialized mssql volume and break the install.
+    /// </summary>
+    private sealed record ExistingSecrets(
+        string? IdentityCertPassword, string? DbPassword,
+        string? InternalIdentityKey, string? OidcIdentityClientKey, string? DuoAKey,
+        string? KeyConnectorCertPassword, string? InstallationId, string? InstallationKey);
 
     private const string DefaultCsp = "default-src 'self'; " +
         "script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
@@ -19,12 +31,17 @@ public static class StandardAssetBuilder
 
     public static void BuildForInstaller(string root, StandardConfig config, InstallParams install)
     {
-        // Order matches Setup's Install(): cert first (yields the password the env file needs).
-        var identityCertPassword = SecureRandom.String(32);
-        Pkcs12Cert.Write(Path.Combine(root, "identity", "identity.pfx"), "Bitwarden IdentityServer", identityCertPassword);
+        var existing = ReadExistingSecrets(root);
 
-        WriteEnvFiles(root, config, install, identityCertPassword);
-        if (config.EnableKeyConnector) WriteKeyConnector(root, config);
+        // Order matches Setup's Install(): cert first (yields the password the env file needs).
+        // Reuse the identity cert + its password when already present so `apply` doesn't rotate it.
+        var identityCertPath = Path.Combine(root, "identity", "identity.pfx");
+        var identityCertPassword = existing.IdentityCertPassword ?? SecureRandom.String(32);
+        if (existing.IdentityCertPassword is null || !File.Exists(identityCertPath))
+            Pkcs12Cert.Write(identityCertPath, "Bitwarden IdentityServer", identityCertPassword);
+
+        WriteEnvFiles(root, config, install, identityCertPassword, existing);
+        if (config.EnableKeyConnector) WriteKeyConnector(root, config, existing);
         WriteNginx(root, config);
         WriteAppId(root, config);
         config.Save(root);
@@ -34,9 +51,9 @@ public static class StandardAssetBuilder
     /// Generates the Key Connector override env + its filesystem cert (bwkc.pfx) sharing one
     /// password. Ports Setup's keyConnectorOverrideValues + CertBuilder.BuildForUpdater.
     /// </summary>
-    private static void WriteKeyConnector(string root, StandardConfig config)
+    private static void WriteKeyConnector(string root, StandardConfig config, ExistingSecrets existing)
     {
-        var certPassword = SecureRandom.String(32);
+        var certPassword = existing.KeyConnectorCertPassword ?? SecureRandom.String(32);
         var values = new Dictionary<string, string>
         {
             ["keyConnectorSettings__webVaultUri"] = config.Url,
@@ -49,16 +66,26 @@ public static class StandardAssetBuilder
             ["keyConnectorSettings__certificate__filesystemPassword"] = certPassword,
         };
         WriteEnv(Path.Combine(root, "env/key-connector.override.env"), values);
-        Pkcs12Cert.Write(Path.Combine(root, "key-connector", "bwkc.pfx"), "Bitwarden Key Connector", certPassword);
+
+        var bwkcPath = Path.Combine(root, "key-connector", "bwkc.pfx");
+        if (existing.KeyConnectorCertPassword is null || !File.Exists(bwkcPath))
+            Pkcs12Cert.Write(bwkcPath, "Bitwarden Key Connector", certPassword);
     }
 
-    private static void WriteEnvFiles(string root, StandardConfig config, InstallParams install, string identityCertPassword)
+    private static void WriteEnvFiles(string root, StandardConfig config, InstallParams install,
+        string identityCertPassword, ExistingSecrets existing)
     {
         Directory.CreateDirectory(Path.Combine(root, "docker"));
         Directory.CreateDirectory(Path.Combine(root, "env"));
 
-        var dbPassword = SecureRandom.String(32);
+        var dbPassword = existing.DbPassword ?? SecureRandom.String(32);
         var database = string.IsNullOrEmpty(install.Database) ? "vault" : install.Database;
+
+        // Manifest wins when it provides id/key; otherwise keep what's on disk (apply re-render).
+        var installationId = !string.IsNullOrEmpty(install.InstallationId)
+            ? install.InstallationId : existing.InstallationId ?? Guid.Empty.ToString();
+        var installationKey = !string.IsNullOrEmpty(install.InstallationKey)
+            ? install.InstallationKey : existing.InstallationKey ?? string.Empty;
         var connectionString =
             $"Data Source=tcp:mssql,1433;Initial Catalog={database};User ID=sa;Password={dbPassword};" +
             "MultipleActiveResultSets=False;Encrypt=True;Connect Timeout=30;TrustServerCertificate=True;Persist Security Info=False";
@@ -84,11 +111,11 @@ public static class StandardAssetBuilder
             ["globalSettings__baseServiceUri__cloudRegion"] = install.Region,
             ["globalSettings__sqlServer__connectionString"] = $"\"{connectionString.Replace("\"", "\\\"")}\"",
             ["globalSettings__identityServer__certificatePassword"] = identityCertPassword,
-            ["globalSettings__internalIdentityKey"] = SecureRandom.String(64),
-            ["globalSettings__oidcIdentityClientKey"] = SecureRandom.String(64),
-            ["globalSettings__duo__aKey"] = SecureRandom.String(64),
-            ["globalSettings__installation__id"] = install.InstallationId,
-            ["globalSettings__installation__key"] = install.InstallationKey,
+            ["globalSettings__internalIdentityKey"] = existing.InternalIdentityKey ?? SecureRandom.String(64),
+            ["globalSettings__oidcIdentityClientKey"] = existing.OidcIdentityClientKey ?? SecureRandom.String(64),
+            ["globalSettings__duo__aKey"] = existing.DuoAKey ?? SecureRandom.String(64),
+            ["globalSettings__installation__id"] = installationId,
+            ["globalSettings__installation__key"] = installationKey,
             ["globalSettings__yubico__clientId"] = "REPLACE",
             ["globalSettings__yubico__key"] = "REPLACE",
             ["globalSettings__mail__replyToEmail"] = $"no-reply@{config.Domain}",
@@ -103,6 +130,12 @@ public static class StandardAssetBuilder
         };
         if (!config.PushNotifications)
             globalOverride["globalSettings__pushRelayBaseUri"] = "REPLACE";
+
+        // Manifest `config:` passthrough LAST so it overrides the defaults above (e.g. flips
+        // mail__smtp__host from REPLACE to the operator's value) — mirrors LiteDeployment.
+        if (install.Config is not null)
+            foreach (var kv in install.Config)
+                globalOverride[kv.Key] = kv.Value;
 
         var mssqlOverride = new Dictionary<string, string>
         {
@@ -175,6 +208,39 @@ public static class StandardAssetBuilder
     {
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite); // 0600
+    }
+
+    /// <summary>Reads the secrets/identifiers from an existing bwdata/ (all null on a fresh install).</summary>
+    private static ExistingSecrets ReadExistingSecrets(string root)
+    {
+        var global = ReadEnv(Path.Combine(root, "env/global.override.env"));
+        var mssql = ReadEnv(Path.Combine(root, "env/mssql.override.env"));
+        var kc = ReadEnv(Path.Combine(root, "env/key-connector.override.env"));
+        return new ExistingSecrets(
+            IdentityCertPassword: global.GetValueOrDefault("globalSettings__identityServer__certificatePassword"),
+            DbPassword: mssql.GetValueOrDefault("SA_PASSWORD"),
+            InternalIdentityKey: global.GetValueOrDefault("globalSettings__internalIdentityKey"),
+            OidcIdentityClientKey: global.GetValueOrDefault("globalSettings__oidcIdentityClientKey"),
+            DuoAKey: global.GetValueOrDefault("globalSettings__duo__aKey"),
+            KeyConnectorCertPassword: kc.GetValueOrDefault("keyConnectorSettings__certificate__filesystemPassword"),
+            InstallationId: global.GetValueOrDefault("globalSettings__installation__id"),
+            InstallationKey: global.GetValueOrDefault("globalSettings__installation__key"));
+    }
+
+    /// <summary>Parse a KEY=VALUE env file into a dict (first '=' splits; '#'/blank lines skipped).</summary>
+    private static Dictionary<string, string> ReadEnv(string path)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!File.Exists(path)) return values;
+        foreach (var raw in File.ReadLines(path))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            var eq = line.IndexOf('=');
+            if (eq <= 0) continue;
+            values[line[..eq]] = line[(eq + 1)..];
+        }
+        return values;
     }
 
     // Handlebars models (concrete classes so the template engine can bind by property).

@@ -3,6 +3,7 @@ using Bit.SelfHost.Commands;
 
 var root = new RootCommand("bwsh — install and manage Bitwarden self-host deployments (standard & lite).");
 root.Subcommands.Add(InstallCommand.Build());
+root.Subcommands.Add(ApplyCommand.Build());
 root.Subcommands.Add(ConfigCommand.Build());
 root.Subcommands.Add(UpdateCommand.Build());
 root.Subcommands.Add(UninstallCommand.Build());

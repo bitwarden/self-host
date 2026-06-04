@@ -52,6 +52,16 @@ dotnet run -- install --manifest bitwarden.yaml
 
 Add `--plan` to preview without pulling or starting anything.
 
+### Apply manifest changes
+
+Manifests can be re-applied to an existing install to change config or toggle services on/off.
+
+```bash
+dotnet run -- apply --manifest bitwarden.yaml
+```
+
+This is how you change config (e.g. add SMTP under the manifest's `config:` block) on an existing install.
+
 ## Everyday commands
 
 ```bash
