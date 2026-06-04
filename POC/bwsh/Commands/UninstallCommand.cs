@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Engine;
+using Spectre.Console;
 
 namespace Bit.SelfHost.Commands;
 
@@ -31,12 +32,12 @@ public static class UninstallCommand
 
             if (!parseResult.GetValue(yes))
             {
-                Console.Write(doPurge
-                    ? $"This will REMOVE containers AND DELETE all data under {rootDir}. Continue? (y/n): "
-                    : "This will stop and remove all containers (data preserved). Continue? (y/n): ");
-                if (Console.ReadLine()?.Trim().ToLowerInvariant() is not ("y" or "yes"))
+                var prompt = doPurge
+                    ? $"This will REMOVE containers AND DELETE all data under {Markup.Escape(rootDir)}. Continue?"
+                    : "This will stop and remove all containers (data preserved). Continue?";
+                if (!AnsiConsole.Confirm(prompt, defaultValue: false))
                 {
-                    Console.WriteLine("Uninstall canceled.");
+                    AnsiConsole.MarkupLine("[yellow]Uninstall canceled.[/]");
                     return 3; // user-cancel
                 }
             }
@@ -45,15 +46,20 @@ public static class UninstallCommand
             var topology = dep.BuildTopology(ctx);
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);
-            await orch.DownAsync(topology, purge: doPurge, ct);
 
-            if (doPurge && Directory.Exists(rootDir))
+            await AnsiConsole.Status().StartAsync($"Uninstalling {kind}…", async statusCtx =>
             {
-                Directory.Delete(rootDir, recursive: true);
-                Console.WriteLine($"Deleted {rootDir}.");
-            }
+                await orch.DownAsync(topology, doPurge, msg => statusCtx.Status(Markup.Escape(msg)), ct);
+                if (doPurge && Directory.Exists(rootDir))
+                {
+                    statusCtx.Status($"deleting {Markup.Escape(rootDir)}");
+                    Directory.Delete(rootDir, recursive: true);
+                }
+            });
 
-            Console.WriteLine("Uninstall complete.");
+            AnsiConsole.MarkupLine(doPurge
+                ? $"\n[green]Uninstall complete.[/] Deleted [grey]{Markup.Escape(rootDir)}[/]."
+                : "\n[green]Uninstall complete.[/]");
             return 0;
         });
 

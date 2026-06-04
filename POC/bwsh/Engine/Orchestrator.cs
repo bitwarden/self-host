@@ -25,15 +25,27 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
         var table = new Table().Border(TableBorder.None).AddColumns("Service", "Status");
         var panel = new Panel(table).Expand().RoundedBorder().BorderColor(Color.Grey);
 
-        void Render(string header)
+        var frames = Spinner.Known.Dots.Frames;
+        void Render(string header, string spinner)
         {
             panel.Header = new PanelHeader($" {header} ");
             table.Rows.Clear();
             foreach (var s in services)
             {
                 var (text, color) = status[s.Name];
-                table.AddRow(Markup.Escape(s.Name), $"[{color}]{text}[/]");
+                var lead = color == "yellow" ? $"{spinner} " : "  "; // spin only the in-progress rows
+                table.AddRow(Markup.Escape(s.Name), $"[{color}]{lead}{text}[/]");
             }
+        }
+
+        // Condense a `docker pull` line (non-TTY: "<layer>: <status>") to a short status for the table.
+        static string? PullSummary(string line)
+        {
+            line = line.Trim();
+            if (line.Length == 0) return null;
+            var colon = line.IndexOf(": ", StringComparison.Ordinal);
+            var text = colon is > 0 and < 16 ? line[(colon + 2)..] : line;
+            return text.Length > 40 ? text[..40] : text;
         }
 
         async Task RunAsync()
@@ -51,7 +63,12 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
                     {
                         using var pullCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                         pullCts.CancelAfter(TimeSpan.FromMinutes(15));
-                        await engine.PullAsync(group.Key, new Progress<string>(_ => { }), pullCts.Token);
+                        var progress = new Progress<string>(line =>
+                        {
+                            if (PullSummary(line) is { } summary)
+                                foreach (var svc in group) status[svc.Name] = ($"pulling: {summary}", "yellow");
+                        });
+                        await engine.PullAsync(group.Key, progress, pullCts.Token);
                     }
                     foreach (var s in group) status[s.Name] = ("image ready", "grey");
                 }
@@ -100,9 +117,10 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
         await AnsiConsole.Live(panel).StartAsync(async ctx =>
         {
             var work = RunAsync();
+            var tick = 0;
             while (!work.IsCompleted)
             {
-                Render($"[yellow]{Markup.Escape(title)}[/] [grey]— {phase}[/]");
+                Render($"[yellow]{Markup.Escape(title)}[/] [grey]— {phase}[/]", frames[tick++ % frames.Count]);
                 ctx.Refresh();
                 await Task.Delay(200, ct);
             }
@@ -111,7 +129,7 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
             var summary = !settledAll ? "[yellow]still starting[/]"
                 : unhealthy == 0 ? "[green]ready[/]"
                 : $"[red]{unhealthy} unhealthy — run `logs <service>`[/]";
-            Render($"[bold]{Markup.Escape(title)}[/] — {summary}");
+            Render($"[bold]{Markup.Escape(title)}[/] — {summary}", " ");
             ctx.Refresh();
         });
     }
@@ -126,11 +144,11 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
         _ => ("starting", "yellow", false),
     };
 
-    public async Task DownAsync(IReadOnlyList<ServiceSpec> services, bool purge, CancellationToken ct)
+    public async Task DownAsync(IReadOnlyList<ServiceSpec> services, bool purge, Action<string> report, CancellationToken ct)
     {
         foreach (var spec in TopoSort.Order(services).Reverse())
         {
-            Console.WriteLine($"remove   ▸ {spec.ContainerName}");
+            report($"removing {spec.ContainerName}");
             await engine.RemoveAsync(spec.ContainerName, force: true, ct);
         }
 
@@ -145,13 +163,13 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
             .Distinct();
         foreach (var vol in volumes)
         {
-            Console.WriteLine($"volume   ▸ remove {vol}");
+            report($"removing volume {vol}");
             await engine.RemoveVolumeAsync(vol, ct);
         }
 
         foreach (var net in networks)
         {
-            Console.WriteLine($"network  ▸ remove {net.Name}");
+            report($"removing network {net.Name}");
             await engine.RemoveNetworkAsync(net.Name, ct);
         }
     }

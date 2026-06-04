@@ -46,8 +46,7 @@ public static class RestoreCommand
             if (!parseResult.GetValue(yes))
             {
                 AnsiConsole.MarkupLine($"Restore [green]{Markup.Escape(archivePath)}[/] into [grey]{Markup.Escape(rootDir)}[/] and bring the stack up.");
-                Console.Write("Continue? (y/n): ");
-                if (Console.ReadLine()?.Trim().ToLowerInvariant() is not ("y" or "yes"))
+                if (!AnsiConsole.Confirm("Continue?", defaultValue: false))
                 {
                     Console.WriteLine("Restore canceled.");
                     return 3;

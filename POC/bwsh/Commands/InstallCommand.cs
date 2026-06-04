@@ -71,6 +71,7 @@ public static class InstallCommand
 
             await orch.UpAsync(topology, ct, $"Bitwarden {kind}");
             AnsiConsole.MarkupLine("\n[green]Bitwarden install complete.[/]");
+            AnsiConsole.MarkupLine($"Bitwarden running at: [cyan]{dep.ResolveUrl(rootDir)}[/]");
             Cli.WriteCommandHelp();
             return 0;
         });

@@ -74,8 +74,7 @@ public static class MigrateCommand
 
             if (!parseResult.GetValue(yes))
             {
-                Console.Write("\nContinue? (y/n): ");
-                if (Console.ReadLine()?.Trim().ToLowerInvariant() is not ("y" or "yes"))
+                if (!AnsiConsole.Confirm("Continue?", defaultValue: false))
                 {
                     Console.WriteLine("Migration canceled.");
                     return 3;
