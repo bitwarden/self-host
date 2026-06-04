@@ -12,6 +12,14 @@ public sealed class StandardDeployment : IDeployment
 
     public string InstalledMarker => "config.yml";
 
+    public IReadOnlyList<string> ConfigFiles { get; } =
+    [
+        "config.yml",
+        "env/global.override.env",
+        "env/mssql.override.env",
+        "env/key-connector.override.env",
+    ];
+
     public string ResolveUrl(string root) => Setup.StandardConfig.Load(root).Url;
 
     public IReadOnlyList<NetworkSpec> Networks { get; } =

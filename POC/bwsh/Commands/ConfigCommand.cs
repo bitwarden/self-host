@@ -7,19 +7,17 @@ public static class ConfigCommand
 {
     public static Command Build()
     {
-        var cmd = new Command("config", "Get or set deployment configuration (e.g. config key=value).");
+        var cmd = new Command("config", "Show the current config, or get/set a key (config key=value).");
 
         var assignment = new Argument<string?>("assignment")
-        { Description = "key=value to set, or key to get. Omit with --show to list.", Arity = ArgumentArity.ZeroOrOne };
+        { Description = "key=value to set, or key to get. Omit to print the current config.", Arity = ArgumentArity.ZeroOrOne };
         var deployment = Cli.DeploymentOption();
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
-        var show = new Option<bool>("--show") { Description = "Show resolved config files." };
 
         cmd.Arguments.Add(assignment);
         cmd.Options.Add(deployment);
         cmd.Options.Add(root);
-        cmd.Options.Add(show);
 
         cmd.SetAction(parseResult =>
         {
@@ -28,15 +26,8 @@ public static class ConfigCommand
             var rootDir = parseResult.GetValue(root)!;
             var arg = parseResult.GetValue(assignment);
 
-            if (parseResult.GetValue(show) || arg is null)
-            {
-                Console.WriteLine($"{kind} deployment config files (under {rootDir}):");
-                Console.WriteLine(kind == DeploymentKind.Standard
-                    ? "  config.yml                (structural; run `bwsh apply`)\n" +
-                      "  env/global.override.env   (SMTP / admin / globalSettings; run `bwsh apply`)"
-                    : "  settings.env              (all BW_* / globalSettings__*; run `bwsh apply`)");
-                return 0;
-            }
+            if (arg is null)
+                return PrintConfig(dep, kind, rootDir);
 
             var eq = arg.IndexOf('=');
             var key = eq >= 0 ? arg[..eq] : arg;
@@ -73,5 +64,48 @@ public static class ConfigCommand
         });
 
         return cmd;
+    }
+
+    /// <summary>Prints the deployment's on-disk config files, redacting secret values.</summary>
+    private static int PrintConfig(IDeployment dep, DeploymentKind kind, string rootDir)
+    {
+        var printed = false;
+        foreach (var rel in dep.ConfigFiles)
+        {
+            var path = Path.Combine(rootDir, rel);
+            if (!File.Exists(path)) continue;
+            printed = true;
+
+            Console.WriteLine($"# {rel}");
+            foreach (var raw in File.ReadLines(path))
+            {
+                var line = raw.TrimEnd();
+                var eq = line.IndexOf('=');
+                if (eq > 0 && !line.TrimStart().StartsWith('#'))
+                {
+                    var key = line[..eq];
+                    Console.WriteLine(IsSecret(key.Trim()) ? $"{key}=<redacted>" : line);
+                }
+                else
+                {
+                    Console.WriteLine(line); // YAML (config.yml), comments, blanks
+                }
+            }
+            Console.WriteLine();
+        }
+
+        if (!printed)
+        {
+            Console.Error.WriteLine($"No {kind} deployment config found under {rootDir}. Run `install` first.");
+            return 4;
+        }
+        return 0;
+    }
+
+    /// <summary>Values worth hiding: anything that ends in a key, or names a password/connection string.</summary>
+    internal static bool IsSecret(string key)
+    {
+        var k = key.ToLowerInvariant();
+        return k.Contains("password") || k.Contains("connectionstring") || k.EndsWith("key");
     }
 }

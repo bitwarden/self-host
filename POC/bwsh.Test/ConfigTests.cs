@@ -1,4 +1,5 @@
-﻿using Bit.SelfHost.Deployments;
+﻿using Bit.SelfHost.Commands;
+using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Setup;
 using Xunit;
 
@@ -67,6 +68,26 @@ public class StandardTopologyTests
     [Fact]
     public void Both_enabled_is_thirteen_services()
         => Assert.Equal(13, new StandardDeployment().BuildTopology(CtxWith(true, true)).Count);
+}
+
+public class ConfigRedactionTests
+{
+    [Theory]
+    [InlineData("SA_PASSWORD")]
+    [InlineData("globalSettings__sqlServer__connectionString")]
+    [InlineData("globalSettings__identityServer__certificatePassword")]
+    [InlineData("globalSettings__internalIdentityKey")]
+    [InlineData("globalSettings__mail__smtp__password")]
+    [InlineData("BW_INSTALLATION_KEY")]
+    public void Secrets_are_redacted(string key) => Assert.True(ConfigCommand.IsSecret(key));
+
+    [Theory]
+    [InlineData("globalSettings__mail__smtp__host")]
+    [InlineData("globalSettings__mail__smtp__username")]
+    [InlineData("globalSettings__installation__id")]
+    [InlineData("BW_DOMAIN")]
+    [InlineData("DATABASE")]
+    public void Non_secrets_are_shown(string key) => Assert.False(ConfigCommand.IsSecret(key));
 }
 
 public class StandardAssetBuilderTests

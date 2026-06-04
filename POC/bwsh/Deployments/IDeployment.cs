@@ -38,7 +38,10 @@ public interface IDeployment
     /// <summary>The container graph the Orchestrator brings up.</summary>
     IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx);
 
-    /// <summary>Resolve a `config set key=value` key to the file it lives in + the action to apply it.</summary>
+    /// <summary>Relative paths of the on-disk config files, for `config` to print (secrets redacted).</summary>
+    IReadOnlyList<string> ConfigFiles { get; }
+
+    /// <summary>Resolve a `config key=value` key to the file it lives in + the action to apply it.</summary>
     bool TryResolveConfigKey(string key, out ConfigBinding binding);
 }
 

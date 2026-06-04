@@ -66,6 +66,7 @@ This is how you change config (e.g. add SMTP under the manifest's `config:` bloc
 
 ```bash
 dotnet run -- status                 # health, versions, and vault URL
+dotnet run -- config                 # print the current config (secrets redacted); config key=value to set
 dotnet run -- logs identity          # a service's logs; --export bundles all to a zip
 dotnet run -- update                 # pull latest images and recreate changed services
 dotnet run -- backup                 # snapshot config + secrets + database to a .tar.gz

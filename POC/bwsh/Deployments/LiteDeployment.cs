@@ -20,6 +20,8 @@ public sealed class LiteDeployment : IDeployment
 
     public string InstalledMarker => SettingsFile;
 
+    public IReadOnlyList<string> ConfigFiles { get; } = [SettingsFile];
+
     public string ResolveUrl(string root)
     {
         var env = new Dictionary<string, string>();
