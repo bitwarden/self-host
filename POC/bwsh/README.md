@@ -4,6 +4,8 @@ A single .NET tool that installs and manages a Bitwarden self-host deployment â€
 `bitwarden.sh` + `run.sh` + Setup-container stack. It generates all config in-process and drives
 Docker directly. Supports both **standard** and **lite** deployments.
 
+![bwsh status](docs/images/status.gif)
+
 > Status: working proof of concept. See **What's not done yet** at the bottom.
 
 ## Prerequisites
@@ -24,6 +26,8 @@ dotnet run -- install
 
 It asks for your domain, region, installation id/key, and database name, then pulls the images,
 starts the stack, and shows a live status table.
+
+![bwsh install](docs/images/install.gif)
 
 ### Unattended with a manifest
 
@@ -76,6 +80,7 @@ dotnet run -- migrate --root ./bwdata
 - Versions default to the pinned `version.json` release; override per run with
   `update --core-version <v> --web-version <v>` or in the manifest.
 - A real `bwsh` binary can be produced with `dotnet publish -c Release --self-contained`.
+- The demo GIFs are generated from VHS tapes in [`docs/`](docs/README.md).
 
 ## What's not done yet
 

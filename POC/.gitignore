@@ -12,9 +12,8 @@ bundle/
 *.tar.gz
 bitwarden-logs-*.zip
 
-# Local answer files may hold installation id/key
-answers.yaml
-answers.yml
+# Local install manifests
+bitwarden.yaml
 
 # Secrets / certs
 *.pfx
