@@ -226,7 +226,7 @@ public static class StandardAssetBuilder
     }
 
     /// <summary>Parse a KEY=VALUE env file into a dict (first '=' splits; '#'/blank lines skipped).</summary>
-    private static Dictionary<string, string> ReadEnv(string path)
+    internal static Dictionary<string, string> ReadEnv(string path)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         if (!File.Exists(path)) return values;

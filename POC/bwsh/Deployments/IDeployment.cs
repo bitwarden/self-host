@@ -38,6 +38,12 @@ public interface IDeployment
     /// <summary>The container graph the Orchestrator brings up.</summary>
     IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx);
 
+    /// <summary>
+    /// Reconstruct the manifest from on-disk config so re-rendering (`update --rebuild`) preserves
+    /// the deployment's actual config and topology instead of resetting to defaults.
+    /// </summary>
+    InstallManifest ReadManifest(string root);
+
     /// <summary>Relative paths of the on-disk config files, for `config` to print (secrets redacted).</summary>
     IReadOnlyList<string> ConfigFiles { get; }
 

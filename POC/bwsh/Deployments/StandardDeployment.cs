@@ -41,6 +41,44 @@ public sealed class StandardDeployment : IDeployment
         new("database", "Enter the database name for your Bitwarden instance", "vault"),
     ];
 
+    public InstallManifest ReadManifest(string root)
+    {
+        var config = Setup.StandardConfig.Load(root);
+        var global = Setup.StandardAssetBuilder.ReadEnv(Path.Combine(root, "env/global.override.env"));
+        var mssql = Setup.StandardAssetBuilder.ReadEnv(Path.Combine(root, "env/mssql.override.env"));
+
+        var manifest = new InstallManifest
+        {
+            Deployment = "standard",
+            Domain = config.Domain ?? "localhost",
+            Region = global.GetValueOrDefault("globalSettings__baseServiceUri__cloudRegion", "US"),
+            Database = mssql.GetValueOrDefault("DATABASE", "vault"),
+            InstallationId = global.GetValueOrDefault("globalSettings__installation__id"),
+            InstallationKey = global.GetValueOrDefault("globalSettings__installation__key"),
+            EnableKeyConnector = config.EnableKeyConnector,
+            EnableScim = config.EnableScim,
+            Ssl = new InstallManifest.SslOptions { Enable = config.Ssl, LetsEncrypt = config.SslManagedLetsEncrypt },
+            HttpPort = int.TryParse(config.HttpPort, out var http) ? http : 8080,
+            HttpsPort = int.TryParse(config.HttpsPort, out var https) ? https : 8443,
+        };
+
+        // Preserve user-set values (SMTP, admins, HIBP, yubico, …) as passthrough so a rebuild
+        // re-emits them. Skip the keys generation derives from fields above or restores as secrets.
+        string[] derived =
+        [
+            "globalSettings__baseServiceUri__vault", "globalSettings__baseServiceUri__cloudRegion",
+            "globalSettings__sqlServer__connectionString", "globalSettings__identityServer__certificatePassword",
+            "globalSettings__internalIdentityKey", "globalSettings__oidcIdentityClientKey", "globalSettings__duo__aKey",
+            "globalSettings__installation__id", "globalSettings__installation__key",
+            "globalSettings__mail__replyToEmail", "globalSettings__pushRelayBaseUri",
+        ];
+        foreach (var (key, value) in global)
+            if (!derived.Contains(key))
+                manifest.Config[key] = value;
+
+        return manifest;
+    }
+
     public async Task GenerateAssetsAsync(InstallContext ctx, CancellationToken ct)
     {
         // (1) Directory scaffolding — replaces run.sh `dockerComposeVolumes`.

@@ -153,4 +153,38 @@ public class StandardAssetBuilderTests
         Assert.Equal("real-id", global["globalSettings__installation__id"]);
         Assert.Equal("real-key", global["globalSettings__installation__key"]);
     }
+
+    [Fact]
+    public async Task ReadManifest_round_trips_standard_config()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        var dep = new StandardDeployment();
+        var original = new InstallManifest
+        {
+            Deployment = "standard",
+            Domain = "vault.example.com",
+            Region = "EU",
+            Database = "customdb",
+            InstallationId = "11111111-1111-1111-1111-111111111111",
+            InstallationKey = "the-key",
+            EnableKeyConnector = true,
+            EnableScim = true,
+            Ssl = new InstallManifest.SslOptions { Enable = true },
+            Config = { ["globalSettings__mail__smtp__host"] = "smtp.example.com" },
+        };
+        await dep.GenerateAssetsAsync(new InstallContext { Root = root, Manifest = original }, default);
+
+        // What `update --rebuild` would feed back into generation: it must reflect the install, not defaults.
+        var read = dep.ReadManifest(root);
+
+        Assert.Equal("vault.example.com", read.Domain);
+        Assert.Equal("EU", read.Region);
+        Assert.Equal("customdb", read.Database);
+        Assert.True(read.EnableKeyConnector);
+        Assert.True(read.EnableScim);
+        Assert.True(read.Ssl.Enable);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", read.InstallationId);
+        // Passthrough (SMTP etc.) is preserved so a rebuild doesn't reset it.
+        Assert.Equal("smtp.example.com", read.Config["globalSettings__mail__smtp__host"]);
+    }
 }

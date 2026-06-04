@@ -55,6 +55,37 @@ public sealed class LiteDeployment : IDeployment
                 ? "installation key is required (from https://bitwarden.com/host)" : null),
     ];
 
+    public InstallManifest ReadManifest(string root)
+    {
+        var env = Setup.StandardAssetBuilder.ReadEnv(Path.Combine(root, SettingsFile));
+        var manifest = new InstallManifest
+        {
+            Deployment = "lite",
+            Domain = env.GetValueOrDefault("BW_DOMAIN", ""),
+            DbProvider = env.GetValueOrDefault("BW_DB_PROVIDER", "sqlite"),
+            DbFile = env.GetValueOrDefault("BW_DB_FILE"),
+            Database = env.GetValueOrDefault("BW_DB_DATABASE", "vault"),
+            InstallationId = env.GetValueOrDefault("BW_INSTALLATION_ID"),
+            InstallationKey = env.GetValueOrDefault("BW_INSTALLATION_KEY"),
+            HttpPort = int.TryParse(env.GetValueOrDefault("BW_PORT_HTTP"), out var http) ? http : 8080,
+            HttpsPort = int.TryParse(env.GetValueOrDefault("BW_PORT_HTTPS"), out var https) ? https : 8443,
+            Ssl = new InstallManifest.SslOptions { Enable = env.GetValueOrDefault("BW_ENABLE_SSL") == "true" },
+        };
+
+        // Preserve everything GenerateAssetsAsync doesn't map to a field (BW_ENABLE_* toggles,
+        // globalSettings__* passthrough) so a rebuild re-emits them.
+        string[] managed =
+        [
+            "BW_DOMAIN", "BW_DB_PROVIDER", "BW_DB_FILE", "BW_DB_DATABASE", "BW_INSTALLATION_ID",
+            "BW_INSTALLATION_KEY", "BW_PORT_HTTP", "BW_PORT_HTTPS", "BW_ENABLE_SSL",
+        ];
+        foreach (var (key, value) in env)
+            if (!managed.Contains(key))
+                manifest.Config[key] = value;
+
+        return manifest;
+    }
+
     public Task GenerateAssetsAsync(InstallContext ctx, CancellationToken ct)
     {
         var a = ctx.Manifest;

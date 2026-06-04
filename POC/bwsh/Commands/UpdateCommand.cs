@@ -45,8 +45,10 @@ public static class UpdateCommand
                 return 4; // precondition-failed
             }
 
-            // Version flags override the pinned defaults; omitted ones keep the baked version.
-            var manifest = new InstallManifest();
+            // Reconstruct the manifest from on-disk config so a rebuild preserves the deployment's
+            // actual URL/SSL/services rather than resetting to defaults. Version flags override the
+            // pinned defaults; omitted ones keep the baked version.
+            var manifest = dep.ReadManifest(rootDir);
             if (parseResult.GetValue(coreVersion) is { } cv) manifest.CoreVersion = cv;
             if (parseResult.GetValue(webVersion) is { } wv) manifest.WebVersion = wv;
             if (parseResult.GetValue(keyConnectorVersion) is { } kv) manifest.KeyConnectorVersion = kv;
