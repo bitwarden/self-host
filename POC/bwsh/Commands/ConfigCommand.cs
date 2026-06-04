@@ -84,7 +84,7 @@ public static class ConfigCommand
                 if (eq > 0 && !line.TrimStart().StartsWith('#'))
                 {
                     var key = line[..eq];
-                    Console.WriteLine(IsSecret(key.Trim()) ? $"{key}=<redacted>" : line);
+                    Console.WriteLine(IsSecret(key.Trim()) ? $"{key}=********" : line);
                 }
                 else
                 {
