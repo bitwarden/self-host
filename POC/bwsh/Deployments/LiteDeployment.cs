@@ -172,4 +172,73 @@ public sealed class LiteDeployment : IDeployment
         binding = new ConfigBinding(SettingsFile, ConfigApplyAction.Restart);
         return true;
     }
+
+    public bool SupportsCertRenewal => false; // lite manages TLS in-container
+
+    public bool SupportsAggregateLogs => true; // bare `logs` returns the whole supervisord stream
+
+    public Task PreUpAsync(InstallContext ctx, IContainerEngine engine, CancellationToken ct) => Task.CompletedTask;
+
+    private static readonly HashSet<string> KnownStates =
+        ["RUNNING", "STARTING", "STOPPED", "STOPPING", "BACKOFF", "EXITED", "FATAL", "UNKNOWN"];
+
+    public async Task<IReadOnlyList<ProcessStatus>> InspectProcessesAsync(IContainerEngine engine, CancellationToken ct)
+    {
+        // The real per-service state lives under supervisord, not in the single container's state.
+        if (!(await engine.InspectAsync(ContainerName, ct)).Running) return [];
+
+        string output;
+        try
+        {
+            output = await engine.ExecAsync(ContainerName, ["supervisorctl", "status"], ct);
+        }
+        catch
+        {
+            return [];
+        }
+
+        var rows = new List<ProcessStatus>();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2 || !KnownStates.Contains(parts[1])) continue; // skip connection/error lines
+            rows.Add(new ProcessStatus(parts[0], parts[1]));
+        }
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<VersionInfo>> GatherVersionsAsync(IContainerEngine engine, CancellationToken ct) =>
+        await engine.ImageTagAsync(ContainerName, ct) is { } v ? [new("Version", v)] : [];
+
+    public async Task<IReadOnlyList<string>> ListLogServicesAsync(string root, IContainerEngine engine, CancellationToken ct)
+    {
+        var ls = await engine.ExecAsync(ContainerName,
+            ["sh", "-c", "ls /var/log/bitwarden/*.log 2>/dev/null || true"], ct);
+        return ls.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Select(s => s!)
+            .Distinct()
+            .ToList();
+    }
+
+    public Task<string> FetchLogAsync(string? service, int tail, IContainerEngine engine, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(service))
+            return engine.ContainerLogsAsync(ContainerName, tail, ct); // aggregate supervisord output
+
+        var path = $"/var/log/bitwarden/{service}.log";
+        string[] cmd = tail <= 0 ? ["cat", path] : ["tail", "-n", tail.ToString(CultureInfo.InvariantCulture), path];
+        return engine.ExecAsync(ContainerName, cmd, ct);
+    }
+
+    // sqlite lives in {root} and travels in the archive directly, so there's nothing to dump or restore.
+    public Task PreBackupAsync(string root, IContainerEngine engine, CancellationToken ct) => Task.CompletedTask;
+
+    public Task PostUnpackAsync(
+        string root, Orchestrator orch, IReadOnlyList<ServiceSpec> topology, IContainerEngine engine, CancellationToken ct) =>
+        Task.CompletedTask;
+
+    public Task RenewCertAsync(string root, bool force, IContainerEngine engine, CancellationToken ct) =>
+        throw new NotSupportedException("lite manages TLS in-container");
 }

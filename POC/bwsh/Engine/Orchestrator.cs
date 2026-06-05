@@ -12,7 +12,7 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
 {
     private const int MaxConcurrentPulls = 4;
 
-    public async Task UpAsync(IReadOnlyList<ServiceSpec> services, CancellationToken ct, string title = "Bitwarden")
+    public async Task UpAsync(IReadOnlyList<ServiceSpec> services, CancellationToken ct, string title = "Bitwarden", bool forcePull = false)
     {
         // One live region for the whole bring-up: a single table where every service walks through
         // pull -> create -> start -> health in place. Workers write the concurrent `status` map; the
@@ -59,7 +59,7 @@ public sealed class Orchestrator(IContainerEngine engine, IReadOnlyList<NetworkS
                 await gate.WaitAsync(ct);
                 try
                 {
-                    if (!await engine.ImageExistsAsync(group.Key, ct))
+                    if (forcePull || !await engine.ImageExistsAsync(group.Key, ct))
                     {
                         using var pullCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                         pullCts.CancelAfter(TimeSpan.FromMinutes(15));

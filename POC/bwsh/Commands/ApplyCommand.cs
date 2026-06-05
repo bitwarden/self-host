@@ -13,14 +13,15 @@ public static class ApplyCommand
             "Reconcile a deployment to its manifest (idempotent; re-renders config, preserves secrets).");
 
         var manifest = new Option<string>("--manifest", "-m")
-        { Description = "Path to the YAML manifest.", DefaultValueFactory = _ => "bitwarden.yaml" };
-        var deployment = Cli.DeploymentOption("standard | lite (defaults to the manifest).");
+        { Description = "Path to the YAML manifest.", Required = true };
         var root = new Option<string>("--root")
         { Description = "Data directory (bwdata).", DefaultValueFactory = _ => "./bwdata" };
+        var pull = new Option<bool>("--pull")
+        { Description = "Always pull images, even when present locally (for moving tags like :dev)." };
 
         cmd.Options.Add(manifest);
-        cmd.Options.Add(deployment);
         cmd.Options.Add(root);
+        cmd.Options.Add(pull);
 
         cmd.SetAction(async (parseResult, ct) =>
         {
@@ -32,9 +33,17 @@ public static class ApplyCommand
             }
 
             var loaded = InstallManifest.Load(manifestPath);
-            var kind = Cli.ResolveKind(parseResult.GetValue(deployment), loaded);
+            var kind = Cli.ResolveKind(null, loaded); // kind comes from the manifest
             var dep = DeploymentFactory.Create(kind);
             var rootDir = parseResult.GetValue(root)!;
+
+            // Don't layer one deployment over another already installed at --root.
+            if (Cli.DetectInstalledKind(rootDir) is { } existing && existing != kind)
+            {
+                Cli.Error($"{rootDir} already contains a {existing} deployment, but {manifestPath} declares {kind}.");
+                return 4; // precondition-failed
+            }
+
             var ctx = new InstallContext { Root = rootDir, Manifest = loaded };
 
             // Re-render from the manifest (secrets are reused, not regenerated), then recreate the
@@ -46,10 +55,9 @@ public static class ApplyCommand
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);
 
-            if (kind == DeploymentKind.Standard)
-                await Setup.LetsEncrypt.ProvisionIfNeeded(engine, rootDir, Setup.StandardConfig.Load(rootDir), loaded.Ssl.Email, ct);
+            await dep.PreUpAsync(ctx, engine, ct);
 
-            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — apply");
+            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — apply", parseResult.GetValue(pull));
 
             AnsiConsole.MarkupLine($"\n[green]Apply complete.[/] Running at: [link]{Markup.Escape(dep.ResolveUrl(rootDir))}[/]");
             return 0;

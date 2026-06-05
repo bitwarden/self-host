@@ -17,6 +17,8 @@ public static class UpdateCommand
         var rebuild = new Option<bool>("--rebuild")
         { Description = "Regenerate config assets before updating (run.sh `rebuild`)." };
         var check = new Option<bool>("--check") { Description = "Only report which services need updating." };
+        var pull = new Option<bool>("--pull")
+        { Description = "Always pull and recreate, even when the image tag is unchanged (for moving tags like :dev)." };
         var coreVersion = new Option<string?>("--core-version")
         { Description = "Target core image version (api/identity/admin/etc). Defaults to the pinned version." };
         var webVersion = new Option<string?>("--web-version")
@@ -28,6 +30,7 @@ public static class UpdateCommand
         cmd.Options.Add(root);
         cmd.Options.Add(rebuild);
         cmd.Options.Add(check);
+        cmd.Options.Add(pull);
         cmd.Options.Add(coreVersion);
         cmd.Options.Add(webVersion);
         cmd.Options.Add(keyConnectorVersion);
@@ -62,24 +65,31 @@ public static class UpdateCommand
             using var engine = new DockerDotNetEngine();
             var orch = new Orchestrator(engine, dep.Networks);
 
-            var stale = new List<ServiceSpec>();
-            await AnsiConsole.Status().StartAsync("Checking for updates…", async _ =>
-            {
-                foreach (var s in topology)
-                    if (await orch.NeedsUpdateAsync(s, ct)) stale.Add(s);
-            });
+            // --pull forces a pull + recreate regardless of tag: the staleness check compares image
+            // reference strings, so a moving tag (:dev) always looks up to date.
+            var forcePull = parseResult.GetValue(pull);
 
-            if (stale.Count == 0)
+            var stale = new List<ServiceSpec>();
+            if (!forcePull)
+                await AnsiConsole.Status().StartAsync("Checking for updates…", async _ =>
+                {
+                    foreach (var s in topology)
+                        if (await orch.NeedsUpdateAsync(s, ct)) stale.Add(s);
+                });
+
+            if (!forcePull && stale.Count == 0)
             {
                 AnsiConsole.MarkupLine("[green]All services up to date.[/]");
                 return 0;
             }
 
-            AnsiConsole.MarkupLine($"Services needing update: [yellow]{string.Join(", ", stale.Select(s => s.Name))}[/]");
+            AnsiConsole.MarkupLine(forcePull
+                ? "[yellow]Forcing pull and recreate of all services…[/]"
+                : $"Services needing update: [yellow]{string.Join(", ", stale.Select(s => s.Name))}[/]");
             if (parseResult.GetValue(check)) return 0;
 
             // DB migrations run themselves: the admin service migrates on startup (self-hosted).
-            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — update"); // idempotent recreate
+            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — update", forcePull); // idempotent recreate
             AnsiConsole.MarkupLine("\n[green]Update complete.[/]");
             return 0;
         });

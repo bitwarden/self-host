@@ -51,29 +51,16 @@ public static class StatusCommand
             }
             AnsiConsole.Write(table);
 
-            // Lite runs every service under supervisord inside one container, so the real per-service
-            // state (e.g. identity FATAL — the #373 signal) lives there, not in the container state.
-            if (kind == DeploymentKind.Lite)
-            {
-                var container = topology[0].ContainerName;
-                if ((await engine.InspectAsync(container, ct)).Running)
-                {
-                    try
-                    {
-                        var output = await engine.ExecAsync(container, ["supervisorctl", "status"], ct);
-                        AnsiConsole.Write(SupervisordTable(container, output));
-                    }
-                    catch (Exception ex)
-                    {
-                        AnsiConsole.MarkupLine($"[grey](could not query supervisord: {Markup.Escape(ex.Message)})[/]");
-                    }
-                }
-            }
+            // Some deployments run every service inside one container, where the real per-service
+            // state lives in an in-container process manager rather than the container state.
+            var procs = await dep.InspectProcessesAsync(engine, ct);
+            if (procs.Count > 0)
+                AnsiConsole.Write(ProcessTable(procs));
 
             var url = dep.ResolveUrl(rootDir);
             AnsiConsole.MarkupLine($"\n[bold]Bitwarden[/] running at: [link]{Markup.Escape(url)}[/]");
 
-            var versions = await GatherVersionsAsync(engine, kind, ct);
+            var versions = await dep.GatherVersionsAsync(engine, ct);
             if (versions.Count > 0)
             {
                 AnsiConsole.MarkupLine("[bold]Versions:[/]");
@@ -101,50 +88,23 @@ public static class StatusCommand
         _ => $"[red]{Markup.Escape(health)}[/]",
     };
 
-    /// <summary>
-    /// Deployed versions, read from running containers' image tags: Web + Core for Standard
-    /// (and Key Connector when present, i.e. enabled), or the single image tag for Lite.
-    /// </summary>
-    private static async Task<IReadOnlyList<(string Label, string Version)>> GatherVersionsAsync(
-        IContainerEngine engine, DeploymentKind kind, CancellationToken ct)
-    {
-        if (kind == DeploymentKind.Lite)
-        {
-            var v = await Cli.ImageTagAsync(engine, LiteDeployment.ContainerName, ct);
-            return v is null ? [] : [("Version", v)];
-        }
-
-        var versions = new List<(string, string)>();
-        if (await Cli.ImageTagAsync(engine, "bitwarden-web", ct) is { } web) versions.Add(("Web", web));
-        if (await Cli.ImageTagAsync(engine, "bitwarden-api", ct) is { } core) versions.Add(("Core", core));
-        if (await Cli.ImageTagAsync(engine, "bitwarden-key-connector", ct) is { } kc) versions.Add(("Key Connector", kc));
-        return versions;
-    }
-
-    private static readonly HashSet<string> KnownStates =
-        ["RUNNING", "STARTING", "STOPPED", "STOPPING", "BACKOFF", "EXITED", "FATAL", "UNKNOWN"];
-
-    private static Table SupervisordTable(string container, string supervisorctlOutput)
+    private static Table ProcessTable(IReadOnlyList<ProcessStatus> procs)
     {
         var table = new Table()
-            .Title($"[bold]{Markup.Escape(container)}[/] — supervisord")
+            .Title("[bold]processes[/]")
             .Border(TableBorder.Rounded)
             .AddColumns("Service", "State");
 
-        foreach (var line in supervisorctlOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var p in procs)
         {
-            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) continue;
-            var (name, state) = (parts[0], parts[1]);
-            if (!KnownStates.Contains(state)) continue; // skip supervisorctl error/connection lines
-            var stateMarkup = state switch
+            var stateMarkup = p.State switch
             {
                 "RUNNING" => "[green]RUNNING[/]",
                 "STARTING" => "[yellow]STARTING[/]",
                 "STOPPED" => "[grey]STOPPED[/]",
-                _ => $"[red]{state}[/]", // FATAL / EXITED / BACKOFF
+                _ => $"[red]{p.State}[/]", // FATAL / EXITED / BACKOFF
             };
-            table.AddRow(Markup.Escape(name), stateMarkup);
+            table.AddRow(Markup.Escape(p.Name), stateMarkup);
         }
         return table;
     }

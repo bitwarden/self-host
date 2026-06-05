@@ -27,3 +27,22 @@ public interface IContainerEngine
 }
 
 public sealed record ContainerState(bool Exists, bool Running, string? Health, string Status);
+
+public static class ContainerEngineExtensions
+{
+    /// <summary>The tag of a running container's image, or null when the container is absent.</summary>
+    public static async Task<string?> ImageTagAsync(this IContainerEngine engine, string container, CancellationToken ct)
+    {
+        try
+        {
+            var image = await engine.ImageOfAsync(container, ct);
+            var slash = image.LastIndexOf('/');
+            var colon = image.LastIndexOf(':');
+            return colon > slash ? image[(colon + 1)..] : null;
+        }
+        catch
+        {
+            return null; // container not present
+        }
+    }
+}

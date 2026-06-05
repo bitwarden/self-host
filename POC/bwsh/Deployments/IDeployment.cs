@@ -49,7 +49,43 @@ public interface IDeployment
 
     /// <summary>Resolve a `config key=value` key to the file it lives in + the action to apply it.</summary>
     bool TryResolveConfigKey(string key, out ConfigBinding binding);
+
+    /// <summary>True when renewcert applies. Standard with Let's Encrypt supports it; lite does not.</summary>
+    bool SupportsCertRenewal { get; }
+
+    /// <summary>True when bare logs returns aggregate output. False means a service name is required.</summary>
+    bool SupportsAggregateLogs { get; }
+
+    /// <summary>Runs after assets are generated and before the stack comes up. Standard provisions Let's Encrypt.</summary>
+    Task PreUpAsync(InstallContext ctx, IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>In-container process states for lite supervisord. Empty when not applicable.</summary>
+    Task<IReadOnlyList<ProcessStatus>> InspectProcessesAsync(IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>Deployed image versions to display and record.</summary>
+    Task<IReadOnlyList<VersionInfo>> GatherVersionsAsync(IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>Service names whose logs are available for this deployment.</summary>
+    Task<IReadOnlyList<string>> ListLogServicesAsync(string root, IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>One service's log. A null service means aggregate output. tail of 0 or less means the full log.</summary>
+    Task<string> FetchLogAsync(string? service, int tail, IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>Runs before the data dir is archived. Standard dumps the database to a .BAK.</summary>
+    Task PreBackupAsync(string root, IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>Runs after unpack and before the full stack comes up. Standard brings up mssql and restores the .BAK.</summary>
+    Task PostUnpackAsync(string root, Orchestrator orch, IReadOnlyList<ServiceSpec> topology, IContainerEngine engine, CancellationToken ct);
+
+    /// <summary>Renew the TLS certificate. Only called when SupportsCertRenewal is true.</summary>
+    Task RenewCertAsync(string root, bool force, IContainerEngine engine, CancellationToken ct);
 }
+
+/// <summary>A deployed component's version for status and backup display.</summary>
+public sealed record VersionInfo(string Label, string Version);
+
+/// <summary>An in-container process state row from lite supervisord.</summary>
+public sealed record ProcessStatus(string Name, string State);
 
 public sealed record InstallContext
 {

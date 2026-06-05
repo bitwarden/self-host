@@ -54,21 +54,20 @@ public static class LogsCommand
                 if (exportPath is not null)
                     return await ExportZipAsync(engine, kind, dep, rootDir, exportPath, ct);
 
-                // Bare `logs` on Lite = whole-container (supervisord) output.
-                if (kind == DeploymentKind.Lite && string.IsNullOrEmpty(svc))
-                {
-                    Console.WriteLine(await engine.ContainerLogsAsync(LiteDeployment.ContainerName, lines, ct));
-                    return 0;
-                }
-
                 if (string.IsNullOrEmpty(svc))
                 {
-                    var names = await ListServicesAsync(engine, kind, dep, rootDir, ct);
+                    // Some deployments expose a single aggregate stream; others need a service name.
+                    if (dep.SupportsAggregateLogs)
+                    {
+                        Console.WriteLine(await dep.FetchLogAsync(null, lines, engine, ct));
+                        return 0;
+                    }
+                    var names = await dep.ListLogServicesAsync(rootDir, engine, ct);
                     Cli.Error($"Specify a service: {string.Join(", ", names)}");
                     return 2;
                 }
 
-                Console.WriteLine(await FetchAsync(engine, kind, svc, lines, ct));
+                Console.WriteLine(await dep.FetchLogAsync(svc, lines, engine, ct));
                 return 0;
             }
             catch (DockerContainerNotFoundException)
@@ -87,7 +86,7 @@ public static class LogsCommand
         var zipPath = ResolveZipPath(exportPath);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(zipPath))!);
 
-        var services = await ListServicesAsync(engine, kind, dep, rootDir, ct);
+        var services = await dep.ListLogServicesAsync(rootDir, engine, ct);
 
         await using (var fs = new FileStream(zipPath, FileMode.Create))
         using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
@@ -101,7 +100,7 @@ public static class LogsCommand
 
             foreach (var s in services)
             {
-                var content = await FetchAsync(engine, kind, s, tail: 0, ct);
+                var content = await dep.FetchLogAsync(s, tail: 0, engine, ct);
                 await WriteEntryAsync(zip, $"{s}.log", content, ct);
                 Console.WriteLine($"  + {s}.log  ({content.Length:N0} bytes)");
             }
@@ -121,36 +120,5 @@ public static class LogsCommand
     {
         await using var writer = new StreamWriter(zip.CreateEntry(name).Open());
         await writer.WriteAsync(content.AsMemory(), ct);
-    }
-
-    /// <summary>Fetch one service's log. tail &lt;= 0 means the full log.</summary>
-    private static Task<string> FetchAsync(IContainerEngine engine, DeploymentKind kind, string svc, int tail, CancellationToken ct)
-    {
-        if (kind == DeploymentKind.Lite)
-        {
-            var path = $"/var/log/bitwarden/{svc}.log";
-            string[] cmd = tail <= 0 ? ["cat", path] : ["tail", "-n", tail.ToString(CultureInfo.InvariantCulture), path];
-            return engine.ExecAsync(LiteDeployment.ContainerName, cmd, ct);
-        }
-        return engine.ContainerLogsAsync($"bitwarden-{svc}", tail, ct); // standard: one container per service
-    }
-
-    /// <summary>The services whose logs exist for this deployment.</summary>
-    private static async Task<IReadOnlyList<string>> ListServicesAsync(
-        IContainerEngine engine, DeploymentKind kind, IDeployment dep, string root, CancellationToken ct)
-    {
-        if (kind == DeploymentKind.Lite)
-        {
-            var ls = await engine.ExecAsync(LiteDeployment.ContainerName,
-                ["sh", "-c", "ls /var/log/bitwarden/*.log 2>/dev/null || true"], ct);
-            return ls.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(Path.GetFileNameWithoutExtension)
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Select(s => s!)
-                .Distinct()
-                .ToList();
-        }
-        var ctx = new InstallContext { Root = root, Manifest = new InstallManifest() };
-        return dep.BuildTopology(ctx).Select(s => s.Name).ToList();
     }
 }

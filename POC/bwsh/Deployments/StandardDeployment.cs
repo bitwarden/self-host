@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Bit.SelfHost.Engine;
+using Spectre.Console;
 
 namespace Bit.SelfHost.Deployments;
 
@@ -272,5 +273,137 @@ public sealed class StandardDeployment : IDeployment
 
         binding = default!;
         return false;
+    }
+
+    public bool SupportsCertRenewal => true;
+
+    public bool SupportsAggregateLogs => false; // one container per service, no aggregate stream
+
+    public Task PreUpAsync(InstallContext ctx, IContainerEngine engine, CancellationToken ct) =>
+        Setup.LetsEncrypt.ProvisionIfNeeded(engine, ctx.Root, Setup.StandardConfig.Load(ctx.Root), ctx.Manifest.Ssl.Email, ct);
+
+    public Task<IReadOnlyList<ProcessStatus>> InspectProcessesAsync(IContainerEngine engine, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<ProcessStatus>>([]); // standard has no in-container process manager
+
+    public async Task<IReadOnlyList<VersionInfo>> GatherVersionsAsync(IContainerEngine engine, CancellationToken ct)
+    {
+        var versions = new List<VersionInfo>();
+        if (await engine.ImageTagAsync("bitwarden-web", ct) is { } web) versions.Add(new("Web", web));
+        if (await engine.ImageTagAsync("bitwarden-api", ct) is { } core) versions.Add(new("Core", core));
+        if (await engine.ImageTagAsync("bitwarden-key-connector", ct) is { } kc) versions.Add(new("Key Connector", kc));
+        return versions;
+    }
+
+    public Task<IReadOnlyList<string>> ListLogServicesAsync(string root, IContainerEngine engine, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>(
+            BuildTopology(new InstallContext { Root = root, Manifest = new InstallManifest() }).Select(s => s.Name).ToList());
+
+    public Task<string> FetchLogAsync(string? service, int tail, IContainerEngine engine, CancellationToken ct) =>
+        engine.ContainerLogsAsync($"bitwarden-{service}", tail, ct); // one container per service
+
+    public async Task PreBackupAsync(string root, IContainerEngine engine, CancellationToken ct)
+    {
+        // Trigger the mssql image's online backup. It writes a .BAK to mssql/backups, which is
+        // bind-mounted to {root}/mssql/backups and so lands in the archive.
+        if (!(await engine.InspectAsync("bitwarden-mssql", ct)).Running)
+        {
+            AnsiConsole.MarkupLine("[yellow]bitwarden-mssql not running. Backing up files only, no fresh DB dump.[/]");
+            return;
+        }
+
+        try
+        {
+            await engine.ExecAsync("bitwarden-mssql", ["/backup-db.sh"], ct);
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[yellow]Database dump skipped: {Markup.Escape(ex.Message)}[/]");
+        }
+
+        if (!Directory.EnumerateFiles(Path.Combine(root, "mssql", "backups"), "*.BAK").Any())
+            AnsiConsole.MarkupLine("[yellow]Warning: no .BAK was produced. Archive will not contain a database backup.[/]");
+    }
+
+    public async Task PostUnpackAsync(
+        string root, Orchestrator orch, IReadOnlyList<ServiceSpec> topology, IContainerEngine engine, CancellationToken ct)
+    {
+        // Bring up mssql alone on a fresh data volume, then RESTORE the .BAK before the app services
+        // connect. RESTORE needs no active connections. The caller brings up the full stack afterward.
+        var mssql = topology.First(s => s.Name == "mssql");
+        await orch.UpAsync([mssql], ct, "Bitwarden — restore (database)");
+        await RestoreDatabaseAsync(engine, root, ct);
+    }
+
+    public async Task RenewCertAsync(string root, bool force, IContainerEngine engine, CancellationToken ct)
+    {
+        var config = Setup.StandardConfig.Load(root);
+        if (!config.SslManagedLetsEncrypt)
+            throw new InvalidOperationException("This deployment isn't using Let's Encrypt. Nothing to renew.");
+
+        await Setup.LetsEncrypt.RenewAsync(engine, root, force, ct);
+
+        // certbot dropped nginx to free the ports. Bring it back on the renewed cert.
+        var ctx = new InstallContext { Root = root, Manifest = ReadManifest(root) };
+        var nginx = BuildTopology(ctx).Single(s => s.Name == "nginx");
+        await new Orchestrator(engine, Networks).UpAsync([nginx], ct, "Bitwarden — renewcert");
+    }
+
+    private static async Task RestoreDatabaseAsync(IContainerEngine engine, string root, CancellationToken ct)
+    {
+        var backupsDir = Path.Combine(root, "mssql", "backups");
+        var bak = Directory.Exists(backupsDir)
+            ? Directory.EnumerateFiles(backupsDir, "*.BAK").OrderBy(File.GetLastWriteTimeUtc).LastOrDefault()
+            : null;
+        if (bak is null)
+        {
+            AnsiConsole.MarkupLine("[yellow]No .BAK in the archive. Skipping database restore, files restored only.[/]");
+            return;
+        }
+
+        var (db, saPw) = ReadDbCreds(root);
+        var diskPath = $"/etc/bitwarden/mssql/backups/{Path.GetFileName(bak)}";
+        // The database name and .BAK filename come from the untrusted archive. Escape them for their
+        // T-SQL contexts: bracket identifier (] -> ]]) and string literal (' -> '').
+        var dbEscaped = db.Replace("]", "]]");
+        var diskEscaped = diskPath.Replace("'", "''");
+        string[] cmd =
+        [
+            "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", saPw, "-C",
+            "-Q", $"RESTORE DATABASE [{dbEscaped}] FROM DISK = N'{diskEscaped}' WITH REPLACE",
+        ];
+
+        // mssql may report healthy a moment before it accepts the restore. Retry briefly.
+        await AnsiConsole.Status().StartAsync("Restoring database…", async _ =>
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    var output = await engine.ExecAsync("bitwarden-mssql", cmd, ct);
+                    if (output.Contains("RESTORE DATABASE successfully", StringComparison.OrdinalIgnoreCase)) return;
+                    if (attempt >= 5) throw new InvalidOperationException(output.Trim());
+                }
+                catch when (attempt < 5) { /* retry */ }
+                await Task.Delay(3000, ct);
+            }
+        });
+    }
+
+    private static (string Database, string SaPassword) ReadDbCreds(string root)
+    {
+        var path = Path.Combine(root, "env", "mssql.override.env");
+        string db = "vault", pw = "";
+        if (File.Exists(path))
+        {
+            foreach (var line in File.ReadLines(path))
+            {
+                var eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                var (k, v) = (line[..eq], line[(eq + 1)..]);
+                if (k == "DATABASE") db = v;
+                else if (k == "SA_PASSWORD") pw = v;
+            }
+        }
+        return (db, pw);
     }
 }

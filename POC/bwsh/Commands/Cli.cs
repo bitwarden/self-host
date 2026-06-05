@@ -29,22 +29,6 @@ public static class Cli
         return option;
     }
 
-    /// <summary>The image tag of a running container (e.g. "2026.4.1"), or null if it isn't present.</summary>
-    public static async Task<string?> ImageTagAsync(IContainerEngine engine, string container, CancellationToken ct)
-    {
-        try
-        {
-            var image = await engine.ImageOfAsync(container, ct);
-            var slash = image.LastIndexOf('/');
-            var colon = image.LastIndexOf(':');
-            return colon > slash ? image[(colon + 1)..] : null;
-        }
-        catch
-        {
-            return null; // container not present
-        }
-    }
-
     /// <summary>
     /// Prints the management commands after an install, kubectl-style: verb + one-line description,
     /// with flag details deferred to per-command --help rather than inline parentheticals.

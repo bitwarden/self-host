@@ -56,9 +56,9 @@ public static class MigrateCommand
 
             // Pin to the versions currently running (migrate ≠ upgrade); missing → pinned defaults.
             var manifest = new InstallManifest();
-            if (await Cli.ImageTagAsync(engine, "bitwarden-api", ct) is { } core) manifest.CoreVersion = core;
-            if (await Cli.ImageTagAsync(engine, "bitwarden-web", ct) is { } web) manifest.WebVersion = web;
-            if (await Cli.ImageTagAsync(engine, "bitwarden-key-connector", ct) is { } kc) manifest.KeyConnectorVersion = kc;
+            if (await engine.ImageTagAsync("bitwarden-api", ct) is { } core) manifest.CoreVersion = core;
+            if (await engine.ImageTagAsync("bitwarden-web", ct) is { } web) manifest.WebVersion = web;
+            if (await engine.ImageTagAsync("bitwarden-key-connector", ct) is { } kc) manifest.KeyConnectorVersion = kc;
 
             var ctx = new InstallContext { Root = rootDir, Manifest = manifest };
             var topology = AdoptStandard(dep.BuildTopology(ctx), rootDir);
@@ -84,7 +84,7 @@ public static class MigrateCommand
             // Auto-backup before touching anything.
             if (!parseResult.GetValue(noBackup))
             {
-                var archive = await BackupCommand.RunAsync(engine, kind, rootDir, null, ct);
+                var archive = await BackupCommand.RunAsync(engine, dep, rootDir, null, ct);
                 AnsiConsole.MarkupLine($"Backed up to [green]{Markup.Escape(archive)}[/] before migrating.\n");
             }
 

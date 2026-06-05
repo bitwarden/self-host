@@ -27,7 +27,7 @@ public static class Prompts
 
     public static InstallManifest Collect(IDeployment deployment)
     {
-        var manifest = new InstallManifest { Deployment = deployment.Kind == DeploymentKind.Lite ? "lite" : "standard" };
+        var manifest = new InstallManifest { Deployment = deployment.Kind.ToString().ToLowerInvariant() };
         AnsiConsole.MarkupLine($"Interactive install ([green]{manifest.Deployment}[/] deployment).\n");
 
         foreach (var p in deployment.InstallPrompts)

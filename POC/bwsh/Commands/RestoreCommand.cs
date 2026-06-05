@@ -53,7 +53,7 @@ public static class RestoreCommand
                 }
             }
 
-            // 1. Unpack config/secrets/certs/attachments (+ the .BAK for standard) into the target.
+            // 1. Unpack config, secrets, certs, attachments, and the .BAK into the target.
             Archive.Unpack(archivePath, rootDir);
 
             using var engine = new DockerDotNetEngine();
@@ -61,16 +61,11 @@ public static class RestoreCommand
             var ctx = new InstallContext { Root = rootDir, Manifest = new InstallManifest() };
             var topology = dep.BuildTopology(ctx);
 
-            if (kind == DeploymentKind.Standard)
-            {
-                // 2. Bring up mssql alone (fresh data volume), then RESTORE the .BAK into it before the
-                //    app services connect (RESTORE needs no active connections).
-                var mssql = topology.First(s => s.Name == "mssql");
-                await orch.UpAsync([mssql], ct, "Bitwarden — restore (database)");
-                await RestoreDatabaseAsync(engine, rootDir, ct);
-            }
+            // 2. Deployment-specific restore step before the app services connect. Standard brings up
+            //    mssql alone and restores the .BAK.
+            await dep.PostUnpackAsync(rootDir, orch, topology, engine, ct);
 
-            // 3. Bring up the full stack (app services connect to the restored DB; admin migrates forward if needed).
+            // 3. Bring up the full stack. App services connect to the restored DB; admin migrates forward if needed.
             await orch.UpAsync(topology, ct, $"Bitwarden {kind} — restore");
 
             AnsiConsole.MarkupLine($"\n[green]Restore complete.[/] Running at: [link]{Markup.Escape(dep.ResolveUrl(rootDir))}[/]");
@@ -78,64 +73,5 @@ public static class RestoreCommand
         });
 
         return cmd;
-    }
-
-    private static async Task RestoreDatabaseAsync(IContainerEngine engine, string root, CancellationToken ct)
-    {
-        var backupsDir = Path.Combine(root, "mssql", "backups");
-        var bak = Directory.Exists(backupsDir)
-            ? Directory.EnumerateFiles(backupsDir, "*.BAK").OrderBy(File.GetLastWriteTimeUtc).LastOrDefault()
-            : null;
-        if (bak is null)
-        {
-            AnsiConsole.MarkupLine("[yellow]No .BAK in the archive — skipping database restore (files restored only).[/]");
-            return;
-        }
-
-        var (db, saPw) = ReadDbCreds(root);
-        var diskPath = $"/etc/bitwarden/mssql/backups/{Path.GetFileName(bak)}";
-        // Both the database name and the .BAK filename originate from the (untrusted) archive, so escape
-        // them for their T-SQL contexts: bracket identifier (] -> ]]) and string literal (' -> '').
-        var dbEscaped = db.Replace("]", "]]");
-        var diskEscaped = diskPath.Replace("'", "''");
-        string[] cmd =
-        [
-            "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", saPw, "-C",
-            "-Q", $"RESTORE DATABASE [{dbEscaped}] FROM DISK = N'{diskEscaped}' WITH REPLACE",
-        ];
-
-        // mssql may report healthy a moment before it accepts the restore; retry briefly.
-        await AnsiConsole.Status().StartAsync("Restoring database…", async _ =>
-        {
-            for (var attempt = 1; ; attempt++)
-            {
-                try
-                {
-                    var output = await engine.ExecAsync("bitwarden-mssql", cmd, ct);
-                    if (output.Contains("RESTORE DATABASE successfully", StringComparison.OrdinalIgnoreCase)) return;
-                    if (attempt >= 5) throw new InvalidOperationException(output.Trim());
-                }
-                catch when (attempt < 5) { /* retry */ }
-                await Task.Delay(3000, ct);
-            }
-        });
-    }
-
-    private static (string Database, string SaPassword) ReadDbCreds(string root)
-    {
-        var path = Path.Combine(root, "env", "mssql.override.env");
-        string db = "vault", pw = "";
-        if (File.Exists(path))
-        {
-            foreach (var line in File.ReadLines(path))
-            {
-                var eq = line.IndexOf('=');
-                if (eq <= 0) continue;
-                var (k, v) = (line[..eq], line[(eq + 1)..]);
-                if (k == "DATABASE") db = v;
-                else if (k == "SA_PASSWORD") pw = v;
-            }
-        }
-        return (db, pw);
     }
 }
