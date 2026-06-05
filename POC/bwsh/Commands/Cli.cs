@@ -71,6 +71,28 @@ public static class Cli
         : manifest is not null ? DeploymentFactory.Parse(manifest.Deployment)
         : DeploymentKind.Standard;
 
+    /// <summary>
+    /// Detect which deployment is installed under <paramref name="root"/> by probing each
+    /// deployment's marker file (standard: config.yml, lite: settings.env). Returns null when
+    /// neither is present (nothing installed yet).
+    /// </summary>
+    public static DeploymentKind? DetectInstalledKind(string root)
+    {
+        foreach (var kind in Enum.GetValues<DeploymentKind>())
+            if (File.Exists(Path.Combine(root, DeploymentFactory.Create(kind).InstalledMarker)))
+                return kind;
+        return null;
+    }
+
+    /// <summary>
+    /// Resolve the deployment to act on for an EXISTING install (status/logs/update/etc.):
+    /// explicit --deployment wins, else auto-detect from on-disk markers, else fall back to
+    /// standard so the usual "not found" message still surfaces for an empty directory.
+    /// </summary>
+    public static DeploymentKind ResolveInstalledKind(string? deploymentFlag, string root) =>
+        deploymentFlag is not null ? DeploymentFactory.Parse(deploymentFlag)
+        : DetectInstalledKind(root) ?? DeploymentKind.Standard;
+
     public static void ApplyManifestValue(InstallManifest m, string key, string value)
     {
         switch (key)

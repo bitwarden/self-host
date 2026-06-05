@@ -41,7 +41,7 @@ public static class LogsCommand
 
         cmd.SetAction(async (parseResult, ct) =>
         {
-            var kind = Cli.ResolveKind(parseResult.GetValue(deployment), null);
+            var kind = Cli.ResolveInstalledKind(parseResult.GetValue(deployment), parseResult.GetValue(root)!);
             var dep = DeploymentFactory.Create(kind);
             var svc = parseResult.GetValue(service);
             var lines = parseResult.GetValue(all) ? 0 : parseResult.GetValue(tail); // 0 => full log

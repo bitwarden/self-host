@@ -25,7 +25,7 @@ public static class UninstallCommand
 
         cmd.SetAction(async (parseResult, ct) =>
         {
-            var kind = Cli.ResolveKind(parseResult.GetValue(deployment), null);
+            var kind = Cli.ResolveInstalledKind(parseResult.GetValue(deployment), parseResult.GetValue(root)!);
             var dep = DeploymentFactory.Create(kind);
             var rootDir = parseResult.GetValue(root)!;
             var doPurge = parseResult.GetValue(purge);

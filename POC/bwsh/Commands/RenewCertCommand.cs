@@ -23,7 +23,7 @@ public static class RenewCertCommand
 
         cmd.SetAction(async (parseResult, ct) =>
         {
-            var kind = Cli.ResolveKind(parseResult.GetValue(deployment), null);
+            var kind = Cli.ResolveInstalledKind(parseResult.GetValue(deployment), parseResult.GetValue(root)!);
             if (kind != DeploymentKind.Standard)
             {
                 Cli.Error("renewcert is for standard deployments; lite manages TLS in-container.");

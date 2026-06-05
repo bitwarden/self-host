@@ -1,0 +1,13 @@
+deployment: lite
+domain: localhost
+db-provider: sqlite
+db-file: /etc/bitwarden/vault.db
+installation-id: 94389b62-6b3f-413e-8bbb-6c9e4ed83cb3
+installation-key: bwsh-demo
+config:
+  globalSettings__mail__smtp__host: host.docker.internal
+  globalSettings__mail__smtp__port: "1025"
+  globalSettings__mail__smtp__ssl: "false"
+  globalSettings__mail__smtp__startTls: "false"
+  globalSettings__mail__smtp__username: ""
+  globalSettings__mail__smtp__password: ""

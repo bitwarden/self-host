@@ -28,7 +28,7 @@ public static class RestoreCommand
         cmd.SetAction(async (parseResult, ct) =>
         {
             var archivePath = parseResult.GetValue(archive)!;
-            var kind = Cli.ResolveKind(parseResult.GetValue(deployment), null);
+            var kind = Cli.ResolveInstalledKind(parseResult.GetValue(deployment), parseResult.GetValue(root)!);
             var dep = DeploymentFactory.Create(kind);
             var rootDir = parseResult.GetValue(root)!;
 
