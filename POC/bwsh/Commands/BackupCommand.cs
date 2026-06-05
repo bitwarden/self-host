@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.Globalization;
 using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Engine;
 using Bit.SelfHost.Setup;
@@ -53,7 +54,7 @@ public static class BackupCommand
     /// </summary>
     public static async Task<string> RunAsync(IContainerEngine engine, DeploymentKind kind, string root, string? outPath, CancellationToken ct)
     {
-        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var archive = ResolveOut(outPath, stamp);
 
         await AnsiConsole.Status().StartAsync("Backing up…", async statusCtx =>

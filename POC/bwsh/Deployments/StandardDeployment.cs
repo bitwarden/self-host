@@ -1,4 +1,5 @@
-﻿using Bit.SelfHost.Engine;
+﻿using System.Globalization;
+using Bit.SelfHost.Engine;
 
 namespace Bit.SelfHost.Deployments;
 
@@ -101,8 +102,8 @@ public sealed class StandardDeployment : IDeployment
         config.Url = $"http{(ssl ? "s" : "")}://{domain}";
         config.Ssl = ssl;
         config.SslManagedLetsEncrypt = a.Ssl.LetsEncrypt;
-        config.HttpPort = (a.HttpPort != 0 ? a.HttpPort : 80).ToString();
-        config.HttpsPort = (a.HttpsPort != 0 ? a.HttpsPort : 443).ToString();
+        config.HttpPort = (a.HttpPort != 0 ? a.HttpPort : 80).ToString(CultureInfo.InvariantCulture);
+        config.HttpsPort = (a.HttpsPort != 0 ? a.HttpsPort : 443).ToString(CultureInfo.InvariantCulture);
         config.EnableKeyConnector = a.EnableKeyConnector;
         config.EnableScim = a.EnableScim;
 

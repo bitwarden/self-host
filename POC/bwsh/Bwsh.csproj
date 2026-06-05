@@ -4,8 +4,6 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>bwsh</AssemblyName>
     <RootNamespace>Bit.SelfHost</RootNamespace>
-    <!-- Match server/util/Setup: CA1305 (IFormatProvider) opt-out until addressed -->
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1305</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Globalization;
+using System.Runtime.InteropServices;
 using Bit.SelfHost.Engine;
 using Spectre.Console;
 
@@ -122,8 +123,8 @@ public sealed class LiteDeployment : IDeployment
 
         // HTTPS by default; the lite container self-signs a cert when none is provided.
         Set("BW_ENABLE_SSL", (a.Ssl.Enable ?? true) ? "true" : "false");
-        Set("BW_PORT_HTTP", (a.HttpPort != 0 ? a.HttpPort : 8080).ToString());
-        Set("BW_PORT_HTTPS", (a.HttpsPort != 0 ? a.HttpsPort : 8443).ToString());
+        Set("BW_PORT_HTTP", (a.HttpPort != 0 ? a.HttpPort : 8080).ToString(CultureInfo.InvariantCulture));
+        Set("BW_PORT_HTTPS", (a.HttpsPort != 0 ? a.HttpsPort : 8443).ToString(CultureInfo.InvariantCulture));
 
         // Raw passthrough LAST so it overrides anything above — the escape hatch for crafting
         // an exact environment from a bug report (e.g. a malformed globalSettings__baseServiceUri__vault).

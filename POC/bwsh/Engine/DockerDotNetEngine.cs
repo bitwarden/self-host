@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -101,7 +102,7 @@ public sealed class DockerDotNetEngine : IContainerEngine, IDisposable
         var exposed = new Dictionary<string, EmptyStruct>();
         foreach (var (host, container) in spec.Ports)
         {
-            portBindings[$"{container}/tcp"] = [new PortBinding { HostPort = host.ToString() }];
+            portBindings[$"{container}/tcp"] = [new PortBinding { HostPort = host.ToString(CultureInfo.InvariantCulture) }];
             exposed[$"{container}/tcp"] = default;
         }
 
@@ -214,7 +215,7 @@ public sealed class DockerDotNetEngine : IContainerEngine, IDisposable
     public async Task<string> ContainerLogsAsync(string containerName, int tail, CancellationToken ct)
     {
         using var stream = await _client.Containers.GetContainerLogsAsync(containerName, tty: false,
-            new ContainerLogsParameters { ShowStdout = true, ShowStderr = true, Tail = tail <= 0 ? "all" : tail.ToString() }, ct);
+            new ContainerLogsParameters { ShowStdout = true, ShowStderr = true, Tail = tail <= 0 ? "all" : tail.ToString(CultureInfo.InvariantCulture) }, ct);
         var (stdout, stderr) = await stream.ReadOutputToEndAsync(ct);
         return string.Concat(stdout, stderr);
     }

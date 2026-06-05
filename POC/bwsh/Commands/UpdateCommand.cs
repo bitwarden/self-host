@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Engine;
+using Spectre.Console;
 
 namespace Bit.SelfHost.Commands;
 
@@ -62,17 +63,24 @@ public static class UpdateCommand
             var orch = new Orchestrator(engine, dep.Networks);
 
             var stale = new List<ServiceSpec>();
-            foreach (var s in topology)
-                if (await orch.NeedsUpdateAsync(s, ct)) stale.Add(s);
+            await AnsiConsole.Status().StartAsync("Checking for updates…", async _ =>
+            {
+                foreach (var s in topology)
+                    if (await orch.NeedsUpdateAsync(s, ct)) stale.Add(s);
+            });
 
-            if (stale.Count == 0) { Console.WriteLine("All services up to date."); return 0; }
+            if (stale.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[green]All services up to date.[/]");
+                return 0;
+            }
 
-            Console.WriteLine($"Services needing update: {string.Join(", ", stale.Select(s => s.Name))}");
+            AnsiConsole.MarkupLine($"Services needing update: [yellow]{string.Join(", ", stale.Select(s => s.Name))}[/]");
             if (parseResult.GetValue(check)) return 0;
 
             // DB migrations run themselves: the admin service migrates on startup (self-hosted).
-            await orch.UpAsync(topology, ct); // idempotent recreate brings stale services to target
-            Console.WriteLine("\nUpdate complete.");
+            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — update"); // idempotent recreate
+            AnsiConsole.MarkupLine("\n[green]Update complete.[/]");
             return 0;
         });
 

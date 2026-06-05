@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using Bit.SelfHost.Deployments;
@@ -92,9 +93,9 @@ public static class LogsCommand
         using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
         {
             var manifest = new StringBuilder()
-                .AppendLine($"deployment: {kind}")
-                .AppendLine($"generated:  {DateTime.Now:O}")
-                .AppendLine($"services:   {string.Join(", ", services)}")
+                .AppendLine(CultureInfo.InvariantCulture, $"deployment: {kind}")
+                .AppendLine(CultureInfo.InvariantCulture, $"generated:  {DateTime.Now:O}")
+                .AppendLine(CultureInfo.InvariantCulture, $"services:   {string.Join(", ", services)}")
                 .ToString();
             await WriteEntryAsync(zip, "manifest.txt", manifest, ct);
 
@@ -128,7 +129,7 @@ public static class LogsCommand
         if (kind == DeploymentKind.Lite)
         {
             var path = $"/var/log/bitwarden/{svc}.log";
-            string[] cmd = tail <= 0 ? ["cat", path] : ["tail", "-n", tail.ToString(), path];
+            string[] cmd = tail <= 0 ? ["cat", path] : ["tail", "-n", tail.ToString(CultureInfo.InvariantCulture), path];
             return engine.ExecAsync(LiteDeployment.ContainerName, cmd, ct);
         }
         return engine.ContainerLogsAsync($"bitwarden-{svc}", tail, ct); // standard: one container per service

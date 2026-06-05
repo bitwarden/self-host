@@ -1,4 +1,6 @@
-﻿namespace Bit.SelfHost.Setup;
+﻿using System.Globalization;
+
+namespace Bit.SelfHost.Setup;
 
 /// <summary>
 /// Generates a standard-deployment bwdata/ — the Setup-container replacement. Ports
@@ -171,7 +173,7 @@ public static class StandardAssetBuilder
             EnableKeyConnector = config.EnableKeyConnector,
             EnableScim = config.EnableScim,
             RealIps = config.RealIps,
-            ContentSecurityPolicy = string.Format(
+            ContentSecurityPolicy = string.Format(CultureInfo.InvariantCulture,
                 string.IsNullOrWhiteSpace(config.NginxHeaderContentSecurityPolicy)
                     ? DefaultCsp : config.NginxHeaderContentSecurityPolicy, config.Domain),
         };
