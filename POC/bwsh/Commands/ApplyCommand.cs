@@ -27,7 +27,7 @@ public static class ApplyCommand
             var manifestPath = parseResult.GetValue(manifest)!;
             if (!File.Exists(manifestPath))
             {
-                Console.Error.WriteLine($"Manifest not found: {manifestPath}");
+                Cli.Error($"Manifest not found: {manifestPath}");
                 return 2;
             }
 

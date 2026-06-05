@@ -34,7 +34,7 @@ public static class BackupCommand
 
             if (!File.Exists(Path.Combine(rootDir, dep.InstalledMarker)))
             {
-                Console.Error.WriteLine($"No {kind} deployment found at {rootDir}. Nothing to back up.");
+                Cli.Error($"No {kind} deployment found at {rootDir}. Nothing to back up.");
                 return 4;
             }
 

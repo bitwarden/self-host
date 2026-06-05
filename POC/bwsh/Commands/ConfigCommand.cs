@@ -34,7 +34,7 @@ public static class ConfigCommand
 
             if (!dep.TryResolveConfigKey(key, out var binding))
             {
-                Console.Error.WriteLine($"Unknown config key '{key}' for {kind} deployment.");
+                Cli.Error($"Unknown config key '{key}' for {kind} deployment.");
                 return 1;
             }
 
@@ -96,7 +96,7 @@ public static class ConfigCommand
 
         if (!printed)
         {
-            Console.Error.WriteLine($"No {kind} deployment config found under {rootDir}. Run `install` first.");
+            Cli.Error($"No {kind} deployment config found under {rootDir}. Run `install` first.");
             return 4;
         }
         return 0;

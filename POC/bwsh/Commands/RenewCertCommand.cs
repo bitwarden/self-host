@@ -26,7 +26,7 @@ public static class RenewCertCommand
             var kind = Cli.ResolveKind(parseResult.GetValue(deployment), null);
             if (kind != DeploymentKind.Standard)
             {
-                Console.Error.WriteLine("renewcert is for standard deployments; lite manages TLS in-container.");
+                Cli.Error("renewcert is for standard deployments; lite manages TLS in-container.");
                 return 4;
             }
 
@@ -34,7 +34,7 @@ public static class RenewCertCommand
             var config = StandardConfig.Load(rootDir);
             if (!config.SslManagedLetsEncrypt)
             {
-                Console.Error.WriteLine("This deployment isn't using Let's Encrypt (nothing to renew).");
+                Cli.Error("This deployment isn't using Let's Encrypt (nothing to renew).");
                 return 4;
             }
 

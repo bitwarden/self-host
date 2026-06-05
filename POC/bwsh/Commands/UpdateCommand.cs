@@ -42,7 +42,7 @@ public static class UpdateCommand
             // `uninstall --purge`), don't silently re-deploy — point the user at `install`.
             if (!File.Exists(Path.Combine(rootDir, dep.InstalledMarker)))
             {
-                Console.Error.WriteLine($"No {kind} deployment found at {rootDir}. Run `install` first.");
+                Cli.Error($"No {kind} deployment found at {rootDir}. Run `install` first.");
                 return 4; // precondition-failed
             }
 

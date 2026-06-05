@@ -64,7 +64,7 @@ public static class LogsCommand
                 if (string.IsNullOrEmpty(svc))
                 {
                     var names = await ListServicesAsync(engine, kind, dep, rootDir, ct);
-                    Console.Error.WriteLine($"Specify a service: {string.Join(", ", names)}");
+                    Cli.Error($"Specify a service: {string.Join(", ", names)}");
                     return 2;
                 }
 
@@ -73,7 +73,7 @@ public static class LogsCommand
             }
             catch (DockerContainerNotFoundException)
             {
-                Console.Error.WriteLine($"Container not found — is the {kind} deployment running? Try `status`.");
+                Cli.Error($"Container not found — is the {kind} deployment running? Try `status`.");
                 return 2;
             }
         });

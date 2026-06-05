@@ -36,7 +36,7 @@ public static class InstallCommand
             // Interactive install needs a real terminal for the Spectre prompts.
             if (loaded is null && !AnsiConsole.Profile.Capabilities.Interactive)
             {
-                Console.Error.WriteLine("Interactive install needs a terminal. Use --manifest <bitwarden.yaml> for an unattended install.");
+                Cli.Error("Interactive install needs a terminal. Use --manifest <bitwarden.yaml> for an unattended install.");
                 return 4;
             }
 

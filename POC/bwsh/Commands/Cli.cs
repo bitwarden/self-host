@@ -8,6 +8,12 @@ namespace Bit.SelfHost.Commands;
 /// <summary>Shared helpers for the command layer.</summary>
 public static class Cli
 {
+    private static readonly IAnsiConsole ErrorConsole =
+        AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+
+    /// <summary>Write a red error line to stderr (degrades to plain text when redirected).</summary>
+    public static void Error(string message) => ErrorConsole.MarkupLine($"[red]{Markup.Escape(message)}[/]");
+
     /// <summary>Service names across both deployments, for `logs &lt;service&gt;` tab completion.</summary>
     public static readonly string[] ServiceNames =
     [

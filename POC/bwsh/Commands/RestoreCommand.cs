@@ -34,12 +34,12 @@ public static class RestoreCommand
 
             if (!File.Exists(archivePath))
             {
-                Console.Error.WriteLine($"Archive not found: {archivePath}");
+                Cli.Error($"Archive not found: {archivePath}");
                 return 2;
             }
             if (File.Exists(Path.Combine(rootDir, dep.InstalledMarker)) && !parseResult.GetValue(force))
             {
-                Console.Error.WriteLine($"{rootDir} already holds a {kind} deployment. Use --force to overwrite it.");
+                Cli.Error($"{rootDir} already holds a {kind} deployment. Use --force to overwrite it.");
                 return 4;
             }
 
@@ -48,7 +48,7 @@ public static class RestoreCommand
                 AnsiConsole.MarkupLine($"Restore [green]{Markup.Escape(archivePath)}[/] into [grey]{Markup.Escape(rootDir)}[/] and bring the stack up.");
                 if (!AnsiConsole.Confirm("Continue?", defaultValue: false))
                 {
-                    Console.WriteLine("Restore canceled.");
+                    AnsiConsole.MarkupLine("[yellow]Restore canceled.[/]");
                     return 3;
                 }
             }

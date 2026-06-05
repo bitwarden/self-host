@@ -32,12 +32,12 @@ public static class MigrateCommand
 
             if (!File.Exists(Path.Combine(rootDir, dep.InstalledMarker)))
             {
-                Console.Error.WriteLine($"No {kind} deployment found at {rootDir}. Nothing to migrate.");
+                Cli.Error($"No {kind} deployment found at {rootDir}. Nothing to migrate.");
                 return 4;
             }
             if (kind != DeploymentKind.Standard)
             {
-                Console.Error.WriteLine("migrate supports standard deployments only in v1.");
+                Cli.Error("migrate supports standard deployments only in v1.");
                 return 4;
             }
 
@@ -46,7 +46,7 @@ public static class MigrateCommand
             var dbDataDir = Path.Combine(rootDir, "mssql", "data");
             if (!Directory.Exists(dbDataDir))
             {
-                Console.Error.WriteLine(
+                Cli.Error(
                     $"Could not locate an on-disk mssql/data bind under {rootDir} (looks like a named-volume " +
                     "database, common on macOS). Automatic DB adoption isn't supported in v1 — aborting to avoid data loss.");
                 return 4;
@@ -76,7 +76,7 @@ public static class MigrateCommand
             {
                 if (!AnsiConsole.Confirm("Continue?", defaultValue: false))
                 {
-                    Console.WriteLine("Migration canceled.");
+                    AnsiConsole.MarkupLine("[yellow]Migration canceled.[/]");
                     return 3;
                 }
             }
