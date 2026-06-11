@@ -66,6 +66,3 @@ if [ "$EDITION" = "standard" ]; then
 else
     /opt/bitwarden/install-lite.sh
 fi
-
-# Remove the first-login trigger so this wizard doesn't run again
-rm -f /etc/profile.d/bitwarden-first-login.sh

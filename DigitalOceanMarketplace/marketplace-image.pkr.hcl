@@ -92,7 +92,6 @@ build {
       "chmod +x /opt/bitwarden/setup-wizard.sh",
       "chmod +x /opt/bitwarden/install-standard.sh",
       "chmod +x /opt/bitwarden/install-lite.sh",
-      "chmod 644 /etc/profile.d/bitwarden-first-login.sh",
       "chmod 644 /etc/ufw/applications.d/bitwarden"
     ]
   }

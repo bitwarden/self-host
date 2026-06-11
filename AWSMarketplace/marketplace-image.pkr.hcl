@@ -121,11 +121,6 @@ build {
     destination = "/tmp/001_onboot"
   }
 
-  provisioner "file" {
-    source      = "../CommonMarketplace/files/etc/profile.d/bitwarden-first-login.sh"
-    destination = "/tmp/bitwarden-first-login.sh"
-  }
-
   # Move staged files to their final system locations
   provisioner "shell" {
     inline = [
@@ -136,9 +131,8 @@ build {
       "sudo mv /tmp/install-standard.sh /opt/bitwarden/install-standard.sh",
       "sudo mv /tmp/install-lite.sh /opt/bitwarden/install-lite.sh",
       "sudo mv /tmp/001_onboot /var/lib/cloud/scripts/per-instance/001_onboot",
-      "sudo mv /tmp/bitwarden-first-login.sh /etc/profile.d/bitwarden-first-login.sh",
-      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/setup-wizard.sh /opt/bitwarden/install-standard.sh /opt/bitwarden/install-lite.sh /var/lib/cloud/scripts/per-instance/001_onboot /etc/profile.d/bitwarden-first-login.sh",
-      "sudo chmod 644 /etc/ufw/applications.d/bitwarden /etc/profile.d/bitwarden-first-login.sh"
+      "sudo chown root:root /etc/update-motd.d/99-bitwarden-welcome /etc/ufw/applications.d/bitwarden /opt/bitwarden/setup-wizard.sh /opt/bitwarden/install-standard.sh /opt/bitwarden/install-lite.sh /var/lib/cloud/scripts/per-instance/001_onboot",
+      "sudo chmod 644 /etc/ufw/applications.d/bitwarden"
     ]
   }
 

@@ -4,5 +4,6 @@
 # created from your image.  Things like generating passwords, configuration requiring IP address
 # or other items that will be unique to each instance should be done in scripts here.
 
-# The Bitwarden edition selection and installation wizard runs on the first interactive login.
-# See /etc/profile.d/bitwarden-first-login.sh
+# The Bitwarden edition selection and installation wizard is run on demand by
+# the user via `sudo bitwarden-setup` (advertised in the message of the day).
+# See /opt/bitwarden/setup-wizard.sh

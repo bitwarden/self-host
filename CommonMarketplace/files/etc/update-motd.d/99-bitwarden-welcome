@@ -111,8 +111,10 @@ else
 Welcome to your Bitwarden server
   https://bitwarden.com
 
-  Setup has not been completed. Please log in to complete the Bitwarden
-  edition selection and installation wizard.
+  Setup has not been completed. To choose your deployment edition
+  (Standard or Lite) and install, run:
+
+      sudo bitwarden-setup
 
 ********************************************************************************
 EOF
