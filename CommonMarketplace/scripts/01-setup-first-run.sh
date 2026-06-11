@@ -29,3 +29,9 @@ chmod +x /etc/update-motd.d/99-bitwarden-welcome
 chmod +x /opt/bitwarden/setup-wizard.sh
 chmod +x /opt/bitwarden/install-standard.sh
 chmod +x /opt/bitwarden/install-lite.sh
+
+#
+# Expose the setup wizard as `bitwarden-setup` (advertised by the MOTD)
+#
+
+ln -sf /opt/bitwarden/setup-wizard.sh /usr/local/bin/bitwarden-setup
