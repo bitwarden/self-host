@@ -12,6 +12,9 @@
 
 ## ⏰ Reminders before review
 
+<details>
+<summary>Expand</summary>
+
 - Contributor guidelines followed
 - All formatters and local linters executed and passed
 - Written new unit and / or integration tests where applicable
@@ -21,7 +24,12 @@
 - Communicated to DevOps any deployment requirements
 - Updated any necessary documentation (Confluence, contributing docs) or informed the documentation team
 
+</details>
+
 ## 🦮 Reviewer guidelines
+
+<details>
+<summary>Expand</summary>
 
 <!-- Suggested interactions but feel free to use (or not) as you desire! -->
 
@@ -33,3 +41,5 @@
 - ❌ (`:x:`) or ⚠️ (`:warning:`) for more significant problems or concerns needing attention
 - 🌱 (`:seedling:`) or ♻️ (`:recycle:`) for future improvements or indications of technical debt
 - ⛏ (`:pick:`) for minor or nitpick changes
+
+</details>
