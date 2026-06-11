@@ -1,0 +1,15 @@
+[Unit]
+Description=Disable swap (Azure Marketplace 200.3.3.3 requirement)
+# Run after both the Azure linux agent and cloud-init's final stage so we
+# kill any swap they created on first boot before MPC's probe samples.
+After=walinuxagent.service cloud-final.service
+Wants=cloud-final.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/swapoff -a
+ExecStartPost=-/bin/rm -f /swap.img /swapfile
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

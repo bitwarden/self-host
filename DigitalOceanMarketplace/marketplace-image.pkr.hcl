@@ -33,22 +33,31 @@ variable "do_token" {
   sensitive = true
 }
 
+variable "github_run_id" {
+  type    = string
+  default = "${env("GITHUB_RUN_ID")}"
+}
+
 # "timestamp" template function replacement
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
 # All locals variables are generated from variables that uses expressions
 # that are not allowed in HCL2 variables.
 locals {
-  image_name = "bitwarden-22-04-snapshot-${local.timestamp}"
+  image_name = "bitwarden-24-04-snapshot-${local.timestamp}"
 }
 
 source "digitalocean" "bitwarden_self_host" {
   api_token     = "${var.do_token}"
-  image         = "ubuntu-22-04-x64"
+  image         = "ubuntu-24-04-x64"
   region        = "nyc3"
   size          = "s-1vcpu-2gb"
   snapshot_name = "${local.image_name}"
   ssh_username  = "root"
+  tags          = [
+    "bitwarden-packer-build",
+    "github-run-${var.github_run_id}"
+  ]
 }
 
 build {
@@ -58,19 +67,34 @@ build {
     inline = ["cloud-init status --wait"]
   }
 
+  # Upload common files directly (DO connects as root)
   provisioner "file" {
     destination = "/etc/"
-    source      = "files/etc/"
+    source      = "../CommonMarketplace/files/etc/"
   }
 
   provisioner "file" {
     destination = "/opt/"
-    source      = "files/opt/"
+    source      = "../CommonMarketplace/files/opt/"
   }
 
   provisioner "file" {
     destination = "/var/"
-    source      = "files/var/"
+    source      = "../CommonMarketplace/files/var/"
+  }
+
+  # Set file permissions explicitly — Packer's file provisioner does not
+  # guarantee permissions when uploading directories.
+  provisioner "shell" {
+    inline = [
+      "chmod +x /var/lib/cloud/scripts/per-instance/001_onboot",
+      "chmod +x /etc/update-motd.d/99-bitwarden-welcome",
+      "chmod +x /opt/bitwarden/setup-wizard.sh",
+      "chmod +x /opt/bitwarden/install-standard.sh",
+      "chmod +x /opt/bitwarden/install-lite.sh",
+      "chmod 644 /etc/profile.d/bitwarden-first-login.sh",
+      "chmod 644 /etc/ufw/applications.d/bitwarden"
+    ]
   }
 
   provisioner "shell" {
@@ -110,11 +134,18 @@ build {
       "LC_CTYPE=en_US.UTF-8"
     ]
     scripts          = [
-      "scripts/01-setup-first-run.sh",
-      "scripts/02-ufw-bitwarden.sh",
-      "scripts/03-force-ssh-logout.sh",
-      "scripts/90-cleanup.sh",
-      "scripts/99-img-check.sh"
+      "../CommonMarketplace/scripts/01-setup-first-run.sh",
+      "../CommonMarketplace/scripts/02-ufw-bitwarden.sh",
+      "../CommonMarketplace/scripts/90-cleanup.sh",
+      "scripts/99-img-check.sh",
+      "../CommonMarketplace/scripts/99-cleanup-final.sh"
+    ]
+  }
+
+  # DO-specific: securely erase unused disk space for snapshot compression
+  provisioner "shell" {
+    inline = [
+      "dd if=/dev/zero of=/zerofile bs=4096 || rm /zerofile"
     ]
   }
 

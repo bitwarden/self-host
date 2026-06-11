@@ -488,6 +488,28 @@ function checkCloudInit {
     return 1
 }
 
+function checkDockerCompose {
+    if docker compose version > /dev/null 2>&1; then
+        echo -en "\e[32m[PASS]\e[0m Docker Compose plugin is installed.\n"
+        ((PASS++))
+    else
+        echo -en "\e[41m[FAIL]\e[0m Docker Compose plugin is not installed.\n"
+        ((FAIL++))
+        STATUS=2
+    fi
+}
+
+function checkFirstBootScript {
+    if [ -x /var/lib/cloud/scripts/per-instance/001_onboot ]; then
+        echo -en "\e[32m[PASS]\e[0m Cloud-init first-boot script is present and executable.\n"
+        ((PASS++))
+    else
+        echo -en "\e[41m[FAIL]\e[0m Cloud-init first-boot script not found at /var/lib/cloud/scripts/per-instance/001_onboot.\n"
+        ((FAIL++))
+        STATUS=2
+    fi
+}
+
 function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
 
 
@@ -506,7 +528,7 @@ osv=0
 
 if [[ $OS == "Ubuntu" ]]; then
         ost=1
-    if [[ $VER == "22.10" ]] || [[ $VER == "22.04" ]] || [[ $VER == "20.04" ]] || [[ $VER == "18.04" ]] || [[ $VER == "16.04" ]]; then
+    if [[ $VER == "24.04" ]] || [[ $VER == "22.10" ]] || [[ $VER == "22.04" ]] || [[ $VER == "20.04" ]] || [[ $VER == "18.04" ]] || [[ $VER == "16.04" ]]; then
         osv=1
     fi
 
@@ -592,6 +614,10 @@ fi
 checkCloudInit
 
 echo -en "${CI}"
+
+checkDockerCompose
+
+checkFirstBootScript
 
 checkFirewall
 
