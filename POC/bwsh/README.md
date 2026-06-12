@@ -1,8 +1,9 @@
 # bwsh — Bitwarden self-host CLI
 
 A single .NET tool that installs and manages a Bitwarden self-host deployment — replacing the
-`bitwarden.sh` + `run.sh` + Setup-container stack. It generates all config in-process and drives
-Docker directly. Supports both **standard** and **lite** deployments.
+`bitwarden.sh` + `run.sh` + Setup-container stack. It generates config in-process and brings the
+stack up: **standard** drives the Docker Engine API directly, while **lite** runs the repo's
+`bitwarden-lite/docker-compose.yml` via `docker compose`.
 
 ![bwsh status](docs/images/status.gif)
 
@@ -11,7 +12,7 @@ Docker directly. Supports both **standard** and **lite** deployments.
 ## Prerequisites
 
 - **.NET 10 SDK** — https://dotnet.microsoft.com/download
-- **Docker** running
+- **Docker** running (lite deployments also need the `docker compose` CLI plugin)
 - An installation **ID + key** from https://bitwarden.com/host
 
 ## Install
@@ -104,7 +105,8 @@ ssl:
 `install`/`apply` then provisions the cert with certbot. Renew with `dotnet run -- renewcert` (cron it for
 auto-renewal).
 
-Ports default to 80/443; override with `http-port`/`https-port` in the manifest. Opt out of HTTPS with
+Ports default to 80/443. On standard, override with `http-port`/`https-port` in the manifest; lite
+serves on 80/443 from the upstream compose and ignores those fields. Opt out of HTTPS with
 `ssl: { enable: false }`.
 
 ## Shell completion

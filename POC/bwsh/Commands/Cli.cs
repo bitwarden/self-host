@@ -1,6 +1,5 @@
 ﻿using System.CommandLine;
 using Bit.SelfHost.Deployments;
-using Bit.SelfHost.Engine;
 using Spectre.Console;
 
 namespace Bit.SelfHost.Commands;
