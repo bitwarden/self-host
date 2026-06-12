@@ -43,13 +43,11 @@ public static class UninstallCommand
             }
 
             var ctx = new InstallContext { Root = rootDir, Manifest = new InstallManifest() };
-            var topology = dep.BuildTopology(ctx);
             using var engine = new DockerDotNetEngine();
-            var orch = new Orchestrator(engine, dep.Networks);
 
             await AnsiConsole.Status().StartAsync($"Uninstalling {kind}…", async statusCtx =>
             {
-                await orch.DownAsync(topology, doPurge, msg => statusCtx.Status(Markup.Escape(msg)), ct);
+                await dep.DownAsync(ctx, engine, doPurge, msg => statusCtx.Status(Markup.Escape(msg)), ct);
                 if (doPurge && Directory.Exists(rootDir))
                 {
                     statusCtx.Status($"deleting {Markup.Escape(rootDir)}");

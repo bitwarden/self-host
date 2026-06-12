@@ -2,6 +2,7 @@
 
 services:
   bitwarden:
+    container_name: bitwarden-lite
     depends_on:
       - db
     env_file:
@@ -12,7 +13,8 @@ services:
       - "80:8080"
       - "443:8443"
     volumes:
-      - bitwarden:/etc/bitwarden
+      # Defaults to a named volume; set BW_VOLUME to a host path to bind-mount instead.
+      - ${BW_VOLUME:-bitwarden}:/etc/bitwarden
       - logs:/var/log/bitwarden
 
   # MariaDB Example

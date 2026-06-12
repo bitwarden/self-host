@@ -50,14 +50,12 @@ public static class ApplyCommand
             // stack to pick up the changes. UpAsync recreates every container, so the stack restarts
             // briefly; data survives via the named volume.
             await dep.GenerateAssetsAsync(ctx, ct);
-            var topology = dep.BuildTopology(ctx);
 
             using var engine = new DockerDotNetEngine();
-            var orch = new Orchestrator(engine, dep.Networks);
 
             await dep.PreUpAsync(ctx, engine, ct);
 
-            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — apply", parseResult.GetValue(pull));
+            await dep.UpAsync(ctx, engine, $"Bitwarden {kind} — apply", parseResult.GetValue(pull), ct);
 
             AnsiConsole.MarkupLine($"\n[green]Apply complete.[/] Running at: [link]{Markup.Escape(dep.ResolveUrl(rootDir))}[/]");
             return 0;

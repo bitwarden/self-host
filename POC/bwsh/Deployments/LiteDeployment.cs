@@ -9,13 +9,25 @@ namespace Bit.SelfHost.Deployments;
 /// Bitwarden Lite — single-container deployment (docs: "Bitwarden Lite", formerly Unified).
 /// One container runs all .NET services + nginx via supervisord, configured by a flat
 /// settings.env of BW_* / globalSettings__* (no Handlebars templating, no Setup builders).
-/// DB is either in-container sqlite or an external server the operator manages — so the
-/// topology is always exactly ONE container, brought up by the SAME Orchestrator.
+/// DB is either in-container sqlite or an external server the operator manages.
+///
+/// Unlike standard, lite is driven by `docker compose` rather than the Engine API: bwsh
+/// downloads the repo's maintained bitwarden-lite/docker-compose.yml and runs it directly.
+/// The only file bwsh generates is settings.env (the compose's env_file) — image tag and the
+/// data-dir bind are passed to compose as environment variables (REGISTRY/TAG/BW_VOLUME), so
+/// there's no override or .env to maintain. Read-only operations (status/logs/versions/backup)
+/// still use the Engine API by container name, which the compose pins to "bitwarden-lite".
 /// </summary>
 public sealed class LiteDeployment : IDeployment
 {
     public const string ContainerName = "bitwarden-lite";
     private const string SettingsFile = "settings.env";
+    private const string ComposeFile = "docker-compose.yml"; // downloaded upstream file, run as-is
+
+    // The maintained lite compose bwsh fetches. Override with BWSH_LITE_COMPOSE_URL (a URL or a
+    // local file path) to test a branch/PR build — e.g. the rootless work in self-host#358.
+    private const string DefaultComposeUrl =
+        "https://raw.githubusercontent.com/bitwarden/self-host/bwsh-poc/bitwarden-lite/docker-compose.yml";
 
     public DeploymentKind Kind => DeploymentKind.Lite;
 
@@ -25,20 +37,11 @@ public sealed class LiteDeployment : IDeployment
 
     public string ResolveUrl(string root)
     {
-        var env = new Dictionary<string, string>();
-        var path = Path.Combine(root, SettingsFile);
-        if (File.Exists(path))
-            foreach (var line in File.ReadLines(path))
-            {
-                var i = line.IndexOf('=');
-                if (i > 0) env[line[..i]] = line[(i + 1)..];
-            }
-
+        var env = Setup.StandardAssetBuilder.ReadEnv(Path.Combine(root, SettingsFile));
         var ssl = env.GetValueOrDefault("BW_ENABLE_SSL", "false") == "true";
         var domain = env.GetValueOrDefault("BW_DOMAIN", "localhost");
-        var port = ssl ? env.GetValueOrDefault("BW_PORT_HTTPS", "8443") : env.GetValueOrDefault("BW_PORT_HTTP", "8080");
-        var suffix = (ssl && port == "443") || (!ssl && port == "80") ? "" : $":{port}";
-        return $"{(ssl ? "https" : "http")}://{domain}{suffix}";
+        // The upstream lite compose publishes on host 80/443, so there's no port suffix.
+        return $"{(ssl ? "https" : "http")}://{domain}";
     }
 
     // Single container on the default bridge — no internal/public split.
@@ -68,8 +71,7 @@ public sealed class LiteDeployment : IDeployment
             Database = env.GetValueOrDefault("BW_DB_DATABASE", "vault"),
             InstallationId = env.GetValueOrDefault("BW_INSTALLATION_ID"),
             InstallationKey = env.GetValueOrDefault("BW_INSTALLATION_KEY"),
-            HttpPort = int.TryParse(env.GetValueOrDefault("BW_PORT_HTTP"), out var http) ? http : 8080,
-            HttpsPort = int.TryParse(env.GetValueOrDefault("BW_PORT_HTTPS"), out var https) ? https : 8443,
+            // Host ports are fixed by the upstream compose (80/443), not configurable here.
             Ssl = new InstallManifest.SslOptions { Enable = env.GetValueOrDefault("BW_ENABLE_SSL") == "true" },
         };
 
@@ -87,7 +89,7 @@ public sealed class LiteDeployment : IDeployment
         return manifest;
     }
 
-    public Task GenerateAssetsAsync(InstallContext ctx, CancellationToken ct)
+    public async Task GenerateAssetsAsync(InstallContext ctx, CancellationToken ct)
     {
         var a = ctx.Manifest;
         Directory.CreateDirectory(ctx.Root);
@@ -137,33 +139,106 @@ public sealed class LiteDeployment : IDeployment
 
         if (string.IsNullOrEmpty(a.Domain))
             AnsiConsole.MarkupLine("[grey]note: BW_DOMAIN unset (intentional for repro)[/]");
-        return Task.CompletedTask;
+
+        await EnsureComposeFileAsync(ctx, ct);
     }
 
-    public IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx)
+    // Lite runs through compose, so the "topology" is a single descriptor used only for status/inspect
+    // (container name) and update's image-tag staleness check — not for Engine-API creation. The
+    // runtime config (volumes, ports, hardening) lives in the downloaded compose + generated .env.
+    public IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx) =>
+    [
+        new ServiceSpec
+        {
+            Name = "bitwarden",
+            ContainerName = ContainerName,
+            // Must match the image compose actually runs (REGISTRY/TAG below), so NeedsUpdateAsync
+            // compares like-for-like. Tag follows the manifest's CoreVersion (`update --core-version`).
+            Image = $"{Registry(ctx.Manifest)}/lite:{Tag(ctx.Manifest)}",
+            Networks = [],
+        }
+    ];
+
+    // ---- compose assets -------------------------------------------------------------------------
+
+    private static string Registry(InstallManifest a) => "ghcr.io/bitwarden";
+
+    // CoreVersion drives the tag (pinned default, or `dev`/a beta via `update --core-version`).
+    private static string Tag(InstallManifest a) => a.CoreVersion;
+
+    // Passed to the compose process so it interpolates ${...} without a generated .env file:
+    //   REGISTRY/TAG  -> the image (TAG follows CoreVersion, set by `update --core-version`)
+    //   BW_VOLUME     -> a host path => compose bind-mounts the data dir at /etc/bitwarden, so the
+    //                    sqlite db + certs live where bwsh backs up (vs the upstream named volume)
+    private static Dictionary<string, string> ComposeEnv(InstallContext ctx) => new()
     {
-        var a = ctx.Manifest;
-        var image = string.IsNullOrEmpty(a.Image) ? $"ghcr.io/bitwarden/lite:{Setup.Versions.Core}" : a.Image!;
+        ["REGISTRY"] = Registry(ctx.Manifest),
+        ["TAG"] = Tag(ctx.Manifest),
+        ["BW_VOLUME"] = Path.GetFullPath(ctx.Root),
+    };
 
-        var httpPort = a.HttpPort != 0 ? a.HttpPort : 8080;
-        var httpsPort = a.HttpsPort != 0 ? a.HttpsPort : 8443;
-        (int, int)[] ports = (a.Ssl.Enable ?? true)
-            ? [(httpPort, 8080), (httpsPort, 8443)]
-            : [(httpPort, 8080)];
+    /// <summary>Ensure the upstream compose file is present in the data dir (downloaded once).</summary>
+    private static async Task EnsureComposeFileAsync(InstallContext ctx, CancellationToken ct)
+    {
+        Directory.CreateDirectory(ctx.Root);
+        var composePath = Path.Combine(ctx.Root, ComposeFile);
+        if (!File.Exists(composePath))
+        {
+            var url = Environment.GetEnvironmentVariable("BWSH_LITE_COMPOSE_URL") ?? DefaultComposeUrl;
+            await File.WriteAllTextAsync(composePath, await FetchAsync(url, ct), ct);
+        }
+    }
 
-        return
-        [
-            new ServiceSpec
-            {
-                Name = "bitwarden",
-                ContainerName = ContainerName,
-                Image = image,
-                EnvFiles = [Path.Combine(ctx.Root, SettingsFile)], // merged into the container Env
-                Binds = [(ctx.Root, "/etc/bitwarden")],
-                Ports = ports,
-                Networks = [],
-            }
-        ];
+    // A URL is fetched over HTTP; an existing local path is read directly (BWSH_LITE_COMPOSE_URL can
+    // point at a working copy for local testing before the file is published).
+    private static async Task<string> FetchAsync(string urlOrPath, CancellationToken ct)
+    {
+        if (File.Exists(urlOrPath)) return await File.ReadAllTextAsync(urlOrPath, ct);
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        try
+        {
+            return await http.GetStringAsync(urlOrPath, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new InvalidOperationException(
+                $"Could not download the lite compose file from {urlOrPath}: {ex.Message}", ex);
+        }
+    }
+
+    public async Task UpAsync(InstallContext ctx, IContainerEngine engine, string title, bool forcePull, CancellationToken ct)
+    {
+        await PreflightAsync(ctx, ct);
+        await EnsureComposeFileAsync(ctx, ct);
+        AnsiConsole.MarkupLine($"[grey]{Markup.Escape(title)} — docker compose up[/]");
+        // --no-deps + an explicit service: the upstream file ships an example `db` service that
+        // `bitwarden` depends_on. bwsh's DB is sqlite or external (via settings.env), so bring up
+        // only the app and skip the bundled SQL Server.
+        string[] args = forcePull
+            ? ["up", "-d", "--no-deps", "--pull", "always", "bitwarden"]
+            : ["up", "-d", "--no-deps", "bitwarden"];
+        await ComposeCli.RunAsync(ctx.Root, Path.Combine(ctx.Root, ComposeFile), ComposeEnv(ctx), args, ct);
+    }
+
+    /// <summary>Fail fast before composing: the compose CLI must be present.</summary>
+    private static async Task PreflightAsync(InstallContext ctx, CancellationToken ct)
+    {
+        if (!await ComposeCli.IsAvailableAsync(ct))
+            throw new InvalidOperationException(
+                "Docker Compose is required for a lite deployment but was not found. " +
+                "Install the Docker Compose plugin (`docker compose`) and retry.");
+    }
+
+    public async Task DownAsync(InstallContext ctx, IContainerEngine engine, bool purge, Action<string> report, CancellationToken ct)
+    {
+        var composePath = Path.Combine(ctx.Root, ComposeFile);
+        if (!File.Exists(composePath)) return; // never brought up, or already removed
+
+        report("docker compose down");
+        // BW_VOLUME bind-mounts the data dir, so -v only clears the upstream named volumes (logs, the
+        // example db's); the uninstall command deletes the data dir itself on purge.
+        string[] args = purge ? ["down", "-v"] : ["down"];
+        await ComposeCli.RunAsync(ctx.Root, composePath, ComposeEnv(ctx), args, ct);
     }
 
     // Lite: every key is a settings.env var; applying requires a container restart.

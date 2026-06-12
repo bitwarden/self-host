@@ -66,7 +66,7 @@ public static class RestoreCommand
             await dep.PostUnpackAsync(rootDir, orch, topology, engine, ct);
 
             // 3. Bring up the full stack. App services connect to the restored DB; admin migrates forward if needed.
-            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — restore");
+            await dep.UpAsync(ctx, engine, $"Bitwarden {kind} — restore", forcePull: false, ct);
 
             AnsiConsole.MarkupLine($"\n[green]Restore complete.[/] Running at: [link]{Markup.Escape(dep.ResolveUrl(rootDir))}[/]");
             return 0;

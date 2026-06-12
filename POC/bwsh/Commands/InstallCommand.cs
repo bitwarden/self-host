@@ -64,11 +64,10 @@ public static class InstallCommand
             }
 
             using var engine = new DockerDotNetEngine();
-            var orch = new Orchestrator(engine, dep.Networks);
 
             await dep.PreUpAsync(ctx, engine, ct);
 
-            await orch.UpAsync(topology, ct, $"Bitwarden {kind}");
+            await dep.UpAsync(ctx, engine, $"Bitwarden {kind}", forcePull: false, ct);
             AnsiConsole.MarkupLine("\n[green]Bitwarden install complete.[/]");
             AnsiConsole.MarkupLine($"Bitwarden running at: [cyan]{dep.ResolveUrl(rootDir)}[/]");
             Cli.WriteCommandHelp();

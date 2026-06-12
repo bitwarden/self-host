@@ -2,6 +2,7 @@
 using Bit.SelfHost.Deployments;
 using Bit.SelfHost.Engine;
 using Bit.SelfHost.Setup;
+using NSubstitute;
 using Xunit;
 
 namespace Bit.SelfHost.Test;
@@ -284,30 +285,118 @@ public class StandardTlsTests
 
 public class LiteTlsTests
 {
-    private static async Task<Dictionary<string, string>> Generate(InstallManifest manifest)
-    {
-        var root = Directory.CreateTempSubdirectory().FullName;
-        await new LiteDeployment().GenerateAssetsAsync(new InstallContext { Root = root, Manifest = manifest }, default);
-        return StandardAssetBuilder.ReadEnv(Path.Combine(root, "settings.env"));
-    }
+    private static async Task<string> Generate(InstallManifest manifest)
+        => await LiteTestHelper.GenerateAsync(manifest);
+
+    private static Dictionary<string, string> Settings(string root)
+        => StandardAssetBuilder.ReadEnv(Path.Combine(root, "settings.env"));
 
     [Fact]
     public async Task Lite_defaults_to_https()
     {
-        var env = await Generate(new InstallManifest { Deployment = "lite", Domain = "v" });
-        Assert.Equal("true", env["BW_ENABLE_SSL"]);
-
-        var ports = new LiteDeployment()
-            .BuildTopology(new InstallContext { Root = "/r", Manifest = new InstallManifest { Deployment = "lite" } })
-            .Single().Ports;
-        Assert.Contains((8443, 8443), ports);
+        var root = await Generate(new InstallManifest { Deployment = "lite", Domain = "v" });
+        Assert.Equal("true", Settings(root)["BW_ENABLE_SSL"]);
     }
 
     [Fact]
     public async Task Lite_ssl_can_be_disabled()
     {
-        var env = await Generate(new InstallManifest
+        var root = await Generate(new InstallManifest
         { Deployment = "lite", Domain = "v", Ssl = new InstallManifest.SslOptions { Enable = false } });
-        Assert.Equal("false", env["BW_ENABLE_SSL"]);
+        Assert.Equal("false", Settings(root)["BW_ENABLE_SSL"]);
+    }
+}
+
+/// <summary>
+/// Covers the compose-driven lite path: GenerateAssets must write the downloaded compose + a .env
+/// that parameterizes it, the image tag must follow CoreVersion (so `update --core-version` works),
+/// and config must round-trip through settings.env.
+/// </summary>
+public class LiteComposeTests
+{
+    [Fact]
+    public async Task GenerateAssets_writes_only_settings_and_compose_no_scaffolding()
+    {
+        var root = await LiteTestHelper.GenerateAsync(new InstallManifest { Deployment = "lite", Domain = "v" });
+
+        Assert.True(File.Exists(Path.Combine(root, "settings.env")));      // the config (env_file)
+        Assert.True(File.Exists(Path.Combine(root, "docker-compose.yml"))); // downloaded upstream file
+        // No generated override or .env — the adaptation is passed to compose as env vars instead.
+        Assert.False(File.Exists(Path.Combine(root, "docker-compose.override.yml")));
+        Assert.False(File.Exists(Path.Combine(root, ".env")));
+    }
+
+    [Fact]
+    public async Task Image_tag_follows_core_version_override()
+    {
+        // `update --core-version dev` sets CoreVersion; the topology image (used by the staleness
+        // check) must reflect it, or NeedsUpdate compares the wrong tag. The TAG env var bwsh passes
+        // to compose is derived from the same value.
+        var image = new LiteDeployment()
+            .BuildTopology(new InstallContext { Root = "/r", Manifest = new InstallManifest { CoreVersion = "dev" } })
+            .Single().Image;
+        Assert.Equal("ghcr.io/bitwarden/lite:dev", image);
+    }
+
+    [Fact]
+    public async Task ReadManifest_round_trips_lite_config()
+    {
+        var root = await LiteTestHelper.GenerateAsync(new InstallManifest
+        {
+            Deployment = "lite",
+            Domain = "vault.example.com",
+            DbProvider = "postgresql",
+            Database = "bw",
+            InstallationId = "id-1",
+            InstallationKey = "key-1",
+            Config = { ["BW_DB_SERVER"] = "pg.example.com" }, // external-db passthrough
+        });
+
+        var read = new LiteDeployment().ReadManifest(root);
+
+        Assert.Equal("vault.example.com", read.Domain);
+        Assert.Equal("postgresql", read.DbProvider);
+        Assert.Equal("bw", read.Database);
+        Assert.Equal("id-1", read.InstallationId);
+        Assert.Equal("key-1", read.InstallationKey);
+        Assert.Equal("pg.example.com", read.Config["BW_DB_SERVER"]);
+    }
+
+    [Fact]
+    public async Task ResolveUrl_uses_upstream_443_no_suffix()
+    {
+        var root = await LiteTestHelper.GenerateAsync(new InstallManifest { Deployment = "lite", Domain = "v" });
+        Assert.Equal("https://v", new LiteDeployment().ResolveUrl(root));
+    }
+
+    [Fact]
+    public async Task DownAsync_noops_when_never_installed()
+    {
+        // No docker-compose.yml in the data dir => nothing was ever brought up; uninstall must not
+        // shell out to compose (which would fail/error), it should just return.
+        var root = Directory.CreateTempSubdirectory().FullName;
+        var engine = Substitute.For<IContainerEngine>();
+        var reported = new List<string>();
+
+        await new LiteDeployment().DownAsync(
+            new InstallContext { Root = root, Manifest = new InstallManifest() },
+            engine, purge: false, reported.Add, default);
+
+        Assert.Empty(reported);
+    }
+}
+
+/// <summary>Shared setup for lite tests: a local stub compose so GenerateAssets never hits the network.</summary>
+internal static class LiteTestHelper
+{
+    public static async Task<string> GenerateAsync(InstallManifest manifest)
+    {
+        var stub = Path.Combine(Directory.CreateTempSubdirectory().FullName, "compose.yml");
+        File.WriteAllText(stub, "services:\n  bitwarden:\n    image: ${REGISTRY}/lite:${TAG}\n");
+        Environment.SetEnvironmentVariable("BWSH_LITE_COMPOSE_URL", stub);
+
+        var root = Directory.CreateTempSubdirectory().FullName;
+        await new LiteDeployment().GenerateAssetsAsync(new InstallContext { Root = root, Manifest = manifest }, default);
+        return root;
     }
 }

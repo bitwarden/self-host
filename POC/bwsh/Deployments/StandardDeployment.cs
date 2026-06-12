@@ -275,6 +275,14 @@ public sealed class StandardDeployment : IDeployment
         return false;
     }
 
+    // Standard drives the Engine API directly through the shared Orchestrator (replacing run.sh's
+    // `docker compose up`), so the live bring-up table covers all 11+ containers.
+    public Task UpAsync(InstallContext ctx, IContainerEngine engine, string title, bool forcePull, CancellationToken ct) =>
+        new Orchestrator(engine, Networks).UpAsync(BuildTopology(ctx), ct, title, forcePull);
+
+    public Task DownAsync(InstallContext ctx, IContainerEngine engine, bool purge, Action<string> report, CancellationToken ct) =>
+        new Orchestrator(engine, Networks).DownAsync(BuildTopology(ctx), purge, report, ct);
+
     public bool SupportsCertRenewal => true;
 
     public bool SupportsAggregateLogs => false; // one container per service, no aggregate stream

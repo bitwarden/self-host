@@ -35,8 +35,18 @@ public interface IDeployment
     /// </summary>
     Task GenerateAssetsAsync(InstallContext ctx, CancellationToken ct);
 
-    /// <summary>The container graph the Orchestrator brings up.</summary>
+    /// <summary>The container graph, for status/inspect and (standard) orchestration.</summary>
     IReadOnlyList<ServiceSpec> BuildTopology(InstallContext ctx);
+
+    /// <summary>
+    /// Bring the deployment up. The execution model is the deployment's own: standard drives the
+    /// Engine API via the Orchestrator; lite drives `docker compose`. <paramref name="engine"/> is
+    /// provided for the Engine-API path and ignored by compose-driven deployments.
+    /// </summary>
+    Task UpAsync(InstallContext ctx, IContainerEngine engine, string title, bool forcePull, CancellationToken ct);
+
+    /// <summary>Stop and remove the deployment's containers (and, on purge, its volumes).</summary>
+    Task DownAsync(InstallContext ctx, IContainerEngine engine, bool purge, Action<string> report, CancellationToken ct);
 
     /// <summary>
     /// Reconstruct the manifest from on-disk config so re-rendering (`update --rebuild`) preserves

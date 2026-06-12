@@ -89,7 +89,7 @@ public static class UpdateCommand
             if (parseResult.GetValue(check)) return 0;
 
             // DB migrations run themselves: the admin service migrates on startup (self-hosted).
-            await orch.UpAsync(topology, ct, $"Bitwarden {kind} — update", forcePull); // idempotent recreate
+            await dep.UpAsync(ctx, engine, $"Bitwarden {kind} — update", forcePull, ct); // idempotent recreate
             AnsiConsole.MarkupLine("\n[green]Update complete.[/]");
             return 0;
         });
