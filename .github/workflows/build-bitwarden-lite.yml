@@ -279,6 +279,51 @@ jobs:
           echo "- Server: ${SERVER_REGISTRY}/*:${SERVER_TAG}" >> $GITHUB_STEP_SUMMARY
           echo "- Web: ${WEB_IMAGE}:${WEB_TAG}" >> $GITHUB_STEP_SUMMARY
 
+      - name: Check if image tag already exists
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          GHCR_REGISTRY: ghcr.io/bitwarden
+          ACR_REGISTRY: bitwardenprod.azurecr.io
+        run: |
+          # Only check version tags (numeric), skip dev/branch tags
+          if [[ "$IMAGE_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Checking if version tag ${IMAGE_TAG} already exists..."
+
+            # Check GHCR
+            output=$(skopeo inspect "docker://${GHCR_REGISTRY}/lite:${IMAGE_TAG}" 2>&1)
+            status=$?
+            if [[ $status -eq 0 ]]; then
+              echo "::error::❌ Tag ${IMAGE_TAG} already exists at ${GHCR_REGISTRY}/lite:${IMAGE_TAG}"
+              echo "::error::Refusing to overwrite existing production image."
+              echo "::error::If you need to rebuild this version, delete the existing tag first."
+              exit 1
+            elif echo "$output" | grep -qiE 'manifest unknown|not found|name unknown'; then
+              echo "✅ GHCR tag ${IMAGE_TAG} is available"
+            else
+              echo "::error::Could not verify GHCR tag existence (skopeo failed): $output"
+              exit 1
+            fi
+
+            # Check ACR
+            output=$(skopeo inspect "docker://${ACR_REGISTRY}/lite:${IMAGE_TAG}" 2>&1)
+            status=$?
+            if [[ $status -eq 0 ]]; then
+              echo "::error::❌ Tag ${IMAGE_TAG} already exists at ${ACR_REGISTRY}/lite:${IMAGE_TAG}"
+              echo "::error::Refusing to overwrite existing production image."
+              echo "::error::If you need to rebuild this version, delete the existing tag first."
+              exit 1
+            elif echo "$output" | grep -qiE 'manifest unknown|not found|name unknown'; then
+              echo "✅ ACR tag ${IMAGE_TAG} is available"
+            else
+              echo "::error::Could not verify ACR tag existence (skopeo failed): $output"
+              exit 1
+            fi
+
+            echo "✅ Tag ${IMAGE_TAG} is available on both registries"
+          else
+            echo "Skipping tag check for non-version tag: ${IMAGE_TAG}"
+          fi
+
       - name: Build and push Docker image
         id: build-docker
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
