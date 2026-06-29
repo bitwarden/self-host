@@ -58,7 +58,7 @@ public static class StandardAssetBuilder
         var values = new Dictionary<string, string>
         {
             ["keyConnectorSettings__webVaultUri"] = config.Url,
-            ["keyConnectorSettings__identityServerUri"] = "http://identity:5000",
+            ["keyConnectorSettings__identityServerUri"] = "http://bitwarden-identity:5000",
             ["keyConnectorSettings__database__provider"] = "json",
             ["keyConnectorSettings__database__jsonFilePath"] = "/etc/bitwarden/key-connector/data.json",
             ["keyConnectorSettings__rsaKey__provider"] = "certificate",
@@ -110,6 +110,7 @@ public static class StandardAssetBuilder
         {
             ["globalSettings__baseServiceUri__vault"] = config.Url,
             ["globalSettings__baseServiceUri__cloudRegion"] = install.Region,
+            ["globalSettings__baseServiceUri__internalIdentity"] = "http://bitwarden-identity:5000",
             ["globalSettings__sqlServer__connectionString"] = $"\"{connectionString.Replace("\"", "\\\"")}\"",
             ["globalSettings__identityServer__certificatePassword"] = identityCertPassword,
             ["globalSettings__internalIdentityKey"] = existing.InternalIdentityKey ?? SecureRandom.String(64),
