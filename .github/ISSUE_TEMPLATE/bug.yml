@@ -85,7 +85,7 @@ body:
         If applicable, provide details about your deployment.
       placeholder: |
         Operating System:
-          - Windows 10, Mac OS 
+          - Windows, Mac OS, Linux
           
         Deployment:
           - Docker
