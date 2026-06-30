@@ -29,6 +29,14 @@ on:
         description: "Override tag for the Bitwarden Lite image (cannot be 'rc', 'hotfix-rc', or 'dev')"
         type: string
         required: false
+      server_tag:
+        description: "Exact upstream server image tag to pull (skips derivation from server_branch)"
+        type: string
+        required: false
+      web_tag:
+        description: "Exact upstream web image tag to pull (skips derivation from web_branch)"
+        type: string
+        required: false
       use_latest_core_version:
         description: "Use the latest core version from version.json instead of branch"
         type: boolean
@@ -53,6 +61,14 @@ on:
         default: main
       override_tag:
         description: "Override tag for the Bitwarden Lite image (cannot be 'rc', 'hotfix-rc', or 'dev')"
+        type: string
+        required: false
+      server_tag:
+        description: "Exact upstream server image tag to pull (skips derivation from server_branch)"
+        type: string
+        required: false
+      web_tag:
+        description: "Exact upstream web image tag to pull (skips derivation from web_branch)"
         type: string
         required: false
       use_latest_core_version:
@@ -103,14 +119,14 @@ jobs:
     permissions:
       contents: read
     outputs:
-      server_ref: ${{ steps.resolve.outputs.server_ref }}
-      web_ref: ${{ steps.resolve.outputs.web_ref }}
-      image_tag: ${{ steps.resolve.outputs.image_tag }}
-      server_tag: ${{ steps.resolve.outputs.server_tag }}
-      web_tag: ${{ steps.resolve.outputs.web_tag }}
-      web_image: ${{ steps.resolve.outputs.web_image }}
-      server_registry: ${{ steps.resolve.outputs.server_registry }}
-      push_to_ghcr: ${{ steps.resolve.outputs.push_to_ghcr }}
+      server_ref: ${{ steps.refs.outputs.server_ref }}
+      web_ref: ${{ steps.refs.outputs.web_ref }}
+      image_tag: ${{ steps.finalize.outputs.image_tag }}
+      server_tag: ${{ steps.finalize.outputs.server_tag }}
+      web_tag: ${{ steps.finalize.outputs.web_tag }}
+      web_image: ${{ steps.finalize.outputs.web_image }}
+      server_registry: ${{ steps.finalize.outputs.server_registry }}
+      push_to_ghcr: ${{ steps.finalize.outputs.push_to_ghcr }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -118,8 +134,8 @@ jobs:
           ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
 
-      - name: Resolve build variables
-        id: resolve
+      - name: Validate inputs and resolve refs
+        id: refs
         env:
           SERVER_BRANCH_INPUT: ${{ inputs.server_branch || github.event.client_payload.server_branch }}
           WEB_BRANCH_INPUT: ${{ inputs.web_branch || github.event.client_payload.web_branch }}
@@ -166,30 +182,60 @@ jobs:
             WEB_REF="refs/heads/${WEB_BRANCH#refs/heads/}"
           fi
 
-          # Upstream server image tag (what to pull from server's registry)
-          if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
-            SERVER_TAG="${BASH_REMATCH[1]}"
+          # Extract version from web's `refs/tags/web-v<version>` format so the
+          # sanitize-image-tag action sees just the version string.
+          if [[ "$WEB_REF" =~ ^refs/tags/web-v(.+)$ ]]; then
+            WEB_REF_FOR_TAG="${BASH_REMATCH[1]}"
           else
-            SERVER_TAG=$(echo "${SERVER_REF#refs/heads/}" | sed 's|/|-|g' | cut -c1-128)
-            [[ "$SERVER_TAG" == "main" ]] && SERVER_TAG=dev
+            WEB_REF_FOR_TAG="$WEB_REF"
           fi
 
-          # Upstream web image (always GHCR; release uses `web`, branch builds use `web-dev`)
-          if [[ $WEB_REF =~ ^refs/tags/web-v(.+)$ ]]; then
-            WEB_TAG="${BASH_REMATCH[1]}"
+          echo "server_ref=$SERVER_REF" >> "$GITHUB_OUTPUT"
+          echo "web_ref=$WEB_REF" >> "$GITHUB_OUTPUT"
+          echo "web_ref_for_tag=$WEB_REF_FOR_TAG" >> "$GITHUB_OUTPUT"
+          echo "server_branch=$SERVER_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "web_branch=$WEB_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "override_tag=$OVERRIDE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Sanitize server tag
+        id: sanitize-server
+        if: (inputs.server_tag || github.event.client_payload.server_tag) == ''
+        uses: bitwarden/gh-actions/sanitize-image-tag@main
+        with:
+          ref: ${{ steps.refs.outputs.server_ref }}
+
+      - name: Sanitize web tag
+        id: sanitize-web
+        if: (inputs.web_tag || github.event.client_payload.web_tag) == ''
+        uses: bitwarden/gh-actions/sanitize-image-tag@main
+        with:
+          ref: ${{ steps.refs.outputs.web_ref_for_tag }}
+
+      - name: Resolve final values
+        id: finalize
+        env:
+          SERVER_REF: ${{ steps.refs.outputs.server_ref }}
+          WEB_REF: ${{ steps.refs.outputs.web_ref }}
+          SERVER_BRANCH: ${{ steps.refs.outputs.server_branch }}
+          WEB_BRANCH: ${{ steps.refs.outputs.web_branch }}
+          OVERRIDE_TAG: ${{ steps.refs.outputs.override_tag }}
+          SERVER_TAG_OVERRIDE: ${{ inputs.server_tag || github.event.client_payload.server_tag }}
+          WEB_TAG_OVERRIDE: ${{ inputs.web_tag || github.event.client_payload.web_tag }}
+          SERVER_TAG_FROM_ACTION: ${{ steps.sanitize-server.outputs.tag }}
+          WEB_TAG_FROM_ACTION: ${{ steps.sanitize-web.outputs.tag }}
+        run: |
+          SERVER_TAG="${SERVER_TAG_OVERRIDE:-$SERVER_TAG_FROM_ACTION}"
+          WEB_TAG="${WEB_TAG_OVERRIDE:-$WEB_TAG_FROM_ACTION}"
+
+          # Web image: release uses `web`, branch builds use `web-dev`
+          if [[ "$WEB_REF" =~ ^refs/tags/web-v ]]; then
             WEB_IMAGE="ghcr.io/bitwarden/web"
           else
-            WEB_TAG=$(echo "${WEB_REF#refs/heads/}" | \
-              tr '[:upper:]' '[:lower:]' | \
-              sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^-+|-+$//g' | \
-              cut -c1-128 | \
-              sed -E 's/[.-]$//')
-            [[ "$WEB_TAG" == "main" ]] && WEB_TAG=dev
             WEB_IMAGE="ghcr.io/bitwarden/web-dev"
           fi
 
           # Bitwarden Lite image tag: version > override > branch agreement
-          if [[ $SERVER_REF =~ ^refs/tags/v(.+)$ ]]; then
+          if [[ "$SERVER_REF" =~ ^refs/tags/v(.+)$ ]]; then
             IMAGE_TAG="${BASH_REMATCH[1]}"
           elif [[ -n "$OVERRIDE_TAG" ]]; then
             IMAGE_TAG="$OVERRIDE_TAG"
@@ -222,8 +268,6 @@ jobs:
             PUSH_TO_GHCR=false
           fi
 
-          echo "server_ref=$SERVER_REF" >> "$GITHUB_OUTPUT"
-          echo "web_ref=$WEB_REF" >> "$GITHUB_OUTPUT"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "server_tag=$SERVER_TAG" >> "$GITHUB_OUTPUT"
           echo "web_tag=$WEB_TAG" >> "$GITHUB_OUTPUT"
