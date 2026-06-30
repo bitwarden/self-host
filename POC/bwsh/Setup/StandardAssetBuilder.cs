@@ -116,7 +116,6 @@ public static class StandardAssetBuilder
             ["globalSettings__baseServiceUri__internalSso"] = "http://bitwarden-sso:5000",
             ["globalSettings__baseServiceUri__internalAdmin"] = "http://bitwarden-admin:5000",
             ["globalSettings__baseServiceUri__internalVault"] = "http://bitwarden-web:5000",
-            ["globalSettings__baseServiceUri__internalScim"] = "http://bitwarden-scim:5000",
             ["globalSettings__sqlServer__connectionString"] = $"\"{connectionString.Replace("\"", "\\\"")}\"",
             ["globalSettings__identityServer__certificatePassword"] = identityCertPassword,
             ["globalSettings__internalIdentityKey"] = existing.InternalIdentityKey ?? SecureRandom.String(64),
