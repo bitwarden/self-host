@@ -1,92 +1,127 @@
 name: Self-host Release Bug Report
-description: File a bug report
-labels: [bug]
+description: Report a bug with the Bitwarden self-host installation scripts
+labels:
+  - bug
+
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thanks for taking the time to submit a bug report!
 
         > [!WARNING]
-        > This repository only tracks installation scripts for our self-host project. For any other Bitwarden Server issues including Bitwarden lite, please submit your report in [bitwarden/server](https://github.com/bitwarden/server)
+        > This repository **only tracks issues with the Bitwarden self-host installation scripts**.
+        >
+        > If your issue is with the Bitwarden application itself (including **Bitwarden Lite**), please report it in **bitwarden/server** instead:
+        > https://github.com/bitwarden/server
 
-        Please do not submit feature requests. The [Community Forums](https://community.bitwarden.com) has a section for submitting, voting for, and discussing product feature requests.
+        Please provide as much detail as possible to help us reproduce and investigate the issue.
+
   - type: checkboxes
     id: self-host-scripts
     attributes:
-      label: Self-host installation scripts issue
-      description: "This repository only tracks installation scripts for our self-host project, any other Bitwarden Server issues including Bitwarden lite should be reported in [bitwarden/server](https://github.com/bitwarden/server)"
+      label: Repository Confirmation
+      description: Confirm this issue belongs in this repository.
       options:
-        - label: "I understand this repository only tracks self-host installation scripts and any other issues should be reported in bitwarden/server"
+        - label: I understand this repository only tracks self-host installation scripts. Application issues (including Bitwarden Lite) should be reported in bitwarden/server.
           required: true
+
   - type: textarea
     id: reproduce
     attributes:
-      label: Steps To Reproduce
-      description: How can we reproduce the behavior.
-      value: |
-        1. Go to '...'
-        2. Click on '....'
-        3. Scroll down to '....'
-        4. Click on '...'
+      label: Steps to reproduce
+      description: Provide the exact steps required to reproduce the issue.
+      placeholder: |
+        1. Run...
+        2. Configure...
+        3. Execute...
+        4. Observe...
     validations:
       required: true
+
   - type: textarea
     id: expected
     attributes:
-      label: Expected Result
-      description: A clear and concise description of what you expected to happen.
+      label: Expected behavior
+      description: What did you expect to happen?
     validations:
       required: true
+
   - type: textarea
     id: actual
     attributes:
-      label: Actual Result
-      description: A clear and concise description of what is happening.
+      label: Actual behavior
+      description: What actually happened?
     validations:
       required: true
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots or Videos
-      description: If applicable, add screenshots and/or a short video to help explain your problem.
-  - type: textarea
-    id: additional-context
-    attributes:
-      label: Additional Context
-      description: Add any other context about the problem here.
-  - type: input
-    id: version
-    attributes:
-      label: Build Version
-      description: What version of our software are you running?
-    validations:
-      required: true
+
   - type: dropdown
     id: environment
     attributes:
       label: Environment
-      description: Which environment (Cloud / Self-Hosted) are you using?
-      multiple: true
+      description: Which environment are you using?
       options:
-        - Cloud (bitwarden.com)
         - Self-Hosted
+        - Lite
     validations:
       required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / Image tag
+      description: |
+        Specify the version or Docker image tag you are running.
+        Example: 2026.6.0 or bitwarden/self-host:2026.6.0
+      placeholder: 2026.6.0
+    validations:
+      required: true
+
   - type: textarea
     id: environment-details
     attributes:
-      label: Environment Details
-      description: If Self-Hosted please provide some additional environment details.
+      label: Environment details
+      description: |
+        If applicable, provide details about your deployment.
       placeholder: |
-        - Operating system: [e.g. Windows 10, Mac OS Catalina]
-        - Environment: [e.g. Docker, EKS, ECS, K8S]
-        - Hardware: [e.g. Intel 6-core, 8GB RAM]
+        Operating System:
+          - Windows 10, Mac OS 
+          
+        Deployment:
+          - Docker
+          - Kubernetes
+          - Helm
+          - Other
+
+        Container Runtime:
+        Architecture:
+        Cloud Provider (if applicable):
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Logs, screenshots and configuration
+      description: |
+        Optional but strongly encouraged.
+
+        Please include any relevant:
+        - Logs
+        - Screenshots
+        - Error messages
+        - Redacted configuration (for example: settings.env)
+        - Docker Compose or Kubernetes manifests (redacted where appropriate)
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add anything else that may help us investigate the issue.
+
   - type: checkboxes
     id: issue-tracking-info
     attributes:
-      label: Issue Tracking Info
+      label: Issue Tracking Information
       description: |
-        Issue tracking information
+        Bitwarden tracks engineering work internally.
       options:
-        - label: I understand that work is tracked outside of Github. A PR will be linked to this issue should one be opened to address it, but Bitwarden doesn't use fields like "assigned", "milestone", or "project" to track progress.
+        - label: I understand that work is tracked outside GitHub. Pull requests may be linked to this issue, but Bitwarden does not use GitHub Assignments, Milestones, or Projects to track progress.
