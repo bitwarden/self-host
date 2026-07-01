@@ -14,6 +14,8 @@ body:
         >
         > If your issue is with the Bitwarden application itself (including **Bitwarden Lite**), please report it in **bitwarden/server** instead:
         > https://github.com/bitwarden/server
+        >
+        > If your issue is with the Bitwarden helm chart, please report it at https://github.com/bitwarden/helm-charts
 
         Please provide as much detail as possible to help us reproduce and investigate the issue.
 
@@ -84,19 +86,9 @@ body:
       description: |
         If applicable, provide details about your deployment.
       placeholder: |
-        Operating System:
-          - Windows, Mac OS, Linux
-          
-        Deployment:
-          - Docker
-          - Kubernetes
-          - Helm
-          - Other
-
-        Container Runtime:
-        Architecture:
-        Cloud Provider (if applicable):
-
+        - OS (Mac, Windows, Linux)
+        - OS version
+        
   - type: textarea
     id: diagnostics
     attributes:
@@ -109,7 +101,7 @@ body:
         - Screenshots
         - Error messages
         - Redacted configuration (for example: settings.env)
-        - Docker Compose or Kubernetes manifests (redacted where appropriate)
+        - Docker Compose file(s)
 
   - type: textarea
     id: additional-context
