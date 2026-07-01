@@ -227,11 +227,14 @@ jobs:
           SERVER_TAG="${SERVER_TAG_OVERRIDE:-$SERVER_TAG_FROM_ACTION}"
           WEB_TAG="${WEB_TAG_OVERRIDE:-$WEB_TAG_FROM_ACTION}"
 
-          # Web image: release uses `web`, branch builds use `web-dev`
+          # Web image: release goes to GHCR `web`; reserved tags (dev/rc/hotfix-rc-web) go to
+          # GHCR `web-dev`; everything else (feature branches) is ACR-only at `web`.
           if [[ "$WEB_REF" =~ ^refs/tags/web-v ]]; then
             WEB_IMAGE="ghcr.io/bitwarden/web"
-          else
+          elif [[ "$WEB_TAG" == "dev" || "$WEB_TAG" == "rc" || "$WEB_TAG" == "hotfix-rc-web" ]]; then
             WEB_IMAGE="ghcr.io/bitwarden/web-dev"
+          else
+            WEB_IMAGE="bitwardenprod.azurecr.io/web"
           fi
 
           # Bitwarden Lite image tag: version > override > branch agreement
