@@ -389,8 +389,9 @@ jobs:
             echo "Checking if version tag ${IMAGE_TAG} already exists..."
 
             # Check GHCR
-            output=$(skopeo inspect "docker://${GHCR_REGISTRY}/lite:${IMAGE_TAG}" 2>&1)
-            status=$?
+            # Guard against `set -e`: a missing tag makes skopeo exit non-zero,
+            # which would abort the step on the assignment before we can inspect $status.
+            output=$(skopeo inspect "docker://${GHCR_REGISTRY}/lite:${IMAGE_TAG}" 2>&1) && status=0 || status=$?
             if [[ $status -eq 0 ]]; then
               echo "::error::❌ Tag ${IMAGE_TAG} already exists at ${GHCR_REGISTRY}/lite:${IMAGE_TAG}"
               echo "::error::Refusing to overwrite existing production image."
@@ -404,8 +405,7 @@ jobs:
             fi
 
             # Check ACR
-            output=$(skopeo inspect "docker://${ACR_REGISTRY}/lite:${IMAGE_TAG}" 2>&1)
-            status=$?
+            output=$(skopeo inspect "docker://${ACR_REGISTRY}/lite:${IMAGE_TAG}" 2>&1) && status=0 || status=$?
             if [[ $status -eq 0 ]]; then
               echo "::error::❌ Tag ${IMAGE_TAG} already exists at ${ACR_REGISTRY}/lite:${IMAGE_TAG}"
               echo "::error::Refusing to overwrite existing production image."

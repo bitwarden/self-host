@@ -14,7 +14,7 @@
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-shot
 
 # Bitwarden lite
-.github/workflows/build-bitwarden-lite.yml @bitwarden/dept-shot
+.github/workflows/build-bitwarden-lite.yml @bitwarden/dept-bre @bitwarden/dept-shot
 bitwarden-lite/ @bitwarden/dept-shot
 
 # Marketplace packer images
