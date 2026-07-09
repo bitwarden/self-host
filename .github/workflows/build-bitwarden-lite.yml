@@ -97,8 +97,23 @@ on:
       - "bitwarden-lite/**"
       - ".github/workflows/build-bitwarden-lite.yml"
 
+# Concurrency is evaluated at workflow start, so it can only reference trigger-time
+# context (github.*, inputs.*, client_payload.*) — NOT the image_tag derived in `setup`.
+# We key on github.ref (keeps push/PR runs per-branch/per-PR) plus a fingerprint of every
+# build-shaping input, so dispatch/call runs for different server/web/tag targets get their
+# own lane instead of all collapsing onto `refs/heads/main` and cancelling each other.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: >-
+    ${{ github.workflow }}-${{ github.ref }}-${{
+      format('{0}|{1}|{2}|{3}|{4}|{5}|{6}',
+        inputs.override_tag || github.event.client_payload.override_tag,
+        inputs.server_branch || github.event.client_payload.server_branch,
+        inputs.web_branch || github.event.client_payload.web_branch,
+        inputs.server_tag || github.event.client_payload.server_tag,
+        inputs.web_tag || github.event.client_payload.web_tag,
+        inputs.use_latest_core_version || github.event.client_payload.use_latest_core_version,
+        inputs.use_latest_web_version || github.event.client_payload.use_latest_web_version)
+    }}
   cancel-in-progress: true
 
 jobs:
