@@ -75,20 +75,14 @@ RUN apk add --no-cache \
     gcompat
 
 # Create required directories
-RUN mkdir -p \
-    /etc/bitwarden/attachments/send \
-    /etc/bitwarden/data-protection \
-    /etc/bitwarden/licenses \
-    /etc/bitwarden/logs \
-    /etc/supervisor \
-    /etc/supervisor.d \
-    /var/log/bitwarden \
-    /var/log/nginx/logs \
-    /etc/nginx/http.d \
-    /var/run/nginx \
-    /var/lib/nginx/tmp \
-    /app \
-    && touch /var/run/nginx/nginx.pid
+RUN mkdir -p /etc/bitwarden/attachments/send
+RUN mkdir -p /etc/bitwarden/data-protection
+RUN mkdir -p /etc/bitwarden/licenses
+RUN mkdir -p /etc/supervisor
+RUN mkdir -p /etc/supervisor.d
+RUN mkdir -p /app/Identity
+RUN mkdir -p /app/Sso
+RUN mkdir -p /app/Web
 
 # Copy compiled apps from server images
 WORKDIR /app
@@ -103,6 +97,11 @@ COPY --from=sso-app /app /app/Sso
 
 # Copy Web files from web-app stage
 COPY --from=web-app /app /app/Web
+
+# Create soft links for files generated in the entrypoint
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
+RUN ln -sf /etc/bitwarden/Web/app-id.json /app/Web/app-id.json
 
 # Set up supervisord
 COPY bitwarden-lite/supervisord/*.ini /etc/supervisor.d/
@@ -137,6 +136,7 @@ RUN chmod +x /usr/local/bin/hbs
 COPY bitwarden-lite/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+EXPOSE 8080 8443
 VOLUME ["/etc/bitwarden"]
 
 WORKDIR /app

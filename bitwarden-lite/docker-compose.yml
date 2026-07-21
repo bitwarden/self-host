@@ -1,5 +1,4 @@
 ---
-
 services:
   bitwarden:
     depends_on:
@@ -7,21 +6,32 @@ services:
     env_file:
       - settings.env
     image: ${REGISTRY:-ghcr.io/bitwarden}/lite:${TAG:-2026.6.2}
+    user: 999:999
+    tmpfs: /tmp:rw,noexec,nosuid,nodev,size=512m
+    read_only: true
+    security_opt:
+      - no-new-privileges
     restart: always
     ports:
-      - "80:8080"
-      - "443:8443"
+      - '80:8080'
+      - '443:8443'
     volumes:
-      - bitwarden:/etc/bitwarden
-      - logs:/var/log/bitwarden
+      # The bind mount below must be owned by the user specified above.
+      # Create it with:
+      #   mkdir -p ./config && sudo chown 999:999 ./config
+      - ./config:/etc/bitwarden
+      # Note: named volumes are an alternative that don't work with rootless containers.
+      # To run rootless (recommended for security) with named volumes,
+      # you must use a rootless docker daemon or podman.
+      # - bitwarden:/etc/bitwarden
 
   # MariaDB Example
   db:
     environment:
-      MARIADB_USER: "bitwarden"
-      MARIADB_PASSWORD: "super_strong_password"
-      MARIADB_DATABASE: "bitwarden_vault"
-      MARIADB_RANDOM_ROOT_PASSWORD: "true"
+      MARIADB_USER: 'bitwarden'
+      MARIADB_PASSWORD: 'super_strong_password'
+      MARIADB_DATABASE: 'bitwarden_vault'
+      MARIADB_RANDOM_ROOT_PASSWORD: 'true'
     image: mariadb:10
     restart: always
     volumes:
@@ -50,6 +60,5 @@ services:
   #     - data:/var/opt/mssql
 
 volumes:
-  bitwarden:
-  logs:
+  # bitwarden:
   data:
