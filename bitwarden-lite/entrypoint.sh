@@ -111,8 +111,11 @@ if [ "$(id -u)" = "0" ]; then
 else
   FILES="$(find /etc/bitwarden -follow ! -type l \( ! -group "$(id -g)" -o ! -user "$(id -u)" \))"
   if [ -n "$FILES" ]; then
-    echo "The following files are not owned by the running user and may cause errors:" >&2
+    echo "Error: the following files are not owned by the current user ($(id -u):$(id -g)):" >&2
     echo "$FILES" >&2
+    echo "Please grant the running user ownership of the directory mounted to /etc/bitwarden, e.g.:" >&2
+    echo "  sudo chown -R $(id -u):$(id -g) ./config" >&2
+    exit 1
   fi
 
   exec /usr/bin/supervisord
