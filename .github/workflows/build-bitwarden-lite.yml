@@ -144,7 +144,7 @@ jobs:
       push_to_ghcr: ${{ steps.finalize.outputs.push_to_ghcr }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
@@ -310,7 +310,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
@@ -327,10 +327,10 @@ jobs:
           fi
 
       - name: Set up QEMU emulators
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to Azure
         if: steps.check-secrets.outputs.has_secrets == 'true'
@@ -346,7 +346,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         if: steps.check-secrets.outputs.has_secrets == 'true' && needs.setup.outputs.push_to_ghcr == 'true'
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -425,7 +425,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build-docker
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: bitwarden-lite/Dockerfile
@@ -469,7 +469,7 @@ jobs:
 
       - name: Upload Grype results to GitHub
         if: steps.check-secrets.outputs.has_secrets == 'true'
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
         with:
           sarif_file: ${{ steps.container-scan.outputs.sarif }}
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
