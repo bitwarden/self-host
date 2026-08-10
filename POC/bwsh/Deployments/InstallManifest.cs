@@ -32,6 +32,14 @@ public sealed class InstallManifest
     // Lite-specific:
     public string? Image { get; set; }                    // override full image ref, e.g. to pin a beta tag for a repro
 
+    /// <summary>
+    /// Standard: per-service image overrides, keyed by service name (mssql, api, web, nginx, …).
+    /// A value replaces the whole reference, so it can point at another registry or tag entirely.
+    /// Intended for testing against a locally built or pre-seeded image without moving every
+    /// service off its pinned version the way core-version does.
+    /// </summary>
+    public Dictionary<string, string> Images { get; set; } = new();
+
     // 0 = use the deployment default (standard 80/443, lite 8080/8443) — the shared manifest must
     // not force lite's ports onto standard.
     public int HttpPort { get; set; }

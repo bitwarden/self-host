@@ -53,6 +53,23 @@ dotnet run -- install --manifest bitwarden.yaml
 
 Add `--plan` to preview without pulling or starting anything.
 
+### Overriding images (standard)
+
+`images:` replaces the reference for individual services, keyed by service name. Use it to point one
+service at a locally built or pre-seeded image while the rest stay on their pinned version:
+
+```yaml
+images:
+  mssql: bitwardenprod.azurecr.io/shot/seeded-mssql:qa-dunder-mifflin-enterprise-full
+```
+
+`core-version` moves every core service at once, so it cannot target one service the way this can.
+The value replaces the whole reference, including registry and tag. Overrides persist to `config.yml`
+so `status`, `update`, and `uninstall` see the same topology `install` built, and an `apply` whose
+manifest omits `images:` clears them.
+
+Images already present locally are not re-pulled, so a `docker load`ed image works without a registry.
+
 ### Apply manifest changes
 
 Manifests can be re-applied to an existing install to change config or toggle services on/off.

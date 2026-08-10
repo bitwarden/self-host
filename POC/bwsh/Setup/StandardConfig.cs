@@ -31,6 +31,12 @@ public sealed class StandardConfig
     public bool EnableScim { get; set; }
     public bool EnableBuiltInMsSql { get; set; } = true;
 
+    /// <summary>
+    /// Per-service image overrides, keyed by service name. Persisted here rather than read from the
+    /// manifest so status/update/uninstall build the same topology install did.
+    /// </summary>
+    public Dictionary<string, string>? Images { get; set; }
+
     [YamlIgnore]
     public string? Domain =>
         Uri.TryCreate(Url, UriKind.Absolute, out var uri) ? uri.Host : null;

@@ -59,6 +59,7 @@ public sealed class StandardDeployment : IDeployment
             InstallationKey = global.GetValueOrDefault("globalSettings__installation__key"),
             EnableKeyConnector = config.EnableKeyConnector,
             EnableScim = config.EnableScim,
+            Images = config.Images ?? new(),
             Ssl = new InstallManifest.SslOptions { Enable = config.Ssl, LetsEncrypt = config.SslManagedLetsEncrypt },
             HttpPort = int.TryParse(config.HttpPort, out var http) ? http : 80,
             HttpsPort = int.TryParse(config.HttpsPort, out var https) ? https : 443,
@@ -107,6 +108,8 @@ public sealed class StandardDeployment : IDeployment
         config.HttpsPort = (a.HttpsPort != 0 ? a.HttpsPort : 443).ToString(CultureInfo.InvariantCulture);
         config.EnableKeyConnector = a.EnableKeyConnector;
         config.EnableScim = a.EnableScim;
+        // The manifest is the source of truth: an apply without `images:` clears prior overrides.
+        config.Images = a.Images.Count > 0 ? a.Images : null;
 
         // Resolve the web TLS cert (HTTPS is on by default). Off => clear paths so only http renders.
         if (ssl)
@@ -173,6 +176,13 @@ public sealed class StandardDeployment : IDeployment
 
         // Loaded up front: drives both the nginx host ports and the optional-service gating below.
         var config = Setup.StandardConfig.Load(root);
+
+        // Per-service image overrides. Falls back to the pinned upstream reference when unset.
+        string Img(string service, string pinned) =>
+            config.Images is { } o && o.TryGetValue(service, out var custom) && !string.IsNullOrWhiteSpace(custom)
+                ? custom
+                : pinned;
+
         var httpHost = int.TryParse(config.HttpPort, out var hp) ? hp : 80;
         var httpsHost = int.TryParse(config.HttpsPort, out var sp) ? sp : 443;
         (int Host, int Container)[] nginxPorts = config.Ssl
@@ -189,33 +199,33 @@ public sealed class StandardDeployment : IDeployment
 
         var services = new List<ServiceSpec>
         {
-            new() { Name = "mssql", ContainerName = "bitwarden-mssql", Image = $"ghcr.io/bitwarden/mssql:{core}",
+            new() { Name = "mssql", ContainerName = "bitwarden-mssql", Image = Img("mssql", $"ghcr.io/bitwarden/mssql:{core}"),
                     EnvFiles = [$"{root}/docker/mssql.env", $"{root}/env/uid.env", $"{root}/env/mssql.override.env"],
                     Networks = [D], StopTimeoutSeconds = 60,
                     Binds = [("bitwarden-mssql-data", "/var/opt/mssql/data"), Logs("mssql"),
                              ($"{root}/mssql/backups", "/etc/bitwarden/mssql/backups")] },
-            new() { Name = "web", ContainerName = "bitwarden-web", Image = $"ghcr.io/bitwarden/web:{web}",
+            new() { Name = "web", ContainerName = "bitwarden-web", Image = Img("web", $"ghcr.io/bitwarden/web:{web}"),
                     EnvFiles = [$"{root}/docker/global.env", $"{root}/env/uid.env"], Networks = [D],
                     Binds = [($"{root}/web", "/etc/bitwarden/web")] },
-            new() { Name = "attachments", ContainerName = "bitwarden-attachments", Image = $"ghcr.io/bitwarden/attachments:{core}",
+            new() { Name = "attachments", ContainerName = "bitwarden-attachments", Image = Img("attachments", $"ghcr.io/bitwarden/attachments:{core}"),
                     EnvFiles = [$"{root}/docker/global.env", $"{root}/env/uid.env"], Networks = [D],
                     Binds = [($"{root}/core/attachments", "/etc/bitwarden/core/attachments")] },
-            new() { Name = "api", ContainerName = "bitwarden-api", Image = $"ghcr.io/bitwarden/api:{core}",
+            new() { Name = "api", ContainerName = "bitwarden-api", Image = Img("api", $"ghcr.io/bitwarden/api:{core}"),
                     EnvFiles = appEnv, Networks = [D, P], Binds = [core_, ca, Logs("api")] },
-            new() { Name = "identity", ContainerName = "bitwarden-identity", Image = $"ghcr.io/bitwarden/identity:{core}",
+            new() { Name = "identity", ContainerName = "bitwarden-identity", Image = Img("identity", $"ghcr.io/bitwarden/identity:{core}"),
                     EnvFiles = appEnv, Networks = [D, P], Binds = [id, core_, ca, Logs("identity")] },
-            new() { Name = "sso", ContainerName = "bitwarden-sso", Image = $"ghcr.io/bitwarden/sso:{core}",
+            new() { Name = "sso", ContainerName = "bitwarden-sso", Image = Img("sso", $"ghcr.io/bitwarden/sso:{core}"),
                     EnvFiles = appEnv, Networks = [D, P], Binds = [id, core_, ca, Logs("sso")] },
-            new() { Name = "admin", ContainerName = "bitwarden-admin", Image = $"ghcr.io/bitwarden/admin:{core}",
+            new() { Name = "admin", ContainerName = "bitwarden-admin", Image = Img("admin", $"ghcr.io/bitwarden/admin:{core}"),
                     EnvFiles = appEnv, Networks = [D, P], DependsOn = ["mssql"], Binds = [core_, ca, Logs("admin")] },
-            new() { Name = "icons", ContainerName = "bitwarden-icons", Image = $"ghcr.io/bitwarden/icons:{core}",
+            new() { Name = "icons", ContainerName = "bitwarden-icons", Image = Img("icons", $"ghcr.io/bitwarden/icons:{core}"),
                     EnvFiles = [$"{root}/docker/global.env", $"{root}/env/uid.env"], Networks = [D, P],
                     Binds = [ca, Logs("icons")] },
-            new() { Name = "notifications", ContainerName = "bitwarden-notifications", Image = $"ghcr.io/bitwarden/notifications:{core}",
+            new() { Name = "notifications", ContainerName = "bitwarden-notifications", Image = Img("notifications", $"ghcr.io/bitwarden/notifications:{core}"),
                     EnvFiles = appEnv, Networks = [D, P], Binds = [ca, Logs("notifications")] },
-            new() { Name = "events", ContainerName = "bitwarden-events", Image = $"ghcr.io/bitwarden/events:{core}",
+            new() { Name = "events", ContainerName = "bitwarden-events", Image = Img("events", $"ghcr.io/bitwarden/events:{core}"),
                     EnvFiles = appEnv, Networks = [D, P], Binds = [ca, Logs("events")] },
-            new() { Name = "nginx", ContainerName = "bitwarden-nginx", Image = $"ghcr.io/bitwarden/nginx:{core}",
+            new() { Name = "nginx", ContainerName = "bitwarden-nginx", Image = Img("nginx", $"ghcr.io/bitwarden/nginx:{core}"),
                     EnvFiles = [$"{root}/env/uid.env"], Networks = [D, P],
                     Ports = nginxPorts, DependsOn = ["web", "admin", "api", "identity"],
                     Binds = [($"{root}/nginx", "/etc/bitwarden/nginx"), ($"{root}/letsencrypt", "/etc/letsencrypt"),
@@ -230,7 +240,7 @@ public sealed class StandardDeployment : IDeployment
             {
                 Name = "key-connector",
                 ContainerName = "bitwarden-key-connector",
-                Image = $"ghcr.io/bitwarden/key-connector:{ctx.Manifest.KeyConnectorVersion}",
+                Image = Img("key-connector", $"ghcr.io/bitwarden/key-connector:{ctx.Manifest.KeyConnectorVersion}"),
                 EnvFiles = [$"{root}/env/uid.env", $"{root}/env/key-connector.override.env"],
                 Networks = [D, P],
                 Binds = [($"{root}/key-connector", "/etc/bitwarden/key-connector"), ca, Logs("key-connector")],
@@ -242,7 +252,7 @@ public sealed class StandardDeployment : IDeployment
             {
                 Name = "scim",
                 ContainerName = "bitwarden-scim",
-                Image = $"ghcr.io/bitwarden/scim:{core}",
+                Image = Img("scim", $"ghcr.io/bitwarden/scim:{core}"),
                 EnvFiles = appEnv,
                 Networks = [D, P],
                 Binds = [core_, ca, Logs("scim")],
