@@ -27,7 +27,6 @@ jobs:
       contents: read
       id-token: write
       packages: write
-      security-events: write
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
