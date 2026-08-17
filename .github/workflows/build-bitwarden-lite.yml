@@ -252,11 +252,13 @@ jobs:
             WEB_IMAGE="bitwardenprod.azurecr.io/web"
           fi
 
-          # Bitwarden Lite image tag: version > override > branch agreement
-          if [[ "$SERVER_REF" =~ ^refs/tags/v(.+)$ ]]; then
-            IMAGE_TAG="${BASH_REMATCH[1]}"
-          elif [[ -n "$OVERRIDE_TAG" ]]; then
+          # Bitwarden Lite image tag: override > version > branch agreement.
+          # `use_latest_core_version` selects which upstream server code to consume; it does not
+          # name the output image. A non-blank override_tag is always honored.
+          if [[ -n "$OVERRIDE_TAG" ]]; then
             IMAGE_TAG="$OVERRIDE_TAG"
+          elif [[ "$SERVER_REF" =~ ^refs/tags/v(.+)$ ]]; then
+            IMAGE_TAG="${BASH_REMATCH[1]}"
           elif [[ "$SERVER_BRANCH" == "$WEB_BRANCH" ]]; then
             case "$SERVER_BRANCH" in
               main) IMAGE_TAG=dev ;;
@@ -279,8 +281,13 @@ jobs:
             SERVER_REGISTRY="bitwardenprod.azurecr.io"
           fi
 
-          # Always push Bitwarden Lite to ACR; also push to GHCR for reserved tags and version tags
-          if [[ "$IMAGE_TAG" == "rc" || "$IMAGE_TAG" == "hotfix-rc" || "$IMAGE_TAG" == "dev" ]] || [[ "$SERVER_REF" =~ ^refs/tags/v ]]; then
+          # Always push Bitwarden Lite to ACR; also push to GHCR for reserved tags and version tags.
+          # A custom override_tag stays ACR-only even when consuming released upstream code: it
+          # names a one-off build, not a published artifact. Checked first, because SERVER_REF is
+          # a version tag whenever use_latest_core_version=true.
+          if [[ -n "$OVERRIDE_TAG" ]]; then
+            PUSH_TO_GHCR=false
+          elif [[ "$IMAGE_TAG" == "rc" || "$IMAGE_TAG" == "hotfix-rc" || "$IMAGE_TAG" == "dev" ]] || [[ "$SERVER_REF" =~ ^refs/tags/v ]]; then
             PUSH_TO_GHCR=true
           else
             PUSH_TO_GHCR=false
