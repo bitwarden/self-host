@@ -437,6 +437,37 @@ jobs:
         id: revision
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # metadata-action builds its `labels` and `annotations` outputs independently, each merging
+      # only its own input over the same generated defaults. Supplying just `labels` leaves the
+      # annotations at the raw defaults (title=self-host, version=<branch>, revision=github.sha).
+      # Build the custom set once here and feed it to both inputs so they cannot drift.
+      - name: Build custom image metadata
+        id: custom-meta
+        env:
+          IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
+          REVISION: ${{ steps.revision.outputs.sha }}
+          SERVER_REGISTRY: ${{ needs.setup.outputs.server_registry }}
+          SERVER_TAG: ${{ needs.setup.outputs.server_tag }}
+          WEB_IMAGE: ${{ needs.setup.outputs.web_image }}
+          WEB_TAG: ${{ needs.setup.outputs.web_tag }}
+        run: |
+          {
+            echo "items<<METADATA_EOF"
+            echo "org.opencontainers.image.title=Bitwarden Lite"
+            echo "org.opencontainers.image.description=All-in-one Bitwarden self-hosted container"
+            echo "org.opencontainers.image.vendor=Bitwarden Inc."
+            echo "org.opencontainers.image.licenses=GPL-3.0"
+            echo "org.opencontainers.image.url=https://bitwarden.com"
+            echo "org.opencontainers.image.source=https://github.com/bitwarden/self-host"
+            echo "org.opencontainers.image.version=${IMAGE_TAG}"
+            echo "org.opencontainers.image.revision=${REVISION}"
+            echo "com.bitwarden.server.registry=${SERVER_REGISTRY}"
+            echo "com.bitwarden.server.tag=${SERVER_TAG}"
+            echo "com.bitwarden.web.image=${WEB_IMAGE}"
+            echo "com.bitwarden.web.tag=${WEB_TAG}"
+            echo "METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Generate image metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -452,19 +483,8 @@ jobs:
             ghcr.io/bitwarden/lite
           # `version` and `revision` are overridden because this action derives both from the
           # git ref, which does not match our resolved image tag or the checked-out commit.
-          labels: |
-            org.opencontainers.image.title=Bitwarden Lite
-            org.opencontainers.image.description=All-in-one Bitwarden self-hosted container
-            org.opencontainers.image.vendor=Bitwarden Inc.
-            org.opencontainers.image.licenses=GPL-3.0
-            org.opencontainers.image.url=https://bitwarden.com
-            org.opencontainers.image.source=https://github.com/bitwarden/self-host
-            org.opencontainers.image.version=${{ needs.setup.outputs.image_tag }}
-            org.opencontainers.image.revision=${{ steps.revision.outputs.sha }}
-            com.bitwarden.server.registry=${{ needs.setup.outputs.server_registry }}
-            com.bitwarden.server.tag=${{ needs.setup.outputs.server_tag }}
-            com.bitwarden.web.image=${{ needs.setup.outputs.web_image }}
-            com.bitwarden.web.tag=${{ needs.setup.outputs.web_tag }}
+          labels: ${{ steps.custom-meta.outputs.items }}
+          annotations: ${{ steps.custom-meta.outputs.items }}
 
       - name: Build and push Docker image
         id: build-docker
