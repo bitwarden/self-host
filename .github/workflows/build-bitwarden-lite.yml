@@ -430,17 +430,10 @@ jobs:
             echo "Skipping tag check for non-version tag: ${IMAGE_TAG}"
           fi
 
-      # `github.sha` points at the triggering commit, which is NOT the built commit when
-      # `self_host_repo_ref` is supplied (dispatch/workflow_call). Read the actual checked-out
-      # HEAD so org.opencontainers.image.revision always names the commit that produced the image.
       - name: Resolve built revision
         id: revision
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      # metadata-action builds its `labels` and `annotations` outputs independently, each merging
-      # only its own input over the same generated defaults. Supplying just `labels` leaves the
-      # annotations at the raw defaults (title=self-host, version=<branch>, revision=github.sha).
-      # Build the custom set once here and feed it to both inputs so they cannot drift.
       - name: Build custom image metadata
         id: custom-meta
         env:
@@ -472,17 +465,11 @@ jobs:
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         env:
-          # Annotate the manifest list too, not just per-arch manifests, so the metadata is
-          # visible on the multi-arch index that clients actually resolve first.
           DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
         with:
-          # Tags come from the `image-ref` step, which encodes this repo's ACR/GHCR promotion
-          # rules. The `tags` output of this action is intentionally unused.
           images: |
             bitwardenprod.azurecr.io/lite
             ghcr.io/bitwarden/lite
-          # `version` and `revision` are overridden because this action derives both from the
-          # git ref, which does not match our resolved image tag or the checked-out commit.
           labels: ${{ steps.custom-meta.outputs.items }}
           annotations: ${{ steps.custom-meta.outputs.items }}
 
