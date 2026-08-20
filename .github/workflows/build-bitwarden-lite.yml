@@ -253,11 +253,13 @@ jobs:
             WEB_IMAGE="bitwardenprod.azurecr.io/web"
           fi
 
-          # Bitwarden Lite image tag: version > override > branch agreement
-          if [[ "$SERVER_REF" =~ ^refs/tags/v(.+)$ ]]; then
-            IMAGE_TAG="${BASH_REMATCH[1]}"
-          elif [[ -n "$OVERRIDE_TAG" ]]; then
+          # Bitwarden Lite image tag: override > version > branch agreement.
+          # `use_latest_core_version` selects which upstream server code to consume; it does not
+          # name the output image. A non-blank override_tag is always honored.
+          if [[ -n "$OVERRIDE_TAG" ]]; then
             IMAGE_TAG="$OVERRIDE_TAG"
+          elif [[ "$SERVER_REF" =~ ^refs/tags/v(.+)$ ]]; then
+            IMAGE_TAG="${BASH_REMATCH[1]}"
           elif [[ "$SERVER_BRANCH" == "$WEB_BRANCH" ]]; then
             case "$SERVER_BRANCH" in
               main) IMAGE_TAG=dev ;;
@@ -280,8 +282,13 @@ jobs:
             SERVER_REGISTRY="bitwardenprod.azurecr.io"
           fi
 
-          # Always push Bitwarden Lite to ACR; also push to GHCR for reserved tags and version tags
-          if [[ "$IMAGE_TAG" == "rc" || "$IMAGE_TAG" == "hotfix-rc" || "$IMAGE_TAG" == "dev" ]] || [[ "$SERVER_REF" =~ ^refs/tags/v ]]; then
+          # Always push Bitwarden Lite to ACR; also push to GHCR for reserved tags and version tags.
+          # A custom override_tag stays ACR-only even when consuming released upstream code: it
+          # names a one-off build, not a published artifact. Checked first, because SERVER_REF is
+          # a version tag whenever use_latest_core_version=true.
+          if [[ -n "$OVERRIDE_TAG" ]]; then
+            PUSH_TO_GHCR=false
+          elif [[ "$IMAGE_TAG" == "rc" || "$IMAGE_TAG" == "hotfix-rc" || "$IMAGE_TAG" == "dev" ]] || [[ "$SERVER_REF" =~ ^refs/tags/v ]]; then
             PUSH_TO_GHCR=true
           else
             PUSH_TO_GHCR=false
@@ -424,6 +431,49 @@ jobs:
             echo "Skipping tag check for non-version tag: ${IMAGE_TAG}"
           fi
 
+      - name: Resolve built revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build custom image metadata
+        id: custom-meta
+        env:
+          IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
+          REVISION: ${{ steps.revision.outputs.sha }}
+          SERVER_REGISTRY: ${{ needs.setup.outputs.server_registry }}
+          SERVER_TAG: ${{ needs.setup.outputs.server_tag }}
+          WEB_IMAGE: ${{ needs.setup.outputs.web_image }}
+          WEB_TAG: ${{ needs.setup.outputs.web_tag }}
+        run: |
+          {
+            echo "items<<METADATA_EOF"
+            echo "org.opencontainers.image.title=Bitwarden Lite"
+            echo "org.opencontainers.image.description=All-in-one Bitwarden self-hosted container"
+            echo "org.opencontainers.image.vendor=Bitwarden Inc."
+            echo "org.opencontainers.image.licenses=GPL-3.0"
+            echo "org.opencontainers.image.url=https://bitwarden.com"
+            echo "org.opencontainers.image.source=https://github.com/bitwarden/self-host"
+            echo "org.opencontainers.image.version=${IMAGE_TAG}"
+            echo "org.opencontainers.image.revision=${REVISION}"
+            echo "com.bitwarden.server.registry=${SERVER_REGISTRY}"
+            echo "com.bitwarden.server.tag=${SERVER_TAG}"
+            echo "com.bitwarden.web.image=${WEB_IMAGE}"
+            echo "com.bitwarden.web.tag=${WEB_TAG}"
+            echo "METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
+        with:
+          images: |
+            bitwardenprod.azurecr.io/lite
+            ghcr.io/bitwarden/lite
+          labels: ${{ steps.custom-meta.outputs.items }}
+          annotations: ${{ steps.custom-meta.outputs.items }}
+
       - name: Build and push Docker image
         id: build-docker
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -436,6 +486,8 @@ jobs:
             linux/arm64/v8
           push: ${{ steps.check-secrets.outputs.has_secrets == 'true' }}
           tags: ${{ steps.image-ref.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           build-args: |
             SERVER_TAG=${{ needs.setup.outputs.server_tag }}
             SERVER_REGISTRY=${{ needs.setup.outputs.server_registry }}
