@@ -82,6 +82,7 @@ RUN mkdir -p \
     /etc/bitwarden/logs \
     /etc/supervisor \
     /etc/supervisor.d \
+    /var/log/bitwarden \
     /app/Identity \
     /app/Sso \
     /app/Web
