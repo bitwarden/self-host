@@ -26,7 +26,6 @@ export globalSettings__installation__key="$BW_INSTALLATION_KEY"
 export globalSettings__internalIdentityKey="${globalSettings__internalIdentityKey:-$INTERNAL_IDENTITY_KEY}"
 export globalSettings__oidcIdentityClientKey="${globalSettings__oidcIdentityClientKey:-$OIDC_IDENTITY_CLIENT_KEY}"
 export globalSettings__duo__aKey="${globalSettings__duo__aKey:-$DUO_AKEY}"
-export globalSettings__identityServer__certificatePassword="${globalSettings__identityServer__certificatePassword:-$IDENTITY_SERVER_CERTIFICATE_PASSWORD}"
 
 export globalSettings__databaseProvider="$BW_DB_PROVIDER"
 export globalSettings__mysql__connectionString="${globalSettings__mysql__connectionString:-$MYSQL_CONNECTION_STRING}"
