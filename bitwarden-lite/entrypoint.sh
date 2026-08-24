@@ -88,7 +88,7 @@ fi
 /bin/sh -c "/logrotate.sh loop >/dev/null 2>&1 &"
 
 # Create necessary directories
-for DIR in /etc/bitwarden/nginx /etc/bitwarden/Web /var/log/bitwarden/nginx /tmp/bitwarden; do
+for DIR in /etc/bitwarden/nginx /etc/bitwarden/Web /etc/bitwarden/attachments/send /etc/bitwarden/data-protection /etc/bitwarden/licenses /var/log/bitwarden/nginx /tmp/bitwarden; do
   if ! mkdir -p "$DIR" || [ ! -w "$DIR" ]; then
     echo "Error: $DIR does not exist or is not writable." >&2
     echo "With a read-only root filesystem, /etc/bitwarden and /var/log/bitwarden must be" >&2
@@ -109,10 +109,10 @@ fi
 /usr/local/bin/hbs
 
 if [ "$(id -u)" = "0" ]; then
-  find /etc/bitwarden /var/log/bitwarden /tmp/bitwarden -follow ! -type l \( ! -group "$PGID" -o ! -user "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
+  find /etc/bitwarden /var/log/bitwarden /tmp/bitwarden ! -type l \( ! -group "$PGID" -o ! -user "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
   exec su-exec "$PUID:$PGID" /usr/bin/supervisord
 else
-  FILES="$(find /etc/bitwarden /var/log/bitwarden -follow ! -type l \( ! -group "$(id -g)" -o ! -user "$(id -u)" \))"
+  FILES="$(find /etc/bitwarden /var/log/bitwarden ! -type l \( ! -group "$(id -g)" -o ! -user "$(id -u)" \))"
   if [ -n "$FILES" ]; then
     echo "Error: the following files are not owned by the current user ($(id -u):$(id -g)):" >&2
     echo "$FILES" >&2
