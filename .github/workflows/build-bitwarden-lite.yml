@@ -450,7 +450,6 @@ jobs:
             echo "org.opencontainers.image.title=Bitwarden Lite"
             echo "org.opencontainers.image.description=All-in-one Bitwarden self-hosted container"
             echo "org.opencontainers.image.vendor=Bitwarden Inc."
-            echo "org.opencontainers.image.licenses=GPL-3.0"
             echo "org.opencontainers.image.url=https://bitwarden.com"
             echo "org.opencontainers.image.source=https://github.com/bitwarden/self-host"
             echo "org.opencontainers.image.version=${IMAGE_TAG}"
