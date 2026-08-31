@@ -83,12 +83,9 @@ RUN mkdir -p \
     /etc/supervisor \
     /etc/supervisor.d \
     /var/log/bitwarden \
-    /var/log/nginx/logs \
-    /etc/nginx/http.d \
-    /var/run/nginx \
-    /var/lib/nginx/tmp \
-    /app \
-    && touch /var/run/nginx/nginx.pid
+    /app/Identity \
+    /app/Sso \
+    /app/Web
 
 # Copy compiled apps from server images
 WORKDIR /app
@@ -103,6 +100,11 @@ COPY --from=sso-app /app /app/Sso
 
 # Copy Web files from web-app stage
 COPY --from=web-app /app /app/Web
+
+# Create soft links for files generated in the entrypoint
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Identity/identity.pfx
+RUN ln -sf /etc/bitwarden/identity.pfx /app/Sso/identity.pfx
+RUN ln -sf /etc/bitwarden/Web/app-id.json /app/Web/app-id.json
 
 # Set up supervisord
 COPY bitwarden-lite/supervisord/*.ini /etc/supervisor.d/
@@ -137,6 +139,7 @@ RUN chmod +x /usr/local/bin/hbs
 COPY bitwarden-lite/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+EXPOSE 8080 8443
 VOLUME ["/etc/bitwarden"]
 
 WORKDIR /app

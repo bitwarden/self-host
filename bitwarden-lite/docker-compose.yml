@@ -11,9 +11,27 @@ services:
     ports:
       - "80:8080"
       - "443:8443"
+    tmpfs: /tmp:rw,noexec,nosuid,nodev,size=768m
     volumes:
       - bitwarden:/etc/bitwarden
       - logs:/var/log/bitwarden
+
+    # Rootless, read-only example (recommended for security)
+    #
+    # Comment out the "volumes" block above, uncomment the block below, and
+    # create the bind mounts owned by the same user:
+    #   mkdir -p ./config ./logs && sudo chown 999:999 ./config ./logs
+    #
+    # Named volumes are not used here because their contents are owned by root
+    # unless you run a rootless docker daemon or podman.
+    #
+    # user: 999:999
+    # read_only: true
+    # security_opt:
+    #   - no-new-privileges
+    # volumes:
+    #   - ./config:/etc/bitwarden
+    #   - ./logs:/var/log/bitwarden
 
   # MariaDB Example
   db:
