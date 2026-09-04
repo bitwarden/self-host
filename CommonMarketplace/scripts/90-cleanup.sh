@@ -44,6 +44,11 @@ EOF
 chmod 644 /etc/cloud/cloud.cfg.d/99-disable-swap.cfg
 
 # Configure SSH client alive interval (Azure requirement: 30-235 seconds).
+# Ensure /run/sshd exists with correct permissions (required for sshd -T in openssh 9.6p1-3ubuntu13.19+)
+mkdir -p /run/sshd
+chmod 755 /run/sshd
+chown root:root /run/sshd
+
 # Write to BOTH the main sshd_config and a drop-in:
 #   - Main file: satisfies Azure's certification probe, which appears to do a
 #     literal grep of /etc/ssh/sshd_config and does not honor Include'd drop-ins.
