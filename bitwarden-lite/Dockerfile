@@ -1,4 +1,4 @@
-# syntax = docker/dockerfile:1.25
+# syntax = docker/dockerfile:1.27
 ARG SERVER_TAG=dev
 ARG SERVER_REGISTRY=ghcr.io/bitwarden
 ARG WEB_IMAGE=ghcr.io/bitwarden/web
