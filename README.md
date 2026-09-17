@@ -10,8 +10,11 @@ All images published to ghcr.io are
 signed by using Cosign's [keyless signing](https://docs.sigstore.dev/cosign/signing/overview/). The images can be
 verified with the following command (where `$IMAGE_NAME` is set to an image in our repository):
 ```sh
-$ cosign verify ghcr.io/bitwarden/$IMAGE_NAME:latest --certificate-identity-regexp="https://github\.com/bitwarden/self-host/\.github/workflows/release\.yml@.*" --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+$ cosign verify ghcr.io/bitwarden/$IMAGE_NAME:latest --certificate-identity-regexp="https://github\.com/bitwarden/deploy/\.github/workflows/release-self-host\.yml@.*" --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
+
+Images released before `2026.4.1` were signed by a release workflow that lived in this repository. To verify those, use
+`--certificate-identity-regexp="https://github\.com/bitwarden/self-host/\.github/workflows/release\.yml@.*"` instead.
 
 ## Quick Deploy
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://marketplace.digitalocean.com/apps/bitwarden?action=deploy)
