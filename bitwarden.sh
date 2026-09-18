@@ -192,6 +192,37 @@ function compressLogs() {
     rm $tempfile
 }
 
+function shareConfig() {
+    TEMP_DIR=$(mktemp -d)
+    BASE_DIR=$(realpath "$OUTPUT")
+    BWDATA_PATH=$(basename "$BASE_DIR")
+
+    while IFS= read -r -d $'\0' file; do
+        rel_path="${file#$BASE_DIR/}"
+        target_path="$TEMP_DIR/$BWDATA_PATH/$rel_path"
+        mkdir -p "$(dirname "$target_path")"
+        cp "$file" "$target_path"        
+        sed -i -e 's/\(globalSettings__duo__aKey=\).*/\1REDACTED/' \
+               -e 's/\(SA_PASSWORD=\).*/\1REDACTED/' \
+               -e 's/\(Password=\).*\(;.*\)/\1REDACTED\2/' \
+               -e 's/\(globalSettings__identityServer__certificatePassword=\).*/\1REDACTED/' \
+               -e 's/\(globalSettings__internalIdentityKey=\).*/\1REDACTED/' \
+               -e 's/\(globalSettings__oidcIdentityClientKey=\).*/\1REDACTED/' \
+               -e 's/\(globalSettings__mail__smtp__username=\).*/\1REDACTED/' \
+               -e 's/\(globalSettings__mail__smtp__password=\).*/\1REDACTED/' \
+               "$target_path"
+    done < <(find "$BASE_DIR" -type f \( -iname "*.conf" -o -iname "*.env" -o -iname "*.xml" -o -iname "*.yml" \) -print0)
+
+    OUTPUT_FILE="bitwarden-configs-redacted-$(date +%Y%m%d%H%M%S).tar.gz"
+    tar -czf "$OUTPUT_FILE" -C "$TEMP_DIR" .
+    rm -rf "$TEMP_DIR"
+
+    echo "The redacted configuration files have been compressed and saved as '$OUTPUT_FILE'."
+    echo "We have attempted to automatically mask sensitive values from your configuration files, however please ensure you check this before sharing."
+    echo "You may wish to remove these configuration files from the provided."
+}
+
+
 function listCommands() {
 cat << EOT
 Available commands:
@@ -209,6 +240,7 @@ uninstall
 renewcert
 rebuild
 compresslogs
+shareconfig
 help
 
 See more at https://bitwarden.com/help/article/install-on-premise/#script-commands-reference
@@ -268,6 +300,10 @@ case $1 in
     "compresslogs")
         checkOutputDirExists
         compressLogs $OUTPUT $2 $3
+        ;;
+    "shareconfig")
+        checkOutputDirExists
+        shareConfig
         ;;
     "help")
         listCommands
