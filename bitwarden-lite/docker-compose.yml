@@ -12,15 +12,27 @@ services:
       - "80:8080"
       - "443:8443"
     tmpfs: /tmp:rw,noexec,nosuid,nodev,size=768m
+    environment:
+      # Recorded in each backup's manifest. Deliberately no default: the app
+      # image tag above is rewritten by release automation that lives outside
+      # this repo and knows nothing about this line, so a second default would
+      # silently drift and make every manifest claim the wrong version. Unset
+      # means the manifest records the tag as unknown, not wrongly.
+      BACKUP_LITE_TAG: ${TAG:-}
     volumes:
       - bitwarden:/etc/bitwarden
       - logs:/var/log/bitwarden
+      # Backups. A host path by default, not a named volume: a backup that
+      # `docker compose down -v` destroys along with the vault is not a backup.
+      # Point this at somewhere that gets copied off-box. Backup knobs live in
+      # settings.env; see backup/README.md.
+      - ${BW_BACKUP_PATH:-./backups}:/backups
 
     # Rootless, read-only example (recommended for security)
     #
     # Comment out the "volumes" block above, uncomment the block below, and
     # create the bind mounts owned by the same user:
-    #   mkdir -p ./config ./logs && sudo chown 999:999 ./config ./logs
+    #   mkdir -p ./config ./logs ./backups && sudo chown 999:999 ./config ./logs ./backups
     #
     # Named volumes are not used here because their contents are owned by root
     # unless you run a rootless docker daemon or podman.
@@ -34,6 +46,7 @@ services:
     # volumes:
     #   - ./config:/etc/bitwarden
     #   - ./logs:/var/log/bitwarden
+    #   - ./backups:/backups
 
   # MariaDB Example
   db:

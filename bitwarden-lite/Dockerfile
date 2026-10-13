@@ -72,7 +72,11 @@ RUN apk add --no-cache \
     unzip \
     su-exec \
     icu-libs \
-    gcompat
+    gcompat \
+    mariadb-client \
+    sqlite \
+    coreutils \
+    tar
 
 # Create required directories
 RUN mkdir -p \
@@ -80,6 +84,7 @@ RUN mkdir -p \
     /etc/bitwarden/data-protection \
     /etc/bitwarden/licenses \
     /etc/bitwarden/logs \
+    /backups \
     /etc/supervisor \
     /etc/supervisor.d \
     /var/log/bitwarden \
@@ -118,6 +123,10 @@ COPY bitwarden-lite/nginx/mime.types /etc/nginx
 COPY bitwarden-lite/nginx/security-headers.conf /etc/nginx
 COPY bitwarden-lite/nginx/security-headers-ssl.conf /etc/nginx
 COPY bitwarden-lite/nginx/logrotate.sh /
+
+# Set up backups
+COPY bitwarden-lite/backup/backup-db.sh /
+COPY bitwarden-lite/backup/restore-db.sh /
 RUN chmod +x /logrotate.sh
 
 # Copy configuration templates
