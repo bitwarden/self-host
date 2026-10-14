@@ -13,19 +13,12 @@ services:
       - "443:8443"
     tmpfs: /tmp:rw,noexec,nosuid,nodev,size=768m
     environment:
-      # Recorded in each backup's manifest. Deliberately no default: the app
-      # image tag above is rewritten by release automation that lives outside
-      # this repo and knows nothing about this line, so a second default would
-      # silently drift and make every manifest claim the wrong version. Unset
-      # means the manifest records the tag as unknown, not wrongly.
+      # Recorded in backup manifests. No default, so it can't drift from the image tag.
       BACKUP_LITE_TAG: ${TAG:-}
     volumes:
       - bitwarden:/etc/bitwarden
       - logs:/var/log/bitwarden
-      # Backups. A host path by default, not a named volume: a backup that
-      # `docker compose down -v` destroys along with the vault is not a backup.
-      # Point this at somewhere that gets copied off-box. Backup knobs live in
-      # settings.env; see backup/README.md.
+      # Backups: a host path, so they survive `down -v`. See backup/README.md.
       - ${BW_BACKUP_PATH:-./backups}:/backups
 
     # Rootless, read-only example (recommended for security)

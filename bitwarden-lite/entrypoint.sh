@@ -107,9 +107,7 @@ fi
 
 /usr/local/bin/hbs
 
-# Warnings rather than exits: deployments that predate backups have no /backups
-# mount, and refusing to start would turn an upgrade into an outage. Without
-# these, the backup program fails each interval and says so only in backup.log.
+# Warn, don't exit: deployments from before backups have no /backups mount.
 backups_mounted() {
   [ -r /proc/self/mountinfo ] || return 0
   awk '$5 == "/backups" { found = 1 } END { exit !found }' /proc/self/mountinfo

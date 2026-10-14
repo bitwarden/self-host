@@ -1,35 +1,19 @@
 #!/bin/sh
 
-# Restore a Bitwarden Lite backup produced by backup-db.sh.
-#
-# The backup loop runs inside the application container, so a restore cannot
-# run there — the application must be stopped, and it is the container. Instead
-# run a second container from the same image with this script as the entrypoint,
-# which gets the config volume read-write without the application holding it:
-#
-#   docker compose stop bitwarden
-#   docker compose run --rm --no-deps --entrypoint /restore-db.sh bitwarden \
-#     /backups/bitwarden-lite_20260915_030000.tar.gz --clean --yes
-#   docker compose up -d
+# Restore a backup-db.sh archive. Run it in a one-off container with the app
+# stopped; see README.md in this directory.
 #
 # Usage: restore-db.sh <archive.tar.gz> [options]
 #   --clean         drop and recreate the database before loading the dump
 #   --yes           don't prompt for confirmation
 #   --db-only       restore only the database dump
 #   --config-only   restore only the config tree
-#
-# The archive is unpacked beside itself (or under RESTORE_STAGE_DIR), not in
-# /tmp, so that directory needs room for the unpacked archive.
 
 set -eu
 
 BACKUP_CONFIG_DIR=${BACKUP_CONFIG_DIR:-/etc/bitwarden}
-# Connection options for every client call, shared with backup-db.sh — e.g.
-# --skip-ssl for a server without TLS. A backup that needed them to connect
-# cannot be restored without them.
 BACKUP_DB_CLIENT_ARGS=${BACKUP_DB_CLIENT_ARGS:-}
 
-# Everything unpacked here is vault data and plaintext key material.
 umask 077
 
 archive=""
@@ -44,7 +28,7 @@ while [ $# -gt 0 ]; do
     --yes|-y) assume_yes=1 ;;
     --db-only) do_config=0 ;;
     --config-only) do_db=0 ;;
-    -h|--help) sed -n '3,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '3,10p' "$0"; exit 0 ;;
     -*) echo "restore: unknown option $1" >&2; exit 2 ;;
     *) archive="$1" ;;
   esac
@@ -54,8 +38,7 @@ done
 log() { echo "restore: $*"; }
 fail() { echo "restore: ERROR $*" >&2; exit 1; }
 
-# The password travels in MYSQL_PWD, exported by the caller, never on the
-# command line.
+# The caller exports MYSQL_PWD.
 db_client() {
   # shellcheck disable=SC2086
   mariadb --host="$BW_DB_SERVER" --port="${BW_DB_PORT:-3306}" \
@@ -100,9 +83,7 @@ if [ "$assume_yes" != "1" ]; then
   esac
 fi
 
-# Not /tmp: the archive unpacks to the dump plus every attachment, which can be
-# far larger than the container's /tmp tmpfs (backup-db.sh stages under the
-# backups directory for the same reason).
+# Not /tmp: attachments can exceed the container's tmpfs.
 stage_parent=${RESTORE_STAGE_DIR:-$(dirname "$archive")}
 stage=$(mktemp -d "${stage_parent}/.restore_XXXXXX") \
   || fail "cannot create a staging directory in ${stage_parent}; set RESTORE_STAGE_DIR to a writable directory with room for the unpacked archive"
@@ -112,10 +93,7 @@ trap "rm -rf '$stage'" EXIT INT TERM
 log "unpacking"
 tar -xzf "$archive" -C "$stage"
 
-# Reach the database before overwriting anything, so a server that is down or
-# misconfigured fails the restore while the target is still untouched. On a
-# clean host the database container has usually only just been started, and a
-# fresh MariaDB runs a socket-only init server for its first seconds, so wait.
+# Reach the database before changing anything; a freshly started one needs a moment.
 if [ "$do_db" = "1" ]; then
   case "${BW_DB_PROVIDER:-mysql}" in
     mysql|mariadb)
@@ -138,23 +116,17 @@ if [ "$do_db" = "1" ]; then
   esac
 fi
 
-# Config before the database. For SQLite the database file lives inside the
-# config tree, and archives made before the live file was excluded also carry
-# a raw copy of it in config/. Restoring the snapshot last means it always wins.
+# Config before the database, so a SQLite snapshot always wins over any copy in config/.
 if [ "$do_config" = "1" ]; then
   [ -d "$stage/config" ] || fail "no config/ tree found in the archive"
   [ -d "$BACKUP_CONFIG_DIR" ] || fail "${BACKUP_CONFIG_DIR} is not mounted"
   [ -w "$BACKUP_CONFIG_DIR" ] || fail "${BACKUP_CONFIG_DIR} is not writable"
 
   log "restoring config into ${BACKUP_CONFIG_DIR}"
-  # Copy over the top rather than wiping first: files present on the target but
-  # absent from the archive (extra data-protection keys, stray attachments) are
-  # harmless, whereas deleting them is not reversible.
+  # Copy over the top: deleting extra files on the target is not reversible.
   cp -a "$stage/config/." "$BACKUP_CONFIG_DIR/"
 
-  # The application expects the tree to be owned by its PUID:PGID. Its own
-  # entrypoint fixes this on start when running as root, but a rootless or
-  # read-only deployment cannot, so set it here while we still can.
+  # Rootless deployments can't fix ownership at start, so do it here.
   if [ "$(id -u)" = "0" ]; then
     chown -R "${PUID:-911}:${PGID:-911}" "$BACKUP_CONFIG_DIR"
     log "config ownership set to ${PUID:-911}:${PGID:-911}"
@@ -196,12 +168,9 @@ if [ "$do_db" = "1" ]; then
       db_file=${BW_DB_FILE:-/etc/bitwarden/vault.db}
 
       log "restoring $(basename "$dump") to ${db_file}"
-      # Remove the write-ahead log and shared-memory sidecars if present: they
-      # belong to the database being replaced, and leaving them would let SQLite
-      # replay them over the restored file.
+      # Stale -wal/-shm files would be replayed over the restored database.
       rm -f "${db_file}-wal" "${db_file}-shm"
       cp "$dump" "$db_file"
-      # Ownership is fixed up for the config tree above, which ran first.
       if [ "$(id -u)" = "0" ]; then
         chown "${PUID:-911}:${PGID:-911}" "$db_file"
       fi
