@@ -11,6 +11,7 @@ One gzipped tar per interval, in `/backups`:
 ```
 bitwarden-lite_20260915_030000.tar.gz
 ├── database/vault_20260915_030000.sql   the database dump (mysql/mariadb)
+│   └──        vault_20260915_030000.dump or the dump (postgresql)
 │   └──        vault_20260915_030000.db  or the database file (sqlite)
 ├── config/                              /etc/bitwarden, excluding logs/ (and the
 │                                        live database file, for sqlite)
@@ -62,8 +63,8 @@ copy them off-box.
 | `BW_DB_PROVIDER` | Backed up with | Supported |
 | --- | --- | --- |
 | `mysql`, `mariadb` | `mariadb-dump --single-transaction` | Yes, against MariaDB |
+| `postgresql` | `pg_dump --format=custom` | Yes, PostgreSQL 18 and older |
 | `sqlite` | `sqlite3 .backup` | Yes |
-| `postgresql` | — | No |
 | `sqlserver` | — | No |
 
 For unsupported providers the loop logs why and takes no backup, rather than
@@ -75,6 +76,10 @@ authenticate to a stock MySQL 8 server — MySQL 8's default
 `caching_sha2_password` plugin is not available in Alpine's MariaDB packages. If
 `BW_DB_SERVER` points at a real MySQL 8 server rather than the bundled MariaDB,
 back it up with your own tooling for now.
+
+A note on PostgreSQL: the image ships the PostgreSQL 18 client, which can back
+up and restore servers up to version 18. It refuses a newer server. A restore
+runs in a single transaction, so a failure leaves the database unchanged.
 
 ## Configuration
 
@@ -91,8 +96,8 @@ defaults and meanings as the multi-container product, so the two read alike.
 | `BACKUP_RETENTION_DAYS` | `32` | Delete archives older than this many days. `0` disables the sweep. |
 | `BACKUP_FILE_MODE` | `600` | Mode of the finished archive. `640` if the process copying it off-box shares the container's group. |
 | `BACKUP_INCLUDE_SETTINGS` | `false` | Include `settings.env` in each archive. Requires mounting it at `/settings.env`. |
-| `BACKUP_DB_CLIENT_ARGS` | — | Connection options for every database client call, backup and restore alike, e.g. `--skip-ssl` for a server without TLS. |
-| `BACKUP_DB_EXTRA_ARGS` | — | Extra options for `mariadb-dump` only. The restore does not use them, so don't put connection options here. |
+| `BACKUP_DB_CLIENT_ARGS` | — | Connection options for every database client call, backup and restore alike, e.g. `--skip-ssl` for a MariaDB server without TLS. (PostgreSQL's `PG*` environment variables, such as `PGSSLMODE`, also work.) |
+| `BACKUP_DB_EXTRA_ARGS` | — | Extra options for the dump only (`mariadb-dump` or `pg_dump`). The restore does not use them, so don't put connection options here. |
 
 Old archives are only ever deleted **after** a new one has been written and
 verified. A failed backup leaves the ones you already have alone.
@@ -145,8 +150,9 @@ docker compose run --rm --no-deps --entrypoint /restore-db.sh bitwarden \
 docker compose up -d
 ```
 
-`--clean` drops and recreates the database before loading the dump; leave it off
-to load over the existing schema. `--yes` skips the confirmation prompt.
+`--clean` replaces what is in the database: MariaDB drops and recreates it, and
+PostgreSQL drops the objects in the dump before recreating them. Leave it off to
+load into an empty database. `--yes` skips the confirmation prompt.
 
 The restore unpacks the archive into a temporary directory beside it, so the
 backups directory needs free space for the unpacked archive, roughly the
@@ -177,9 +183,9 @@ discriminator is pinned rather than derived from the host or install path, so an
 archive unprotects correctly wherever you restore it. You need the archive and
 your `settings.env`.
 
-On a new machine nothing is running yet. With MariaDB, start the database first
-so the restore has something to load into. The restore waits for it to accept
-connections:
+On a new machine nothing is running yet. With MariaDB or PostgreSQL, start the
+database first so the restore has something to load into. The restore waits for
+it to accept connections:
 
 ```bash
 docker compose up -d db

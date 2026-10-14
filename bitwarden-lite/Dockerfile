@@ -74,6 +74,7 @@ RUN apk add --no-cache \
     icu-libs \
     gcompat \
     mariadb-client \
+    postgresql18-client \
     sqlite \
     coreutils \
     tar

@@ -4,7 +4,7 @@
 # stopped; see README.md in this directory.
 #
 # Usage: restore-db.sh <archive.tar.gz> [options]
-#   --clean         drop and recreate the database before loading the dump
+#   --clean         replace the existing database contents
 #   --yes           don't prompt for confirmation
 #   --db-only       restore only the database dump
 #   --config-only   restore only the config tree
@@ -38,11 +38,16 @@ done
 log() { echo "restore: $*"; }
 fail() { echo "restore: ERROR $*" >&2; exit 1; }
 
-# The caller exports MYSQL_PWD.
+# The caller exports MYSQL_PWD or PGPASSWORD.
 db_client() {
   # shellcheck disable=SC2086
   mariadb --host="$BW_DB_SERVER" --port="${BW_DB_PORT:-3306}" \
     --user="$BW_DB_USERNAME" $BACKUP_DB_CLIENT_ARGS "$@"
+}
+pg_client() {
+  # shellcheck disable=SC2086
+  psql --host="$BW_DB_SERVER" --port="${BW_DB_PORT:-5432}" --username="$BW_DB_USERNAME" \
+    --no-password --dbname="$BW_DB_DATABASE" $BACKUP_DB_CLIENT_ARGS "$@"
 }
 
 [ -n "$archive" ] || fail "no archive given. Usage: restore-db.sh <archive.tar.gz> [--clean] [--yes]"
@@ -113,6 +118,23 @@ if [ "$do_db" = "1" ]; then
         sleep 2
       done
       ;;
+    postgresql|postgres)
+      for var in BW_DB_SERVER BW_DB_DATABASE BW_DB_USERNAME BW_DB_PASSWORD; do
+        eval "value=\${$var:-}"
+        [ -n "$value" ] || fail "$var is not set; cannot reach the database"
+      done
+      PGPASSWORD="$BW_DB_PASSWORD"
+      export PGPASSWORD
+      log "waiting for the database server at ${BW_DB_SERVER}:${BW_DB_PORT:-5432}"
+      tries=0
+      until err=$(pg_client --command="SELECT 1" 2>&1 >/dev/null); do
+        tries=$((tries + 1))
+        if [ "$tries" -ge 60 ]; then
+          fail "cannot connect to ${BW_DB_SERVER}:${BW_DB_PORT:-5432} as ${BW_DB_USERNAME} after 120s; nothing has been changed. Last error: ${err}"
+        fi
+        sleep 2
+      done
+      ;;
   esac
 fi
 
@@ -160,6 +182,28 @@ if [ "$do_db" = "1" ]; then
       db_client "$BW_DB_DATABASE" < "$dump" || fail "loading the dump failed"
 
       unset MYSQL_PWD
+      ;;
+
+    postgresql|postgres)
+      dump=$(find "$stage/database" -maxdepth 1 -type f -name '*.dump' 2>/dev/null | head -1)
+      [ -n "$dump" ] || fail "no .dump file found in the archive"
+
+      set -- --no-owner --no-acl
+      [ "$clean" = "1" ] && set -- "$@" --clean --if-exists
+      pg_restore "$@" --file="$stage/restore.sql" "$dump" || fail "could not read $(basename "$dump")"
+
+      # pg_dump 17+ emits a setting that older servers reject.
+      server_num=$(pg_client --tuples-only --no-align --command="SHOW server_version_num") \
+        || fail "could not query the server version"
+      if [ "$server_num" -lt 170000 ]; then
+        sed -i '/^SET transaction_timeout = /d' "$stage/restore.sql"
+      fi
+
+      log "loading $(basename "$dump") into ${BW_DB_DATABASE} in a single transaction"
+      pg_client --quiet --set=ON_ERROR_STOP=1 --single-transaction \
+        --file="$stage/restore.sql" >/dev/null || fail "loading the dump failed; nothing was changed"
+
+      unset PGPASSWORD
       ;;
 
     sqlite)

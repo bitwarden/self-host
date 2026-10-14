@@ -29,7 +29,7 @@ BACKUP_FILE_MODE=${BACKUP_FILE_MODE:-600}
 BACKUP_INCLUDE_SETTINGS=${BACKUP_INCLUDE_SETTINGS:-false}
 BACKUP_SETTINGS_FILE=${BACKUP_SETTINGS_FILE:-/settings.env}
 
-# CLIENT_ARGS go to every client call, backup and restore; EXTRA_ARGS to mariadb-dump only.
+# CLIENT_ARGS go to every client call, backup and restore; EXTRA_ARGS to the dump only.
 BACKUP_DB_CLIENT_ARGS=${BACKUP_DB_CLIENT_ARGS:-}
 BACKUP_DB_EXTRA_ARGS=${BACKUP_DB_EXTRA_ARGS:-}
 
@@ -59,6 +59,7 @@ is_mounted() {
 provider() {
   case "${BW_DB_PROVIDER:-mysql}" in
     mysql|mariadb) echo mysql ;;
+    postgresql|postgres) echo postgresql ;;
     sqlite) echo sqlite ;;
     *) echo unsupported ;;
   esac
@@ -106,6 +107,39 @@ dump_database() {
       unset MYSQL_PWD
       ;;
 
+    postgresql)
+      dump_name="vault_${now}.dump"
+      target="${stage_db}/${dump_name}"
+
+      for var in BW_DB_SERVER BW_DB_DATABASE BW_DB_USERNAME BW_DB_PASSWORD; do
+        eval "value=\${$var:-}"
+        if [ -z "$value" ]; then
+          fail "$var is not set; cannot dump the database."
+          return 1
+        fi
+      done
+
+      # PGPASSWORD, not a connection string: command-line arguments are visible in /proc.
+      PGPASSWORD="$BW_DB_PASSWORD"
+      export PGPASSWORD
+
+      set -- \
+        --host="$BW_DB_SERVER" \
+        --port="${BW_DB_PORT:-5432}" \
+        --username="$BW_DB_USERNAME" \
+        --no-password \
+        --format=custom
+
+      # shellcheck disable=SC2086
+      [ -n "$BACKUP_DB_CLIENT_ARGS" ] && set -- "$@" $BACKUP_DB_CLIENT_ARGS
+      # shellcheck disable=SC2086
+      [ -n "$BACKUP_DB_EXTRA_ARGS" ] && set -- "$@" $BACKUP_DB_EXTRA_ARGS
+
+      pg_dump "$@" --file="$target" "$BW_DB_DATABASE"
+      status=$?
+      unset PGPASSWORD
+      ;;
+
     sqlite)
       dump_name="vault_${now}.db"
       target="${stage_db}/${dump_name}"
@@ -123,9 +157,9 @@ dump_database() {
 
     *)
       fail "BW_DB_PROVIDER=${BW_DB_PROVIDER:-} is not supported."
-      fail "This backup covers mysql/mariadb and sqlite. PostgreSQL and SQL"
-      fail "Server under Lite are not implemented — back them up yourself, and"
-      fail "include ${BACKUP_CONFIG_DIR} when you do or the dump will not restore."
+      fail "This backup covers mysql/mariadb, postgresql and sqlite. SQL Server under"
+      fail "Lite is not implemented — back it up yourself, and include"
+      fail "${BACKUP_CONFIG_DIR} when you do or the dump will not restore."
       return 1
       ;;
   esac
@@ -149,6 +183,14 @@ dump_database() {
 server_version() {
   if [ "$(provider)" = "sqlite" ]; then
     sqlite3 --version 2>/dev/null | cut -d' ' -f1 || echo "unknown"
+    return
+  fi
+  if [ "$(provider)" = "postgresql" ]; then
+    # shellcheck disable=SC2086
+    PGPASSWORD="${BW_DB_PASSWORD:-}" psql --host="${BW_DB_SERVER:-}" --port="${BW_DB_PORT:-5432}" \
+      --username="${BW_DB_USERNAME:-}" --dbname="${BW_DB_DATABASE:-}" --no-password \
+      $BACKUP_DB_CLIENT_ARGS --tuples-only --no-align --command="SHOW server_version" 2>/dev/null \
+      || echo "unknown"
     return
   fi
   MYSQL_PWD="${BW_DB_PASSWORD:-}"
