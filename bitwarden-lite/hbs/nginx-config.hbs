@@ -109,8 +109,14 @@ server {
     root /app/Web;
   }
 
+  # Send files only. Cipher attachments are served by the API's signed-URL
+  # endpoint (/api/ciphers/attachment/download) and must not be exposed here.
+  location /attachments/send/ {
+    alias /etc/bitwarden/attachments/send/;
+  }
+
   location /attachments/ {
-    alias /etc/bitwarden/attachments/;
+    return 404;
   }
 {{#if (String.Equal env.BW_ENABLE_API "true")}}
 
