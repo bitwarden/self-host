@@ -20,6 +20,8 @@ services:
       - logs:/var/log/bitwarden
       # Backups: a host path, so they survive `down -v`. See backup/README.md.
       - ${BW_BACKUP_PATH:-./backups}:/backups
+      # SQL Server only: where Lite collects SQL Server's backup files.
+      # - mssqlbackups:/mssql-backups
 
     # Rootless, read-only example (recommended for security)
     #
@@ -64,18 +66,26 @@ services:
   #   volumes:
   #     - data:/var/lib/postgresql/data
 
-  # MS SQL Server Example
-  # Docs: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-deployment
+  # MS SQL Server Example (amd64 hosts only: SQL Server has no ARM build)
+  # The same image as the multi-container product. LOCAL_UID/LOCAL_GID must
+  # match Lite's PUID/PGID so both can read the backup files, and BACKUP_DB=0
+  # leaves the schedule to Lite. Uncomment mssqlbackups in Lite's volumes and
+  # at the bottom too. See backup/README.md.
   # db:
   #   environment:
-  #     MSSQL_SA_PASSWORD: "super_strong_password"
-  #     ACCEPT_EULA: Y
-  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #     SA_PASSWORD: "super_strong_password"
+  #     ACCEPT_EULA: "Y"
+  #     LOCAL_UID: "911"
+  #     LOCAL_GID: "911"
+  #     BACKUP_DB: "0"
+  #   image: ghcr.io/bitwarden/mssql:2026.9.2
   #   restart: always
   #   volumes:
   #     - data:/var/opt/mssql
+  #     - mssqlbackups:/etc/bitwarden/mssql/backups
 
 volumes:
   bitwarden:
   logs:
   data:
+  # mssqlbackups:

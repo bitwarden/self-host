@@ -79,6 +79,23 @@ RUN apk add --no-cache \
     coreutils \
     tar
 
+# Microsoft's sqlcmd, for SQL Server backups. amd64 only: SQL Server itself has
+# no ARM build. Not in Alpine's repos, so the packages are pinned by checksum
+# (taken from files whose Microsoft GPG signatures verified).
+ARG MSSQL_ODBC_URL=https://download.microsoft.com/download/ade174b7-8cea-4543-91a6-c33ae320c2f0/msodbcsql18_18.7.1.1-1_amd64.apk
+ARG MSSQL_ODBC_SHA256=9ff10ec65dcbbe9ad57ed7fca648d8e7d09d4a25fc3c1095046f36a29f86b84a
+ARG MSSQL_TOOLS_URL=https://download.microsoft.com/download/a5dcc5e7-6124-49d3-8df4-48d738a0e784/mssql-tools18_18.7.1.1-1_amd64.apk
+ARG MSSQL_TOOLS_SHA256=f7aed935704f2ab8ed6c21a9bfc94a6135df0994b81f606a27629afbcc52cfe9
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+      cd /tmp \
+      && curl --proto "=https" -fsSL -o msodbcsql18.apk "$MSSQL_ODBC_URL" \
+      && curl --proto "=https" -fsSL -o mssql-tools18.apk "$MSSQL_TOOLS_URL" \
+      && echo "$MSSQL_ODBC_SHA256  msodbcsql18.apk" | sha256sum -c - \
+      && echo "$MSSQL_TOOLS_SHA256  mssql-tools18.apk" | sha256sum -c - \
+      && apk add --no-cache --allow-untrusted msodbcsql18.apk mssql-tools18.apk \
+      && rm msodbcsql18.apk mssql-tools18.apk; \
+    fi
+
 # Create required directories
 RUN mkdir -p \
     /etc/bitwarden/attachments/send \

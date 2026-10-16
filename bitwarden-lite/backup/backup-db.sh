@@ -33,6 +33,12 @@ BACKUP_SETTINGS_FILE=${BACKUP_SETTINGS_FILE:-/settings.env}
 BACKUP_DB_CLIENT_ARGS=${BACKUP_DB_CLIENT_ARGS:-}
 BACKUP_DB_EXTRA_ARGS=${BACKUP_DB_EXTRA_ARGS:-}
 
+# SQL Server writes its backup on its own side, so the two containers share a
+# volume: SERVER_DIR is where SQL Server sees it, SHARED_DIR where Lite does.
+BACKUP_MSSQL_SERVER_DIR=${BACKUP_MSSQL_SERVER_DIR:-/etc/bitwarden/mssql/backups}
+BACKUP_MSSQL_SHARED_DIR=${BACKUP_MSSQL_SHARED_DIR:-/mssql-backups}
+SQLCMD=/opt/mssql-tools18/bin/sqlcmd
+
 ARCHIVE_PREFIX=bitwarden-lite
 
 umask 077
@@ -61,6 +67,7 @@ provider() {
     mysql|mariadb) echo mysql ;;
     postgresql|postgres) echo postgresql ;;
     sqlite) echo sqlite ;;
+    sqlserver|mssql) echo sqlserver ;;
     *) echo unsupported ;;
   esac
 }
@@ -155,11 +162,65 @@ dump_database() {
       status=$?
       ;;
 
+    sqlserver)
+      dump_name="vault_${now}.bak"
+      target="${stage_db}/${dump_name}"
+
+      if [ ! -x "$SQLCMD" ]; then
+        fail "BW_DB_PROVIDER=sqlserver, but this image has no SQL Server tools. They are"
+        fail "only installed on amd64, because SQL Server has no ARM build. Back up SQL Server"
+        fail "yourself, and include ${BACKUP_CONFIG_DIR} when you do or the dump will not restore."
+        return 1
+      fi
+
+      for var in BW_DB_SERVER BW_DB_DATABASE BW_DB_USERNAME BW_DB_PASSWORD; do
+        eval "value=\${$var:-}"
+        if [ -z "$value" ]; then
+          fail "$var is not set; cannot dump the database."
+          return 1
+        fi
+      done
+
+      if [ ! -d "$BACKUP_MSSQL_SHARED_DIR" ] || ! is_mounted "$BACKUP_MSSQL_SHARED_DIR"; then
+        fail "SQL Server writes backups on its own side, and nothing is mounted at"
+        fail "${BACKUP_MSSQL_SHARED_DIR} to collect them from. Share a volume between the db"
+        fail "service (at ${BACKUP_MSSQL_SERVER_DIR}) and this one — see bitwarden-lite/backup/README.md."
+        fail "A SQL Server outside this compose project cannot share one; back it up yourself."
+        return 1
+      fi
+
+      bak="${BACKUP_MSSQL_SHARED_DIR}/${dump_name}"
+      # ]] escapes ] inside a bracketed name.
+      db_ident=$(printf '%s' "$BW_DB_DATABASE" | sed 's/]/]]/g')
+
+      # SQLCMDPASSWORD, not -P: command-line arguments are visible in /proc.
+      # sqlcmd prints server errors to stdout, so keep it for the log.
+      # shellcheck disable=SC2086
+      out=$(SQLCMDPASSWORD="$BW_DB_PASSWORD" "$SQLCMD" \
+        -S "${BW_DB_SERVER},${BW_DB_PORT:-1433}" -U "$BW_DB_USERNAME" -C -b \
+        $BACKUP_DB_CLIENT_ARGS $BACKUP_DB_EXTRA_ARGS \
+        -Q "BACKUP DATABASE [${db_ident}] TO DISK = N'${BACKUP_MSSQL_SERVER_DIR}/${dump_name}' WITH COPY_ONLY, INIT, CHECKSUM" \
+        2>&1)
+      status=$?
+      [ $status -ne 0 ] && printf '%s\n' "$out" | tail -n 5 | while read -r line; do fail "$line"; done
+
+      if [ $status -eq 0 ]; then
+        if [ -r "$bak" ]; then
+          cp "$bak" "$target" || status=1
+        else
+          fail "SQL Server reported success, but ${bak} is not readable as $(id -u):$(id -g)."
+          fail "Check the volume at ${BACKUP_MSSQL_SHARED_DIR} is the one SQL Server writes"
+          fail "${BACKUP_MSSQL_SERVER_DIR} to, and that its LOCAL_UID/LOCAL_GID match this container's user."
+          status=1
+        fi
+      fi
+      rm -f "$bak" 2>/dev/null
+      ;;
+
     *)
       fail "BW_DB_PROVIDER=${BW_DB_PROVIDER:-} is not supported."
-      fail "This backup covers mysql/mariadb, postgresql and sqlite. SQL Server under"
-      fail "Lite is not implemented — back it up yourself, and include"
-      fail "${BACKUP_CONFIG_DIR} when you do or the dump will not restore."
+      fail "This backup covers mysql/mariadb, postgresql, sqlite and sqlserver. Back it up"
+      fail "yourself, and include ${BACKUP_CONFIG_DIR} when you do or the dump will not restore."
       return 1
       ;;
   esac
@@ -183,6 +244,14 @@ dump_database() {
 server_version() {
   if [ "$(provider)" = "sqlite" ]; then
     sqlite3 --version 2>/dev/null | cut -d' ' -f1 || echo "unknown"
+    return
+  fi
+  if [ "$(provider)" = "sqlserver" ]; then
+    # shellcheck disable=SC2086
+    version=$(SQLCMDPASSWORD="${BW_DB_PASSWORD:-}" "$SQLCMD" -S "${BW_DB_SERVER:-},${BW_DB_PORT:-1433}" \
+      -U "${BW_DB_USERNAME:-}" -C -b $BACKUP_DB_CLIENT_ARGS -h -1 -W \
+      -Q "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductVersion') AS nvarchar(128)) + ' ' + CAST(SERVERPROPERTY('Edition') AS nvarchar(128))" \
+      2>/dev/null) && [ -n "$version" ] && echo "$version" | head -1 || echo "unknown"
     return
   fi
   if [ "$(provider)" = "postgresql" ]; then

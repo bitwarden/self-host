@@ -13,6 +13,9 @@ set -eu
 
 BACKUP_CONFIG_DIR=${BACKUP_CONFIG_DIR:-/etc/bitwarden}
 BACKUP_DB_CLIENT_ARGS=${BACKUP_DB_CLIENT_ARGS:-}
+BACKUP_MSSQL_SERVER_DIR=${BACKUP_MSSQL_SERVER_DIR:-/etc/bitwarden/mssql/backups}
+BACKUP_MSSQL_SHARED_DIR=${BACKUP_MSSQL_SHARED_DIR:-/mssql-backups}
+SQLCMD=/opt/mssql-tools18/bin/sqlcmd
 
 umask 077
 
@@ -38,7 +41,7 @@ done
 log() { echo "restore: $*"; }
 fail() { echo "restore: ERROR $*" >&2; exit 1; }
 
-# The caller exports MYSQL_PWD or PGPASSWORD.
+# The caller exports MYSQL_PWD, PGPASSWORD or SQLCMDPASSWORD.
 db_client() {
   # shellcheck disable=SC2086
   mariadb --host="$BW_DB_SERVER" --port="${BW_DB_PORT:-3306}" \
@@ -48,6 +51,11 @@ pg_client() {
   # shellcheck disable=SC2086
   psql --host="$BW_DB_SERVER" --port="${BW_DB_PORT:-5432}" --username="$BW_DB_USERNAME" \
     --no-password --dbname="$BW_DB_DATABASE" $BACKUP_DB_CLIENT_ARGS "$@"
+}
+mssql_client() {
+  # shellcheck disable=SC2086
+  "$SQLCMD" -S "${BW_DB_SERVER},${BW_DB_PORT:-1433}" -U "$BW_DB_USERNAME" -C -b \
+    $BACKUP_DB_CLIENT_ARGS "$@"
 }
 
 [ -n "$archive" ] || fail "no archive given. Usage: restore-db.sh <archive.tar.gz> [--clean] [--yes]"
@@ -135,6 +143,27 @@ if [ "$do_db" = "1" ]; then
         sleep 2
       done
       ;;
+    sqlserver|mssql)
+      [ -x "$SQLCMD" ] || fail "this image has no SQL Server tools (amd64 only: SQL Server has no ARM build); nothing has been changed"
+      for var in BW_DB_SERVER BW_DB_DATABASE BW_DB_USERNAME BW_DB_PASSWORD; do
+        eval "value=\${$var:-}"
+        [ -n "$value" ] || fail "$var is not set; cannot reach the database"
+      done
+      [ -d "$BACKUP_MSSQL_SHARED_DIR" ] && [ -w "$BACKUP_MSSQL_SHARED_DIR" ] \
+        || fail "${BACKUP_MSSQL_SHARED_DIR} is not mounted or not writable, so the backup cannot be handed to SQL Server; nothing has been changed. See bitwarden-lite/backup/README.md"
+      SQLCMDPASSWORD="$BW_DB_PASSWORD"
+      export SQLCMDPASSWORD
+      log "waiting for the database server at ${BW_DB_SERVER}:${BW_DB_PORT:-1433}"
+      # SQL Server takes longer than the others to accept connections on first start.
+      tries=0
+      until err=$(mssql_client -Q "SELECT 1" 2>&1 >/dev/null); do
+        tries=$((tries + 1))
+        if [ "$tries" -ge 90 ]; then
+          fail "cannot connect to ${BW_DB_SERVER}:${BW_DB_PORT:-1433} as ${BW_DB_USERNAME} after 180s; nothing has been changed. Last error: ${err}"
+        fi
+        sleep 2
+      done
+      ;;
   esac
 fi
 
@@ -204,6 +233,36 @@ if [ "$do_db" = "1" ]; then
         --file="$stage/restore.sql" >/dev/null || fail "loading the dump failed; nothing was changed"
 
       unset PGPASSWORD
+      ;;
+
+    sqlserver|mssql)
+      dump=$(find "$stage/database" -maxdepth 1 -type f -name '*.bak' 2>/dev/null | head -1)
+      [ -n "$dump" ] || fail "no .bak file found in the archive"
+      name=$(basename "$dump")
+
+      # SQL Server reads the file from its side of the shared volume, as its own user.
+      cp "$dump" "${BACKUP_MSSQL_SHARED_DIR}/${name}" || fail "could not copy ${name} to ${BACKUP_MSSQL_SHARED_DIR}"
+      if [ "$(id -u)" = "0" ]; then
+        chown "${PUID:-911}:${PGID:-911}" "${BACKUP_MSSQL_SHARED_DIR}/${name}"
+      fi
+
+      db_ident=$(printf '%s' "$BW_DB_DATABASE" | sed 's/]/]]/g')
+      with="CHECKSUM"
+      [ "$clean" = "1" ] && with="REPLACE, CHECKSUM"
+
+      log "restoring ${name} into ${BW_DB_DATABASE}"
+      if ! out=$(mssql_client -d master \
+          -Q "RESTORE DATABASE [${db_ident}] FROM DISK = N'${BACKUP_MSSQL_SERVER_DIR}/${name}' WITH ${with}" 2>&1); then
+        rm -f "${BACKUP_MSSQL_SHARED_DIR}/${name}"
+        echo "$out" | tail -5 >&2
+        if [ "$clean" != "1" ] && echo "$out" | grep -q "Msg 3154\|already exists"; then
+          fail "the database already exists; rerun with --clean to replace it"
+        fi
+        fail "RESTORE DATABASE failed"
+      fi
+      rm -f "${BACKUP_MSSQL_SHARED_DIR}/${name}"
+
+      unset SQLCMDPASSWORD
       ;;
 
     sqlite)

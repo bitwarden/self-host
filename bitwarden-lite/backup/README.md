@@ -13,6 +13,7 @@ bitwarden-lite_20260915_030000.tar.gz
 ├── database/vault_20260915_030000.sql   the database dump (mysql/mariadb)
 │   └──        vault_20260915_030000.dump or the dump (postgresql)
 │   └──        vault_20260915_030000.db  or the database file (sqlite)
+│   └──        vault_20260915_030000.bak or the native backup (sqlserver)
 ├── config/                              /etc/bitwarden, excluding logs/ (and the
 │                                        live database file, for sqlite)
 └── manifest.txt                         what this archive is, and its dump checksum
@@ -65,9 +66,9 @@ copy them off-box.
 | `mysql`, `mariadb` | `mariadb-dump --single-transaction` | Yes, against MariaDB |
 | `postgresql` | `pg_dump --format=custom` | Yes, PostgreSQL 18 and older |
 | `sqlite` | `sqlite3 .backup` | Yes |
-| `sqlserver` | — | No |
+| `sqlserver` | `sqlcmd`: `BACKUP DATABASE … WITH COPY_ONLY, CHECKSUM` | Yes, on amd64, with a shared volume; see [SQL Server](#sql-server) |
 
-For unsupported providers the loop logs why and takes no backup, rather than
+For any other provider the loop logs why and takes no backup, rather than
 writing an archive that cannot restore. Back those up yourself, and include
 `/etc/bitwarden` when you do.
 
@@ -80,6 +81,46 @@ back it up with your own tooling for now.
 A note on PostgreSQL: the image ships the PostgreSQL 18 client, which can back
 up and restore servers up to version 18. It refuses a newer server. A restore
 runs in a single transaction, so a failure leaves the database unchanged.
+
+## SQL Server
+
+> **SQL Server backups are not available on ARM.** SQL Server has no ARM build,
+> so on an ARM host it cannot run alongside Lite, and the arm64 and arm/v7 Lite
+> images do not include Microsoft's SQL Server tools. With
+> `BW_DB_PROVIDER=sqlserver` on ARM, each backup fails with a message saying so.
+> To use backups on ARM, use MariaDB, PostgreSQL or SQLite.
+
+SQL Server writes a backup to its own disk, not to the client that asks for it.
+This matches the multi-container product, where the backup runs inside the
+database container. So Lite and SQL Server share a volume. Lite asks SQL Server
+to write the backup there, then collects it into the archive and deletes it
+from the shared volume.
+
+The SQL Server example in `docker-compose.yml` is set up for this:
+
+- it uses Bitwarden's `ghcr.io/bitwarden/mssql` image, as the multi-container
+  product does;
+- `LOCAL_UID` and `LOCAL_GID` match Lite's `PUID` and `PGID` (911 by default),
+  so each side can read the files the other writes. On a rootless deployment,
+  set them to the user Lite runs as;
+- `BACKUP_DB: "0"` turns off that image's own backup loop, so Lite's schedule
+  is the only one;
+- the `mssqlbackups` volume is mounted at `/etc/bitwarden/mssql/backups` in the
+  database container and at `/mssql-backups` in Lite. Uncomment it in all three
+  places.
+
+If you already run Lite on SQL Server with an older `docker-compose.yml`, you
+need these changes before backups work. Until then, each backup fails with a
+message pointing here. Bitwarden's image uses `SA_PASSWORD`, so rename
+`MSSQL_SA_PASSWORD` if you switch from Microsoft's image.
+
+A SQL Server outside this compose project, such as another machine or a managed
+service, cannot share a volume with Lite. Lite cannot back it up. Use that
+server's own backups, and back up `/etc/bitwarden` alongside them.
+
+SQL Server's backup of an almost empty vault is about 15 MB, against well under
+1 MB for the other databases. It compresses well: the finished archive is a
+few MB.
 
 ## Configuration
 
@@ -96,8 +137,10 @@ defaults and meanings as the multi-container product, so the two read alike.
 | `BACKUP_RETENTION_DAYS` | `32` | Delete archives older than this many days. `0` disables the sweep. |
 | `BACKUP_FILE_MODE` | `600` | Mode of the finished archive. `640` if the process copying it off-box shares the container's group. |
 | `BACKUP_INCLUDE_SETTINGS` | `false` | Include `settings.env` in each archive. Requires mounting it at `/settings.env`. |
-| `BACKUP_DB_CLIENT_ARGS` | — | Connection options for every database client call, backup and restore alike, e.g. `--skip-ssl` for a MariaDB server without TLS. (PostgreSQL's `PG*` environment variables, such as `PGSSLMODE`, also work.) |
-| `BACKUP_DB_EXTRA_ARGS` | — | Extra options for the dump only (`mariadb-dump` or `pg_dump`). The restore does not use them, so don't put connection options here. |
+| `BACKUP_DB_CLIENT_ARGS` | — | Connection options for every database client call, backup and restore alike, e.g. `--skip-ssl` for a MariaDB server without TLS. (PostgreSQL's `PG*` environment variables, such as `PGSSLMODE`, also work.) For SQL Server these are `sqlcmd` options; Lite already passes `-C` (trust the server certificate), as its own connection does. |
+| `BACKUP_DB_EXTRA_ARGS` | — | Extra options for the dump only (`mariadb-dump`, `pg_dump`, or `sqlcmd` for the backup call). The restore does not use them, so don't put connection options here. |
+| `BACKUP_MSSQL_SERVER_DIR` | `/etc/bitwarden/mssql/backups` | SQL Server only: the shared volume's path in the database container. |
+| `BACKUP_MSSQL_SHARED_DIR` | `/mssql-backups` | SQL Server only: the same volume's path in the Lite container. |
 
 Old archives are only ever deleted **after** a new one has been written and
 verified. A failed backup leaves the ones you already have alone.
@@ -150,9 +193,12 @@ docker compose run --rm --no-deps --entrypoint /restore-db.sh bitwarden \
 docker compose up -d
 ```
 
-`--clean` replaces what is in the database: MariaDB drops and recreates it, and
-PostgreSQL drops the objects in the dump before recreating them. Leave it off to
-load into an empty database. `--yes` skips the confirmation prompt.
+`--clean` replaces what is in the database: MariaDB drops and recreates it,
+PostgreSQL drops the objects in the dump before recreating them, and SQL Server
+restores `WITH REPLACE`. Leave it off to load into an empty database. SQL
+Server without `--clean` also overwrites a database restored from the same
+source, but refuses to overwrite a different one. `--yes` skips the
+confirmation prompt.
 
 The restore unpacks the archive into a temporary directory beside it, so the
 backups directory needs free space for the unpacked archive, roughly the
@@ -183,9 +229,9 @@ discriminator is pinned rather than derived from the host or install path, so an
 archive unprotects correctly wherever you restore it. You need the archive and
 your `settings.env`.
 
-On a new machine nothing is running yet. With MariaDB or PostgreSQL, start the
-database first so the restore has something to load into. The restore waits for
-it to accept connections:
+On a new machine nothing is running yet. With MariaDB, PostgreSQL or SQL Server,
+start the database first so the restore has something to load into. The restore
+waits for it to accept connections:
 
 ```bash
 docker compose up -d db
