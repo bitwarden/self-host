@@ -12,15 +12,22 @@ services:
       - "80:8080"
       - "443:8443"
     tmpfs: /tmp:rw,noexec,nosuid,nodev,size=768m
+    environment:
+      # Recorded in backup manifests. No default, so it can't drift from the image tag.
+      BACKUP_LITE_TAG: ${TAG:-}
     volumes:
       - bitwarden:/etc/bitwarden
       - logs:/var/log/bitwarden
+      # Backups: a host path, so they survive `down -v`. See backup/README.md.
+      - ${BW_BACKUP_PATH:-./backups}:/backups
+      # SQL Server only: where Lite collects SQL Server's backup files.
+      # - mssqlbackups:/mssql-backups
 
     # Rootless, read-only example (recommended for security)
     #
     # Comment out the "volumes" block above, uncomment the block below, and
     # create the bind mounts owned by the same user:
-    #   mkdir -p ./config ./logs && sudo chown 999:999 ./config ./logs
+    #   mkdir -p ./config ./logs ./backups && sudo chown 999:999 ./config ./logs ./backups
     #
     # Named volumes are not used here because their contents are owned by root
     # unless you run a rootless docker daemon or podman.
@@ -34,6 +41,7 @@ services:
     # volumes:
     #   - ./config:/etc/bitwarden
     #   - ./logs:/var/log/bitwarden
+    #   - ./backups:/backups
 
   # MariaDB Example
   db:
@@ -58,18 +66,26 @@ services:
   #   volumes:
   #     - data:/var/lib/postgresql/data
 
-  # MS SQL Server Example
-  # Docs: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-deployment
+  # MS SQL Server Example (amd64 hosts only: SQL Server has no ARM build)
+  # The same image as the multi-container product. LOCAL_UID/LOCAL_GID must
+  # match Lite's PUID/PGID so both can read the backup files, and BACKUP_DB=0
+  # leaves the schedule to Lite. Uncomment mssqlbackups in Lite's volumes and
+  # at the bottom too. See backup/README.md.
   # db:
   #   environment:
-  #     MSSQL_SA_PASSWORD: "super_strong_password"
-  #     ACCEPT_EULA: Y
-  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #     SA_PASSWORD: "super_strong_password"
+  #     ACCEPT_EULA: "Y"
+  #     LOCAL_UID: "911"
+  #     LOCAL_GID: "911"
+  #     BACKUP_DB: "0"
+  #   image: ghcr.io/bitwarden/mssql:2026.9.2
   #   restart: always
   #   volumes:
   #     - data:/var/opt/mssql
+  #     - mssqlbackups:/etc/bitwarden/mssql/backups
 
 volumes:
   bitwarden:
   logs:
   data:
+  # mssqlbackups:

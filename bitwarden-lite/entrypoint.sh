@@ -107,8 +107,18 @@ fi
 
 /usr/local/bin/hbs
 
+# Warn, don't exit: deployments from before backups have no /backups mount.
+backups_mounted() {
+  [ -r /proc/self/mountinfo ] || return 0
+  awk '$5 == "/backups" { found = 1 } END { exit !found }' /proc/self/mountinfo
+}
+
 if [ "$(id -u)" = "0" ]; then
-  find /etc/bitwarden /var/log/bitwarden /tmp/bitwarden ! -type l \( ! -group "$PGID" -o ! -user "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
+  find /etc/bitwarden /var/log/bitwarden /tmp/bitwarden /backups ! -type l \( ! -group "$PGID" -o ! -user "$PUID" \) -exec chown "${PUID}:${PGID}" {} +
+  if [ "${BACKUP_DB:-1}" != "0" ] && ! backups_mounted; then
+    echo "Warning: nothing is mounted at /backups, so automatic backups will not run." >&2
+    echo "Add \"./backups:/backups\" to the volumes (see backup/README.md), or set BACKUP_DB=0." >&2
+  fi
   exec su-exec "$PUID:$PGID" /usr/bin/supervisord
 else
   FILES="$(find /etc/bitwarden /var/log/bitwarden ! -type l \( ! -group "$(id -g)" -o ! -user "$(id -u)" \))"
@@ -119,6 +129,13 @@ else
     echo "/etc/bitwarden and /var/log/bitwarden, e.g.:" >&2
     echo "  sudo chown -R $(id -u):$(id -g) ./config ./logs" >&2
     exit 1
+  fi
+
+  if [ "${BACKUP_DB:-1}" != "0" ] && { ! backups_mounted || [ ! -w /backups ]; }; then
+    echo "Warning: no directory writable by the current user ($(id -u):$(id -g)) is mounted at" >&2
+    echo "/backups, so automatic backups will not run. Mount one owned by this user, e.g.:" >&2
+    echo "  mkdir -p ./backups && sudo chown $(id -u):$(id -g) ./backups" >&2
+    echo "and add \"./backups:/backups\" to the volumes, or set BACKUP_DB=0." >&2
   fi
 
   exec /usr/bin/supervisord
