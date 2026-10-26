@@ -56,7 +56,6 @@ self-host/
 │   │   ├── release-aws.yml    # AWS Marketplace
 │   │   ├── release-azure.yml  # Azure Marketplace
 │   │   ├── release-digital-ocean.yml # DO Marketplace
-│   │   ├── scan.yml           # SAST + Sonar
 │   │   └── cleanup-container-images.yml  # Image cleanup
 │   └── CODEOWNERS
 ├── bitwarden-lite/            # All-in-one container
@@ -261,8 +260,6 @@ This repo has no application data models. The key data structure is `version.jso
 | Function/Tool | Purpose | Usage |
 |---------------|---------|-------|
 | Cosign keyless signing | Container image integrity | Runs in `release.yml` after every image push |
-| Anchore/Grype scanning | Container vulnerability detection | Runs in `build-bitwarden-lite.yml`, uploads SARIF |
-| Checkmarx SAST | Static application security testing | Runs in `scan.yml` on every push/PR |
 | UFW firewall setup | VM network hardening | `CommonMarketplace/scripts/02-ufw-bitwarden.sh` |
 | Image validation scripts | Marketplace image sanitization | `{Platform}Marketplace/scripts/99-img-check.sh` |
 
@@ -332,23 +329,12 @@ This repository has **no unit or integration tests**. Quality assurance is handl
 
 ```
 Testing Strategy:
-├── SAST (Checkmarx)           # Static analysis via scan.yml
-├── Code Quality (Sonar)       # Code quality via scan.yml
-├── Container Scanning (Grype) # Vulnerability scanning in build-bitwarden-lite.yml
 └── Image Validation           # Platform-specific 99-img-check.sh scripts
 ```
 
+SAST and dependency scanning run org-wide through Aikido.
+
 ### Running Tests
-
-**SAST + Sonar** — triggered automatically on push/PR to `main` via `scan.yml`
-
-**Container vulnerability scanning** — runs during Bitwarden Lite builds:
-
-```bash
-# Scanning is automated in CI, but can be run locally:
-docker buildx build --platform linux/amd64 -t bitwarden/lite:local bitwarden-lite/
-grype bitwarden/lite:local
-```
 
 **Marketplace image validation** — run platform check scripts during Packer build:
 
@@ -392,9 +378,7 @@ Not applicable — this repo contains shell scripts, Dockerfiles, and YAML workf
 
 ### Pre-commit Hooks
 
-No pre-commit hooks configured. Quality gates run in CI:
-- Checkmarx SAST on push/PR
-- Sonar code quality on push/PR
+No pre-commit hooks configured.
 
 ---
 
