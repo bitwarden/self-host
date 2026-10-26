@@ -332,7 +332,7 @@ Testing Strategy:
 └── Image Validation           # Platform-specific 99-img-check.sh scripts
 ```
 
-SAST and dependency scanning run org-wide through Aikido; there is no per-repo scanning workflow.
+SAST and dependency scanning run org-wide through Aikido.
 
 ### Running Tests
 
