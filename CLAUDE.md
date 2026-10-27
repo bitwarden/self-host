@@ -59,6 +59,9 @@ self-host/
 │   │   ├── scan.yml           # SAST + Sonar
 │   │   └── cleanup-container-images.yml  # Image cleanup
 │   └── CODEOWNERS
+├── bwsh/                      # New single-binary installer (Alpha, C# / .NET 10); see bwsh/README.md
+│   ├── src/Bwsh/              # The CLI (assembly name bwsh)
+│   └── test/Bwsh.Test/        # xUnit tests
 ├── bitwarden-lite/            # All-in-one container
 │   ├── Dockerfile             # Multi-stage build (296 lines)
 │   ├── docker-compose.yml     # Local development compose
@@ -85,7 +88,7 @@ self-host/
 
 ### Key Principles
 
-1. **No application source code**: This repo only packages and deploys — application logic lives in `bitwarden/server` and `bitwarden/clients`
+1. **No application source code, except the installer**: This repo packages and deploys — application logic lives in `bitwarden/server` and `bitwarden/clients`. The one exception is `bwsh/`, the new installer, which will replace `bitwarden.sh`/`run.sh` and the Setup container
 2. **Platform parity**: Bash and PowerShell scripts maintain feature parity (`bitwarden.sh`/`bitwarden.ps1`, `run.sh`/`run.ps1`)
 3. **Supply chain security**: All container images are Cosign-signed; marketplace images are validated with platform-specific check scripts
 4. **Configuration-driven**: Services are toggled via `BW_ENABLE_*` environment variables, not code changes
@@ -328,7 +331,15 @@ This repo has no application data models. The key data structure is `version.jso
 
 ### Test Structure
 
-This repository has **no unit or integration tests**. Quality assurance is handled through:
+Apart from `bwsh/`, this repository has **no unit or integration tests**. bwsh has an xUnit test project, run by `build-bwsh.yml` on Linux and Windows:
+
+```bash
+cd bwsh
+dotnet test
+dotnet format bwsh.slnx --verify-no-changes
+```
+
+For the rest of the repository, quality assurance is handled through:
 
 ```
 Testing Strategy:

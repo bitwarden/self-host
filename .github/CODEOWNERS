@@ -17,6 +17,10 @@
 .github/workflows/build-bitwarden-lite.yml @bitwarden/dept-bre @bitwarden/dept-shot
 bitwarden-lite/ @bitwarden/dept-shot
 
+# bwsh installer
+.github/workflows/build-bwsh.yml @bitwarden/dept-shot
+bwsh/ @bitwarden/dept-shot
+
 # Marketplace packer images
 AWSMarketplace/ @bitwarden/dept-bre
 AzureMarketplace/ @bitwarden/dept-bre

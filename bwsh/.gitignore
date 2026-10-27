@@ -1,0 +1,4 @@
+# Build output
+bin/
+obj/
+publish/

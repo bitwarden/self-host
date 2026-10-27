@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>bwsh</AssemblyName>
+    <RootNamespace>Bit.SelfHost</RootNamespace>
+    <!-- bwsh needs no culture-specific behaviour, so it doesn't depend on ICU being installed on the host. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- Publishing for a platform (-r linux-x64, -r win-x64) produces one self-contained file: no .NET install needed. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bwsh.Test" />
+  </ItemGroup>
+
+  <!-- The Bitwarden image versions an install deploys, baked in at build time as bitwarden.sh does today. -->
+  <PropertyGroup>
+    <StackVersionsFile>$(MSBuildThisFileDirectory)../../../version.json</StackVersionsFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="$(StackVersionsFile)" LogicalName="version.json" Condition="Exists('$(StackVersionsFile)')" />
+    <StackVersionKey Include="coreVersion;webVersion;keyConnectorVersion" />
+  </ItemGroup>
+
+  <!-- Fail the build, rather than ship a binary that can't say what to install. -->
+  <Target Name="CheckStackVersionsFile" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(StackVersionsFile)')" Text="version.json not found at $(StackVersionsFile). bwsh bakes in the stack versions it deploys and cannot build without it." />
+    <PropertyGroup>
+      <_StackVersionsJson>$([System.IO.File]::ReadAllText('$(StackVersionsFile)'))</_StackVersionsJson>
+    </PropertyGroup>
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(_StackVersionsJson)', '&quot;%(StackVersionKey.Identity)&quot;\s*:\s*&quot;[^&quot;]+&quot;'))" Text="version.json is missing a value for %(StackVersionKey.Identity)." />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="3.0.0-rc.2.26504.105" />
+  </ItemGroup>
+</Project>
