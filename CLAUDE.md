@@ -53,6 +53,7 @@ self-host/
 │   ├── workflows/             # CI/CD pipelines
 │   │   ├── release.yml        # Main release orchestration
 │   │   ├── build-bitwarden-lite.yml  # Lite image build (reusable)
+│   │   ├── build-bwsh.yml     # bwsh installer: test, publish, smoke test
 │   │   ├── release-aws.yml    # AWS Marketplace
 │   │   ├── release-azure.yml  # Azure Marketplace
 │   │   ├── release-digital-ocean.yml # DO Marketplace
@@ -394,7 +395,7 @@ bash AWSMarketplace/scripts/99-img-check.sh
 
 ### Imports
 
-Not applicable — this repo contains shell scripts, Dockerfiles, and YAML workflows, not compiled source code.
+Not applicable outside `bwsh/` — the rest of the repo is shell scripts, Dockerfiles, and YAML workflows. In `bwsh/`, C# follows `bwsh/.editorconfig` (System namespaces first, unused usings removed), enforced by `dotnet format`.
 
 ### Comments
 

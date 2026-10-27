@@ -41,6 +41,6 @@
   </Target>
 
   <ItemGroup>
-    <PackageReference Include="System.CommandLine" Version="3.0.0-rc.2.26504.105" />
+    <PackageReference Include="System.CommandLine" Version="2.0.14" />
   </ItemGroup>
 </Project>
