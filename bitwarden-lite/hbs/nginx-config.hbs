@@ -85,6 +85,11 @@ server {
     add_header Content-Type $fido_content_type;
   }
 
+  location = /.well-known/apple-app-site-association {
+    root /app/Web;
+    default_type application/json;
+  }
+
   location = /duo-connector.html {
     root /app/Web;
   }
