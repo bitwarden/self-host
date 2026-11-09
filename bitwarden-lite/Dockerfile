@@ -24,7 +24,7 @@ FROM ${SERVER_REGISTRY}/sso:${SERVER_TAG} AS sso-app
 ###############################################
 #                  App stage                  #
 ###############################################
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.23
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.24
 ARG TARGETPLATFORM
 LABEL com.bitwarden.product="bitwarden"
 LABEL com.bitwarden.project="lite"
