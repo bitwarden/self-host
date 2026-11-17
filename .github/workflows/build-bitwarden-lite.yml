@@ -45,50 +45,7 @@ on:
         description: "Use the latest web version from version.json instead of branch"
         type: boolean
         default: false
-  workflow_call:
-    inputs:
-      self_host_repo_ref:
-        description: "Self-host ref to use for checkout (Default: current ref)"
-        type: string
-        required: false
-      server_branch:
-        description: "Server branch name (examples: 'main', 'rc', 'feature/sm')"
-        type: string
-        default: main
-      web_branch:
-        description: "Web client branch name (examples: 'main', 'rc', 'feature/sm')"
-        type: string
-        default: main
-      override_tag:
-        description: "Override tag for the Bitwarden Lite image (cannot be 'rc', 'hotfix-rc', or 'dev')"
-        type: string
-        required: false
-      server_tag:
-        description: "Exact upstream server image tag to pull (skips derivation from server_branch)"
-        type: string
-        required: false
-      web_tag:
-        description: "Exact upstream web image tag to pull (skips derivation from web_branch)"
-        type: string
-        required: false
-      use_latest_core_version:
-        description: "Use the latest core version from version.json instead of branch"
-        type: boolean
-        default: false
-      use_latest_web_version:
-        description: "Use the latest web version from version.json instead of branch"
-        type: boolean
-        default: false
-    secrets:
-      AZURE_CLIENT_ID:
-        description: "Azure client ID for ACR/Cosign auth"
-        required: false
-      AZURE_SUBSCRIPTION_ID:
-        description: "Azure subscription ID"
-        required: false
-      AZURE_TENANT_ID:
-        description: "Azure tenant ID"
-        required: false
+  # Fork PRs run here without secrets: they build against public GHCR images and push or sign nothing.
   pull_request:
     types: [opened, synchronize]
     branches:
@@ -100,7 +57,7 @@ on:
 # Concurrency is evaluated at workflow start, so it can only reference trigger-time
 # context (github.*, inputs.*, client_payload.*) — NOT the image_tag derived in `setup`.
 # We key on github.ref (keeps push/PR runs per-branch/per-PR) plus a fingerprint of every
-# build-shaping input, so dispatch/call runs for different server/web/tag targets get their
+# build-shaping input, so dispatch runs for different server/web/tag targets get their
 # own lane instead of all collapsing onto `refs/heads/main` and cancelling each other.
 concurrency:
   group: >-
@@ -117,20 +74,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-event-source:
-    name: Check event and source
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - name: Check PR event and source
-        run: echo "Internal PR, push, dispatch, or workflow_call — proceeding"
-
   setup:
     name: Setup
     runs-on: ubuntu-24.04
-    needs: check-event-source
     permissions:
       contents: read
     outputs:
@@ -148,7 +94,6 @@ jobs:
         with:
           ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
-          allow-unsafe-pr-checkout: true
 
       - name: Validate inputs and resolve refs
         id: refs
@@ -239,6 +184,7 @@ jobs:
           WEB_TAG_OVERRIDE: ${{ inputs.web_tag || github.event.client_payload.web_tag }}
           SERVER_TAG_FROM_ACTION: ${{ steps.sanitize-server.outputs.tag }}
           WEB_TAG_FROM_ACTION: ${{ steps.sanitize-web.outputs.tag }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
           SERVER_TAG="${SERVER_TAG_OVERRIDE:-$SERVER_TAG_FROM_ACTION}"
           WEB_TAG="${WEB_TAG_OVERRIDE:-$WEB_TAG_FROM_ACTION}"
@@ -282,6 +228,12 @@ jobs:
             SERVER_REGISTRY="bitwardenprod.azurecr.io"
           fi
 
+          # Fork PRs get no secrets, so they can't log in to ACR. Pull the public GHCR server images
+          # instead. Web already comes from GHCR, since PR builds always use the `dev` web tag.
+          if [[ "$IS_FORK_PR" == "true" ]]; then
+            SERVER_REGISTRY="ghcr.io/bitwarden"
+          fi
+
           # Always push Bitwarden Lite to ACR; also push to GHCR for reserved tags and version tags.
           # A custom override_tag stays ACR-only even when consuming released upstream code: it
           # names a one-off build, not a published artifact. Checked first, because SERVER_REF is
@@ -321,7 +273,6 @@ jobs:
         with:
           ref: ${{ inputs.self_host_repo_ref || github.event.client_payload.self_host_repo_ref || github.ref }}
           persist-credentials: false
-          allow-unsafe-pr-checkout: true
 
       - name: Check secrets
         id: check-secrets
