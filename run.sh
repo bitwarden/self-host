@@ -183,6 +183,35 @@ function forceUpdateLetsEncrypt() {
     fi
 }
 
+function reloadNginx() {
+    dockerComposeFiles
+    NGINX_ID=$($dccmd ps -q nginx)
+
+    # certbot writes renewed keys as root, but nginx runs as the bitwarden user
+    docker exec "$NGINX_ID" chown -R bitwarden:bitwarden /etc/letsencrypt
+
+    # Run as root, nginx -s reload exits 0 even when nginx can't load the new key, so test as the bitwarden user first
+    docker exec -u bitwarden "$NGINX_ID" nginx -t -q
+    docker exec "$NGINX_ID" nginx -s reload
+
+    # The nginx image has no openssl, so check the served certificate from the certbot image
+    CERT_PATH=$(docker exec "$NGINX_ID" sed -n 's/^ *ssl_certificate \(.*\);/\1/p' /etc/nginx/conf.d/default.conf)
+    if ! docker run --rm --network "container:$NGINX_ID" \
+        -v "$OUTPUT_DIR/letsencrypt:/etc/letsencrypt:ro" --entrypoint sh certbot/certbot -c '
+            expected=$(openssl x509 -noout -fingerprint -sha256 -in "$1")
+            for i in 1 2 3 4 5; do
+                served=$(openssl s_client -connect localhost:8443 </dev/null 2>/dev/null \
+                    | openssl x509 -noout -fingerprint -sha256)
+                [ "$served" = "$expected" ] && exit 0
+                sleep 1
+            done
+            exit 1' sh "$CERT_PATH"
+    then
+        echo -e "${RED}nginx is not serving the renewed certificate. Check $OUTPUT_DIR/logs/nginx/error.log${NC}" >&2
+        exit 1
+    fi
+}
+
 function updateDatabase() {
     pullSetup
     dockerComposeFiles
