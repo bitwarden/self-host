@@ -186,22 +186,39 @@ function forceUpdateLetsEncrypt() {
 function reloadNginx() {
     dockerComposeFiles
     NGINX_ID=$($dccmd ps -q nginx)
+    if [ -z "$NGINX_ID" ]
+    then
+        echo "nginx is not running. The certificate will be loaded when it starts."
+        return 0
+    fi
 
     # certbot writes renewed keys as root, but nginx runs as the bitwarden user
     docker exec "$NGINX_ID" chown -R bitwarden:bitwarden /etc/letsencrypt
 
     # Run as root, nginx -s reload exits 0 even when nginx can't load the new key, so test as the bitwarden user first
     docker exec -u bitwarden "$NGINX_ID" nginx -t -q
+
+    # nginx -t doesn't catch a key of a different type to the certificate (e.g. an RSA key with an ECDSA
+    # certificate): the reload succeeds and every TLS handshake then fails. Compare the public keys first.
+    # The nginx image has no openssl, so this and the served certificate check run in the certbot image.
+    CERT_PATH=$(docker exec "$NGINX_ID" sed -n 's/^ *ssl_certificate \(.*\);/\1/p' /etc/nginx/conf.d/default.conf)
+    KEY_PATH=$(docker exec "$NGINX_ID" sed -n 's/^ *ssl_certificate_key \(.*\);/\1/p' /etc/nginx/conf.d/default.conf)
+    if ! docker run --rm -v "$OUTPUT_DIR/letsencrypt:/etc/letsencrypt:ro" --entrypoint sh certbot/certbot -c \
+        'c=$(openssl x509 -noout -pubkey -in "$1") && k=$(openssl pkey -pubout -in "$2") && [ "$c" = "$k" ]' \
+        sh "$CERT_PATH" "$KEY_PATH"
+    then
+        echo -e "${RED}The certificate and private key don't match. Not reloading nginx.${NC}" >&2
+        exit 1
+    fi
+
     docker exec "$NGINX_ID" nginx -s reload
 
-    # The nginx image has no openssl, so check the served certificate from the certbot image
-    CERT_PATH=$(docker exec "$NGINX_ID" sed -n 's/^ *ssl_certificate \(.*\);/\1/p' /etc/nginx/conf.d/default.conf)
     if ! docker run --rm --network "container:$NGINX_ID" \
         -v "$OUTPUT_DIR/letsencrypt:/etc/letsencrypt:ro" --entrypoint sh certbot/certbot -c '
             expected=$(openssl x509 -noout -fingerprint -sha256 -in "$1")
             for i in 1 2 3 4 5; do
                 served=$(openssl s_client -connect localhost:8443 </dev/null 2>/dev/null \
-                    | openssl x509 -noout -fingerprint -sha256)
+                    | openssl x509 -noout -fingerprint -sha256 2>/dev/null)
                 [ "$served" = "$expected" ] && exit 0
                 sleep 1
             done

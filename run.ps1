@@ -164,6 +164,10 @@ function Force-Update-Lets-Encrypt {
 function Reload-Nginx {
     Docker-Compose-Files
     $nginxId = docker-compose ps -q nginx
+    if (-not $nginxId) {
+        Write-Host "nginx is not running. The certificate will be loaded when it starts."
+        return
+    }
 
     # certbot writes renewed keys as root, but nginx runs as the bitwarden user
     docker exec $nginxId chown -R bitwarden:bitwarden /etc/letsencrypt
@@ -173,16 +177,29 @@ function Reload-Nginx {
     if ($LASTEXITCODE -ne 0) {
         Exit 1
     }
-    docker exec $nginxId nginx -s reload
-
-    # The nginx image has no openssl, so check the served certificate from the certbot image
+    # nginx -t doesn't catch a key of a different type to the certificate (e.g. an RSA key with an ECDSA
+    # certificate): the reload succeeds and every TLS handshake then fails. Compare the public keys first.
+    # The nginx image has no openssl, so this and the served certificate check run in the certbot image.
     $certPath = (docker exec $nginxId cat /etc/nginx/conf.d/default.conf |
         Select-String '^\s*ssl_certificate\s+(.*);').Matches[0].Groups[1].Value
+    $keyPath = (docker exec $nginxId cat /etc/nginx/conf.d/default.conf |
+        Select-String '^\s*ssl_certificate_key\s+(.*);').Matches[0].Groups[1].Value
+    $certPub = docker run --rm -v ${outputDir}/letsencrypt:/etc/letsencrypt:ro --entrypoint openssl `
+        certbot/certbot x509 -noout -pubkey -in $certPath
+    $keyPub = docker run --rm -v ${outputDir}/letsencrypt:/etc/letsencrypt:ro --entrypoint openssl `
+        certbot/certbot pkey -pubout -in $keyPath
+    if (-not $certPub -or (($certPub -join "`n") -ne ($keyPub -join "`n"))) {
+        Write-Host "The certificate and private key don't match. Not reloading nginx." -f red
+        Exit 1
+    }
+
+    docker exec $nginxId nginx -s reload
+
     $expected = docker run --rm -v ${outputDir}/letsencrypt:/etc/letsencrypt:ro --entrypoint openssl `
         certbot/certbot x509 -noout -fingerprint -sha256 -in $certPath
     foreach ($i in 1..5) {
         $served = docker run --rm --network container:$nginxId --entrypoint sh certbot/certbot -c `
-            'openssl s_client -connect localhost:8443 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256'
+            'openssl s_client -connect localhost:8443 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null'
         if ($served -eq $expected) {
             return
         }
